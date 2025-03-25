@@ -102,9 +102,9 @@ pip install -r requirements.txt
 pip install -e .
 ```
 
-4. Install shortest path module
+5. Install shortest path module
 ```bash
-cd spfa
+cd deps/spfa
 pip install -e .
 ```
 
