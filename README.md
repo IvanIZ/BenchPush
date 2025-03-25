@@ -86,20 +86,24 @@ pip install -e .
 git clone https://github.com/IvanIZ/BenchNPIN.git
 ```
 
-2. Install dependencies.
+2. Clone the submodules (spfa and GLNS)
 ```bash
 cd BenchNPIN
+git submodule update --init --recursive
+```
+
+3. Install dependencies.
+```bash
 pip install -r requirements.txt
 ```
 
-3. Install Gym environment
+4. Install Gym environment
 ```bash
 pip install -e .
 ```
 
 4. Install shortest path module
 ```bash
-git clone https://github.com/IvanIZ/spfa.git
 cd spfa
 pip install -e .
 ```
@@ -203,3 +207,9 @@ BaseMetric.plot_algs_scores(benchmark_results, save_fig_dir='./')
 ### Trained Models
 
 You may download the our trained model weights from [here](https://drive.google.com/drive/folders/1jBeFHgArBXuH7eQCzlNSVhZjhJIFlQVY?usp=sharing).
+
+### GTSP policy requirements
+
+To run the GTSP policy, we use a fork of the [GLNS](https://github.com/stephenlsmith/GLNS.jl) solver. To run this solver, the [Julia](https://julialang.org/) programming language must be installed. 
+
+The path to the GLNS solver can be configured as a parameter. Please refer to the cofiguration example for [Area-Clearing](./scripts/configure_area_clearing.py).
