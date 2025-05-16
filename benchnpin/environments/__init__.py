@@ -7,6 +7,12 @@ register(
 )
 
 register(
+     id="ship-ice-mujoco-v0",
+     entry_point="benchnpin.environments.ship_ice_nav_mujoco:ShipIceMujoco",
+     max_episode_steps=300,
+)
+
+register(
      id="box-delivery-v0",
      entry_point="benchnpin.environments.box_delivery:BoxDeliveryEnv",
      max_episode_steps=30000,
