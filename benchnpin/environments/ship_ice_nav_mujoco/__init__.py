@@ -1,1 +1,1 @@
-from benchnpin.environments.box_delivery_mujoco.box_delivery_mujoco import BoxDeliveryMujoco
+from benchnpin.environments.ship_ice_nav_mujoco.ship_ice_nav_mujoco import ShipIceMujoco
