@@ -147,6 +147,8 @@ class ShipIceMujoco(MujocoEnv, utils.EzPickle):
         # unless there's a force sensor in the model.
         # See https://github.com/openai/gym/issues/1541
         # mujoco.mj_rnePostConstraint(self.model, self.data)
+        
+        mujoco.mju_zero(self.data.qfrc_applied)
 
 
 

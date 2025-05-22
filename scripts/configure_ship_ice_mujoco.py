@@ -21,7 +21,7 @@ env.reset()
 
 terminated = truncated = False
 while True:
-    forward_force = 105      # 15N forward force
+    forward_force = 15      # 15N forward force
     rudder_control = 0      # no turning
     action = [forward_force, rudder_control]
 
