@@ -19,6 +19,12 @@ register(
 )
 
 register(
+     id="box-delivery-mujoco-v0",
+     entry_point="benchnpin.environments.box_delivery_mujoco:BoxDeliveryMujoco",
+     max_episode_steps=3000,
+)
+
+register(
      id="maze-NAMO-v0",
      entry_point="benchnpin.environments.maze_NAMO:MazeNAMO",
      max_episode_steps=400,

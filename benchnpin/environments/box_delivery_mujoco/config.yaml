@@ -1,0 +1,16 @@
+boxes:
+  num_boxes: 1
+  
+### ENVIRONMENT PARAMS
+env:
+  obstacle_config: small_empty # options are small_empty, small_columns, large_columns, large_divider
+  room_length: 10
+  room_width_small: 5
+  room_width_large: 10
+  receptacle_width: 1.5
+  shortest_path_channel_scale: 0.25
+  local_map_pixel_width: 224
+  local_map_pixel_width_sam: 96
+  local_map_width: 10 # 10 meters
+  wall_thickness: 14
+  invert_receptacle_map: false
