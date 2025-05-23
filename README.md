@@ -1,6 +1,8 @@
 # BenchNPIN: Benchmarking Non-prehensile Interactive Navigation
 BenchNPIN is a comprehensive suite of benchmarking tools for mobile robot non-prehensile interactive navigation. The goal of BenchNPIN is to provide researchers a standarized platform for training and evaluating algorithms in non-prehensile interactive navigation. BenchNPIN provides simulated environments for a wide range of non-prehensile interactive navigation tasks, metrics specifically capturing both task efficiency and interaction effort, policy templates with reference implementations. 
 
+Checkout our paper "[Bench-NPIN: Benchmarking Non-prehensile Interactive Navigation](https://arxiv.org/abs/2505.12084)", currently under review for IROS 2025. [[Project Page](https://sites.google.com/view/bench-npin/home)]
+
 
 ## The Environments
 
