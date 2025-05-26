@@ -25,7 +25,7 @@ POLY = [
 def changing_per_configuration(env_type: str):
     """ 
     Based on the configration, it would create code for pillars along with
-    polygon o the area where nothing has to be placed.
+    polygon to the area where nothing has to be placed.
     """
 
     def pillar(name, cx, cy, half):
