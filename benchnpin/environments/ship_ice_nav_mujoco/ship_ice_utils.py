@@ -62,7 +62,7 @@ def header_block(hfield,stl_model_path):
     #DAMPING FOR YAW ANGLE HAS TO BE CHANGED
     header= dedent(f"""\
         <mujoco model="asv_with_ice_random">
-          <compiler angle="degree" meshdir="{stl_model_path}"/>/>
+          <compiler angle="degree" meshdir="{stl_model_path}" viscous="1.5"/>
           <option timestep="{TIMESTEP_SIM}" gravity="0 0 -9.81"/>
 
           <!-- Global material presets -->
