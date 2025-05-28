@@ -49,7 +49,7 @@ def header_block(hfield, stl_model_path, sim_timestep, channel_len, channel_wid)
     header= dedent(f"""\
         <mujoco model="asv_with_ice_random">
           <compiler angle="degree" meshdir="{stl_model_path}" />
-          <option timestep="{sim_timestep}" gravity="0 0 -9.81" viscosity="1.5"/>
+          <option timestep="{sim_timestep}" gravity="0 0 -9.81" viscosity="1.5" wind="5 5 0"/>
 
           <!-- Global material presets -->
           <asset>
@@ -93,7 +93,7 @@ def header_block(hfield, stl_model_path, sim_timestep, channel_len, channel_wid)
               <joint name="asv_x"   type="slide" axis="1 0 0"/>
               <joint name="asv_y"   type="slide" axis="0 1 0"/>
               <joint name="asv_yaw" type="hinge" axis="0 0 1" damping="10.0"/>
-              <geom class="asv_body" type="mesh" mesh="asv_mesh" mass="{ASV_MASS_TOTAL}" euler="0 0 -180"/>
+              <geom class="asv_body" type="mesh" mesh="asv_mesh" mass="{ASV_MASS_TOTAL}" euler="0 0 -180" aerodynamic="true"/>
             </body>
     """)
     return header
