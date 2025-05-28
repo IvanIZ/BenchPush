@@ -1,0 +1,115 @@
+#############################################################################
+# config for loading ship-ice simulation #
+#############################################################################
+### GLOBAL PARAMS
+output_dir: "logs/" # 'output/trial0'
+
+plot:
+  y_axis_limit: 40  # limits the y-axis of the plot
+  show: false       # true will show planner plots
+
+# parameters for low-dim environment
+low_dim_state: true
+fixed_trial_idx: 4            # 4 for 25x12 (c01) environment; 
+random_start: true
+start_x_range: 11
+
+randomize_obstacles: false
+max_obs_x: 5
+max_obs_y: 9
+
+### PLANNER PARAMS
+#max_replan: 1        # max number of replans
+concentration: 0.1    # options are 0.2, 0.3, 0.4, 0.5
+planner: 'predictive'    # options are 'skeleton', 'straight', or 'lattice'
+goal_y: 9
+threshold_dist: 0.5   # fraction of path length for deciding whether to update planned path
+threshold_cost: 0.95  # fraction of path cost for deciding whether to update planned path
+occ:
+  grid_size: 0.2       # occupancy map grid size
+  map_height: 25       # occupancy map height (in meter)
+  map_width: 12        # occupancy map width (in meter)
+a_star:
+  horizon: 30  # receding horizon in metres (needs to be an int for it to be enabled)
+  replan: true
+  smooth_path:
+    add_nodes: 10  # number of nodes to add in node path
+    max_dist: 20   # max distance to consider a pair of nodes
+  weight: 1        # static weighting for weighed A* f(n) = g(n) + w * h(n) where weight > 1
+#  h_baseline: True  # if true, then heuristic is simply euclidean distance to goal
+costmap:
+  m: 76       # height of ice channel in metres, can set to large number for 'infinite' ice channel
+  n: 12       # width of ice channel in metres
+  scale: 5    # this gives a resolution of 1/scale x 1/scale metres
+  alpha: 10   # collision cost multiplier
+prim:
+  scale: 5 # Note, there is a limit on how small prim scale can be in relation to costmap scale
+  num_headings: 8  # number of headings in the discretized heading space
+  step_size: 0.1   # step size for sampling points on the path
+  turning_radius: 2.0  # turning radius of the ship in lattice units
+ship:
+  mass: 1  # mass of the NRC ship in kg
+  padding: 0.25  # adds padding to ship footprint
+  vertices: [[1., -0.],
+
+            [0.9, 0.10],
+            [0.5, 0.25],
+            [0.25, 0.25],
+            [0, 0.25],
+            [-0.25, 0.25],
+            [-0.5, 0.25],
+            [-0.75, 0.25],
+            [-1., 0.25],
+
+            [-1., -0.25],
+            [-0.75, -0.25],
+            [-0.5, -0.25],
+            [-0.25, -0.25],
+            [0, -0.25],
+            [0.25, -0.25],
+            [0.5, -0.25],
+            [0.9, -0.10]]
+
+### SIMULATION PARAMS
+sim:
+  t_max: 500  # max number of iterations in simulation loop (originally 5000)
+  steps: 400    # number of simulation steps per iteration (originally 10)
+  gravity: !!python/tuple
+    - 0
+    - 0
+  iterations: 10  # controls accuracy of pymunk solver i.e. simulation accuracy, default is 10
+  damping: 0      # damping to body velocities
+  obstacle_density: 0.001
+anim:
+  save: true               # if true save to disk animation plots
+  show: true                # if true show animation plots
+  plot_steps: 50            # steps between plot updates
+  plan_steps: 10            # steps between obstacle and planner updates
+  inf_stream: false         # if true then infinite obstacle stream mode is enabled
+  move_yaxis_threshold: 10  # distance traveled before y-axis moves
+#  new_obs_dist: 50          # distance traveled before new obstacles are added
+seed: 1
+#ice_current: [0, -1]       # option to add ice current to simulation
+
+### SHIP MODEL AND CONTROLLER PARAMS
+controller:
+  dt: 0.8  # the ship dynamics model was discretized with this dt (originally 0.02)
+  # States: [r, u, v] : yaw rate (deg/s), surge velocity (m/s), sway velocity (m/s)
+  A:
+    - [ 0.9909, 0., 0. ]
+    - [ 0., 0.9980, 0. ]
+    - [ 0., 0., 0.9953 ]
+  # Input matrix: differential fore/aft (rps), side tunnel (rps), main prop (rps) (Assume pure motions)
+  B: [ 0.04515, 4.321e-5, 1.730e-4 ]
+  # Input limits
+  # To calculate yaw rate given min turn radius r and surge velocity v
+  # 360 / ((2 pi r) / v)
+  input_lims: [8.6, 0.5, 0.05]
+  # look ahead distance
+  Lfc: 0.5
+  # target speed
+  target_speed: 0.8  # m/s
+  PID_gains:  # gains for 3 PIDs
+    - [ 5, 0, 5 ]
+    - [ 10, 0, 20 ]
+    - [ 10, 0, 20 ]

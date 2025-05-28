@@ -1,4 +1,10 @@
 import numpy as np
+try:
+    import mujoco
+except ImportError as e:
+    raise error.DependencyNotInstalled(
+        'MuJoCo is not installed, run `pip install "gymnasium[mujoco]"`'
+    ) from e
 
 # Some properties of Turtlebot3
 R_WHEEL, L_AXLE, MAX_WSPD = 0.033, 0.160, 8.0
@@ -95,3 +101,68 @@ def corners_xy(centre_xy, yaw,corners_local_coordinates) -> np.ndarray:
     R = np.array([[ np.cos(yaw), -np.sin(yaw)],
                   [ np.sin(yaw),  np.cos(yaw)]])
     return centre_xy + corners_local_coordinates @ R.T
+
+
+def get_body_pose_2d(model, data, body_name):
+    """
+    Get (x, y, theta) pose of a 2D body
+    """
+    body_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, body_name)
+
+    # Get world position (x, y)
+    pos = data.xpos[body_id][:2]
+
+    # Extract yaw angle (theta) from quaternion
+    quat = data.xquat[body_id]
+    siny_cosp = 2 * (quat[0] * quat[3] + quat[1] * quat[2])
+    cosy_cosp = 1 - 2 * (quat[2]**2 + quat[3]**2)
+    theta = np.arctan2(siny_cosp, cosy_cosp)
+
+    return np.array([pos[0], pos[1], theta])
+
+
+def get_box_2d_vertices(model, data, body_name):
+        """
+        Get the vertices in world coordinate of a box geometry
+        NOTE this function assumes that the body only has one geometry. Suitable for checking cubes and ice floes
+        """
+        body_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, body_name)
+
+        # World position of the box (x, y)
+        pos = data.xpos[body_id][:2]  # take only x, y
+
+        # Find the first box geom belonging to this body
+        geom_id = None
+        for i in range(model.ngeom):
+            if model.geom_bodyid[i] == body_id and model.geom_type[i] == mujoco.mjtGeom.mjGEOM_BOX:
+                geom_id = i
+                break
+        if geom_id is None:
+            raise ValueError(f"No box geom found for body '{body_name}'")
+
+        # Extract box half-sizes
+        w, h = model.geom_size[geom_id][:2]  # use x, y half-lengths
+        # print("id is: ", geom_id, "; size is: ", w, h)
+
+        # Orientation (yaw) from the body’s quaternion
+        # Convert quaternion to yaw angle
+        quat = data.xquat[body_id]
+        siny_cosp = 2 * (quat[0] * quat[3] + quat[1] * quat[2])
+        cosy_cosp = 1 - 2 * (quat[2]**2 + quat[3]**2)
+        yaw = np.arctan2(siny_cosp, cosy_cosp)
+
+        # Half sizes
+        corners_local = np.array([
+            [-w, -h],
+            [-w,  h],
+            [ w,  h],
+            [ w, -h]
+        ])
+
+        # Rotation matrix
+        c, s = np.cos(yaw), np.sin(yaw)
+        R = np.array([[c, -s], [s, c]])
+
+        # Rotate and translate to world frame
+        corners_world = corners_local @ R.T + pos
+        return corners_world  # shape (4, 2)

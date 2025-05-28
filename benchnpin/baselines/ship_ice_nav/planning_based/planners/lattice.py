@@ -14,10 +14,13 @@ from benchnpin.common.utils.utils import DotDict
 
 class LatticePlanner():
 
-    def __init__(self):
+    def __init__(self, config_file=None):
+
+        if config_file is None:
+            config_file = 'lattice_config.yaml'
 
         # construct absolute path to the env_config folder
-        cfg_file = os.path.join(os.path.dirname(__file__), 'planner_configs', 'lattice_config.yaml')
+        cfg_file = os.path.join(os.path.dirname(__file__), 'planner_configs', config_file)
         self.cfg = DotDict.load_from_file(cfg_file)
         self.obs = None
 

@@ -15,14 +15,14 @@ class PlanningBasedPolicy(BasePolicy):
     This policy first plans a path using a ship planner and outputs actions to track the planned path.
     """
 
-    def __init__(self, planner_type, cfg=None) -> None:
+    def __init__(self, planner_type, cfg=None, planner_config=None) -> None:
         super().__init__()
 
         if planner_type not in ['predictive', 'lattice']:
             raise Exception("Invalid planner type. Choose a planner between 'lattice' or 'predictive'.")
         self.planner_type = planner_type
 
-        self.lattice_planner = LatticePlanner()
+        self.lattice_planner = LatticePlanner(planner_config)
         self.predictive_planner = PredictivePlanner()
         self.path = None
 

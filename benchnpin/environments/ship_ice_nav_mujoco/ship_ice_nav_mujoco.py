@@ -7,6 +7,7 @@ from gymnasium.envs.mujoco import MujocoEnv
 from gymnasium.spaces import Box
 import os
 from gymnasium import error, spaces
+import random
 
 try:
     import mujoco
@@ -14,6 +15,10 @@ except ImportError as e:
     raise error.DependencyNotInstalled(
         'MuJoCo is not installed, run `pip install "gymnasium[mujoco]"`'
     ) from e
+
+from benchnpin.common.utils.mujoco_utils import get_body_pose_2d, get_box_2d_vertices
+from benchnpin.common.utils.utils import DotDict
+from benchnpin.environments.ship_ice_nav_mujoco.ship_ice_utils import generate_shipice_xml, apply_fluid_forces_to_body
 
 
 DEFAULT_CAMERA_CONFIG = {
@@ -43,7 +48,29 @@ class ShipIceMujoco(MujocoEnv, utils.EzPickle):
         self.current_dir = os.path.dirname(__file__)
 
         # construct absolute path to the env_config folder
+        base_cfg_path = os.path.join(self.current_dir, 'config.yaml')
+        self.cfg = DotDict.load_from_file(base_cfg_path)
+
+        # get configurations
+        if cfg is not None:
+            # Update the base configuration with the user provided configuration
+            for cfg_type in cfg:
+                if type(cfg[cfg_type]) is DotDict or type(cfg[cfg_type]) is dict:
+                    if cfg_type not in self.cfg:
+                        self.cfg[cfg_type] = DotDict()
+                    for param in cfg[cfg_type]:
+                        self.cfg[cfg_type][param] = cfg[cfg_type][param]
+                else:
+                    self.cfg[cfg_type] = cfg[cfg_type]
+
+        # construct absolute path to the env_config folder
         xml_file = os.path.join(self.current_dir, 'asv_ice_planar_random.xml')
+
+        # build xml file
+        self.num_floes = generate_shipice_xml(self.cfg.concentration, xml_file, self.cfg.sim.timestep_sim, 
+            self.cfg.environment.channel_len, self.cfg.environment.channel_wid, 
+            self.cfg.environment.icefield_len, self.cfg.environment.icefield_wid)
+        self.phase = 0.0
 
         utils.EzPickle.__init__(
             self,
@@ -73,6 +100,9 @@ class ShipIceMujoco(MujocoEnv, utils.EzPickle):
             "render_fps": int(np.round(1.0 / self.dt)),
         }
 
+        self.goal = (0, self.cfg.goal_y)
+        self.max_yaw_rate_step = (np.pi/2) / 7        # rad/sec
+
         self.observation_space = Box(low=0, high=255, shape=(100, 100), dtype=np.uint8)
 
 
@@ -85,61 +115,36 @@ class ShipIceMujoco(MujocoEnv, utils.EzPickle):
 
         observation = np.zeros((100, 100)).astype(np.uint8)
         reward = 0
-        info = {}
+
+        # get ship state
+        state = get_body_pose_2d(self.model, self.data, body_name='asv')
+
+        # get vertices of all floes
+        obs = self.get_floe_vertices()
+
+        info = {
+            'obs': obs, 
+            'state': state
+        }
+
         return observation, reward, False, False, info
-
-
-    def apply_fluid_drag_to_body(self, model, data, body_name, joint_prefix, beta=3.0, Cd=0.8, area=0.02, angular_beta=0.2):
-        body_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, body_name)
-
-        # x and y dof indices
-        jnt_x = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_JOINT, joint_prefix + "_x")
-        jnt_y = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_JOINT, joint_prefix + "_y")
-        jnt_yaw = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_JOINT, joint_prefix + "_yaw")
-
-        dof_x = model.jnt_dofadr[jnt_x]
-        dof_y = model.jnt_dofadr[jnt_y]
-        dof_yaw = model.jnt_dofadr[jnt_yaw]
-
-        vx = data.qvel[dof_x]
-        vy = data.qvel[dof_y]
-        v = np.array([vx, vy])
-        v_mag = np.linalg.norm(v)
-        v_dir = v / v_mag if v_mag > 1e-5 else np.zeros(2)
-
-        F_linear = -beta * v
-        F_quad = -0.5 * 1000 * Cd * area * v_mag**2 * v_dir
-        F_total = F_linear + F_quad
-
-        # Apply force in x and y directions
-        total_force = np.array([F_total[0], F_total[1], 0]).astype(np.float64)
-        point = np.zeros((3, 1)).astype(np.float64)
-
-        # Angular velocity (yaw only)
-        total_torque = np.zeros((3, 1)).astype(np.float64)
-        omega_z = data.qvel[dof_yaw]
-        total_torque = np.array([0, 0, -angular_beta * omega_z])
-        total_torque = total_torque.reshape((3, -1)).astype(np.float64)
-
-        # mass = model.body_mass[body_id]
-        # print(mass)
-
-        mujoco.mj_applyFT(model, data, force=total_force, torque=total_torque, body=body_id, point=point, qfrc_target=data.qfrc_applied)
 
 
     def _step_mujoco_simulation(self, ctrl, n_frames):
         """
         Step over the MuJoCo simulation.
         """
+        self.phase += 0.2 * self.cfg.sim.timestep_sim
         self.data.ctrl[:] = ctrl
 
-        # Apply drag to ASV and ice floes
-        self.apply_fluid_drag_to_body(self.model, self.data, "asv", "free_joint", beta=5.0, area=0.04, angular_beta=5.0)
+        # drag and wave force (ship)
+        # frontal area is an apprximation here for the part of ship submerged in fluid
+        apply_fluid_forces_to_body(self.model, self.data, 'asv', 'asv', 2.0, 5.0, self.phase)
 
         # Apply drag to all ice floes
-        for n in range(160):
+        for n in range(self.num_floes):
             name = f"ice_{n}"
-            self.apply_fluid_drag_to_body(self.model, self.data, name, name, beta=5.0, Cd=0.8, angular_beta=5.0)
+            apply_fluid_forces_to_body(self.model, self.data, name, name, 30, 5.0, self.phase)
         
         mujoco.mj_step(self.model, self.data)
 
@@ -162,6 +167,18 @@ class ShipIceMujoco(MujocoEnv, utils.EzPickle):
                 f"Action dimension mismatch. Expected {(self.model.nu,)}, found {np.array(ctrl).shape}"
             )
         self._step_mujoco_simulation(ctrl, n_frames)
+
+
+    def get_floe_vertices(self):
+        """
+        gets vertices of all floes, returns a list of shape (num_floes, 4, 2)
+        """
+        obs = []
+        for n in range(self.num_floes):
+            name = f"ice_{n}"
+            floe_vertices = get_box_2d_vertices(model=self.model, data=self.data, body_name=name)
+            obs.append(floe_vertices)
+        return obs
 
 
     def _get_rew(self):
@@ -187,5 +204,16 @@ class ShipIceMujoco(MujocoEnv, utils.EzPickle):
         return observation
 
     def _get_reset_info(self):
-        return {
+
+        # get ship state
+        state = get_body_pose_2d(self.model, self.data, body_name='asv')
+
+        # get vertices of all floes
+        obs = self.get_floe_vertices()
+
+        info = {
+            'obs': obs, 
+            'state': state
         }
+
+        return info

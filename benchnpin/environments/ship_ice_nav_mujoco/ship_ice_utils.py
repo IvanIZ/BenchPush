@@ -11,10 +11,6 @@ import torch,os
 
 # constant values defined below based on data referenced in research papers
 
-concentration  = float(input("Enter a concentration value between (0.1-0.5):"))
-TIMESTEP_SIM   = 0.005         # s
-CHANNEL_LEN    = 1000.0        # m (X axis)
-CHANNEL_WID    = 200.0         # m (Y axis)
 ASV_MASS_TOTAL = 6000000.0     # kg
 ICE_DENSITY    = 900.0         # kg m⁻³
 RHO_WATER      = 1025.0        # kg m⁻³
@@ -30,23 +26,13 @@ ASV_POS = np.array([ASV_X0, ASV_Y0])
 # rectangular area which has to be avoided for ice placement close to the ship
 ICE_CLEAR_X = 50.0
 ICE_CLEAR_Y = 45.0
-
-def path_of_file(stl_model_path):
-    """Path of .stl models"""
-    
-    if stl_model_path==None:
-        stl_model_path = os.path.join(os.path.dirname(__file__), 'models/')
-    else:
-        stl_model_path=os.path.join(stl_model_path,'models/')
-        
-    return stl_model_path
     
 # Part 1- building the required file
 
 
 def hfield_data_as_string(n=64, amp=0.2, kx=2*np.pi/200, ky=2*np.pi/80):
     """
-    Creates a (n×n) sinusoidal heightfield
+    Creates a (nxn) sinusoidal heightfield
     """    
     x = np.linspace(0, 2*np.pi, n, endpoint=False)
     y = np.linspace(0, 2*np.pi, n, endpoint=False)
@@ -57,22 +43,22 @@ def hfield_data_as_string(n=64, amp=0.2, kx=2*np.pi/200, ky=2*np.pi/80):
 
 
 
-def header_block(hfield,stl_model_path):
+def header_block(hfield, stl_model_path, sim_timestep, channel_len, channel_wid):
     """Creates a header for the XML code"""
     #DAMPING FOR YAW ANGLE HAS TO BE CHANGED
     header= dedent(f"""\
         <mujoco model="asv_with_ice_random">
-          <compiler angle="degree" meshdir="{stl_model_path}" viscous="1.5"/>
-          <option timestep="{TIMESTEP_SIM}" gravity="0 0 -9.81"/>
+          <compiler angle="degree" meshdir="{stl_model_path}" />
+          <option timestep="{sim_timestep}" gravity="0 0 -9.81" viscosity="1.5"/>
 
           <!-- Global material presets -->
           <asset>
             <mesh name="asv_mesh" file="cs_long.stl" scale="{STL_SCALE} {STL_SCALE} {STL_SCALE}"/>
-            <texture name="ice_tex" type="2d" file="ice_type.png" />
+            <texture name="ice_tex" type="2d" file="models/ice_type.png" />
             <material name="ice_mat" texture="ice_tex"/>
-            <texture name="water" type="2d" file="Background.png" />
+            <texture name="water" type="2d" file="models/Background.png" />
             <material name="water_" texture="water"/>
-            <hfield name="wave_field" nrow="64" ncol="64" size="{CHANNEL_LEN/2} {CHANNEL_WID/2} 4.0 2.0">
+            <hfield name="wave_field" nrow="640" ncol="640" size="{channel_len/2} {channel_wid/2} 4.0 2.0">
                {hfield}
             </hfield>
           </asset>
@@ -97,7 +83,7 @@ def header_block(hfield,stl_model_path):
           <worldbody>
 
             <light directional="true" ambient="0.2 0.2 0.2" diffuse="0.8 0.8 0.8" specular="0.3 0.3 0.3" castshadow="false" pos="0 0 4" dir="0 0 -1" name="light0"/>
-            <geom type="plane" size="{CHANNEL_LEN/2} {CHANNEL_WID/2} 0.1" rgba="0 0.47 0.74 1" contype="0" conaffinity="0"/>
+            <geom type="plane" size="0 0 0.1" rgba="0 0.47 0.74 1" contype="0" conaffinity="0"/>
             <!-- visual water surface (uses the height-field) -->
             <geom type="hfield" hfield="wave_field" pos="0 0 0" size="1 1 2" rgba="0 0.48 0.9 1" contype="0" conaffinity="0" />
             <geom type="plane" size="100000 100000 0.1" pos="0 0 -1" material="water_" contype="0" conaffinity="0"/>
@@ -122,16 +108,17 @@ ICE_BODY_TEMPLATE ="""
 
 def random_ice_bodies(concentration: float,
                       spacing: float = 5.0,
-                      max_tries: int = 2000000000) -> str:
+                      max_tries: int = 2000000000, 
+                      icefield_len = 1000,
+                      icefield_wid = 200) -> str:
     """
     Returning code for placing ice floes until desired concentration is covered,
     Variables:
     spacing- minimum space between ice cubes
     asv_radius- radius along which no cube is place from the origion of ship
     """
-    global num_floes
 
-    channel_area = CHANNEL_LEN * CHANNEL_WID
+    channel_area = icefield_len * icefield_wid
     target_area  = concentration * channel_area
     placed_area  = 0.0
 
@@ -144,8 +131,8 @@ def random_ice_bodies(concentration: float,
     cell_size = spacing + r_max
 
     def cell_of(x: float, y: float) -> tuple[int, int]:
-        return (int((x + CHANNEL_LEN/2) // cell_size),
-                int((y + CHANNEL_WID/2) // cell_size))
+        return (int((x + icefield_len/2) // cell_size),
+                int((y + icefield_wid/2) // cell_size))
 
     # main rejection-sampling loop
     tries = 0
@@ -158,8 +145,8 @@ def random_ice_bodies(concentration: float,
         sz     = 0.6
         radius = math.hypot(sx, sy)
 
-        x = random.uniform(-CHANNEL_LEN/2 + radius, CHANNEL_LEN/2 - radius)
-        y = random.uniform(-CHANNEL_WID/2 + radius, CHANNEL_WID/2 - radius)
+        x = random.uniform(-icefield_len/2 + radius, icefield_len/2 - radius)
+        y = random.uniform(-icefield_wid/2 + radius, icefield_wid/2 - radius)
 
         # neighbour search
         cx, cy = cell_of(x, y)
@@ -207,7 +194,7 @@ def random_ice_bodies(concentration: float,
     print(f"[ice] only reached {placed_area/channel_area:.1%} "
               f"coverage after {tries:,} samples in {total_time:.3f}")
 
-    return "\n".join(bodies)
+    return "\n".join(bodies), num_floes
 
 
 
@@ -230,19 +217,27 @@ def footer_block():
 
 
 
-def build_xml(concentration,hfield,stl_model_path) -> str:
-    return (
-        header_block(hfield,stl_model_path) +
-        random_ice_bodies(concentration) + "\n" +
-        footer_block()
-    )
+def generate_shipice_xml(concentration, xml_file, sim_timestep, channel_len, channel_wid, icefield_len, icefield_wid) -> str:
+
+    # get stl model path
+    stl_model_path = os.path.join(os.path.dirname(__file__), 'models/')
+
+    # Building the heightfield used for stimulation
+    hfield = hfield_data_as_string()
+
+    ice_floe_text, num_floes = random_ice_bodies(concentration, icefield_len=icefield_len, icefield_wid=icefield_wid)
+
+    xml_text = header_block(hfield, stl_model_path, sim_timestep, channel_len=channel_len, channel_wid=channel_wid) + ice_floe_text + "\n" + footer_block()
+    Path(xml_file).write_text(xml_text)
+
+    return num_floes
 
 
 
 # Part 2- Performing operations in the file
 
 
-def apply_fluid_forces_to_body(model, data, body_name, joint_prefix, beta, Cd, area, angular_beta, phase, wave_amp=0.2, g=9.81, thickness=0.6, kx=2*np.pi/200, ky=2*np.pi/80, max_omega=5):
+def apply_fluid_forces_to_body(model, data, body_name, joint_prefix, area, angular_beta, phase, beta=ANG_DAMP_BETA, Cd=CD, wave_amp=0.2, g=9.81, thickness=0.6, kx=2*np.pi/200, ky=2*np.pi/80, max_omega=5):
     """Drag force and wave force in two dimensions"""
     
     # clear out last frame’s forces only
@@ -303,7 +298,7 @@ def apply_fluid_forces_to_body(model, data, body_name, joint_prefix, beta, Cd, a
     Fxy_wave = -RHO_WATER * g * Vdisp * np.array([dhdx, dhdy])
     
     # Net computation
-    total_Fxy = Fxy_drag
+    total_Fxy = Fxy_drag + Fxy_wave
     # Only taking in two dimensions for now
     Fz_wave = 0
     
@@ -458,21 +453,17 @@ def evaluating(body_state,start_xy,goal_x,success):
     
     return path_efficiency, interaction_effort_score
 
+
 def main():
     
-    # Building the heightfield used for stimulation
-    hfield = hfield_data_as_string()
-
-    # Models stored location
-    stl_model_path = path_of_file(stl_model_path=None)
-    
     # building XML and writing to disk
-    xml_text = build_xml(concentration,hfield,stl_model_path)
-    Path("asv_ice_planar_random_fixed.xml").write_text(xml_text)
-    print("Wrote file with ice floes.")    
+    current_dir = os.path.dirname(__file__)
+    xml_file = os.path.join(current_dir, 'asv_ice_planar_random_fixed.xml')
+
+    num_floes = generate_shipice_xml(concentration=0.1, xml_file=xml_file)
 
     # loading into MuJoCo
-    model = mujoco.MjModel.from_xml_path("asv_ice_planar_random_fixed.xml")
+    model = mujoco.MjModel.from_xml_path(xml_file)
     data  = mujoco.MjData(model)
     body_state = init_body_dict(model, data)
     
@@ -491,6 +482,7 @@ def main():
     # control parameters- based on RL model LATER
     forward_force = 20050000.0
     phase = 0.0
+    timestep_sim = 0.05
     
     # launch the passive viewer
     with mujoco.viewer.launch_passive(model, data) as viewer:
@@ -498,13 +490,13 @@ def main():
         while viewer.is_running():
             
             # thrust LATER NEED TO ADD ANGLE OF TURN AS WELL
-            phase += 0.2*TIMESTEP_SIM
+            phase += 0.2*timestep_sim
             data.ctrl[0] = forward_force
             
             
             # drag and wave force (ship)
             # frontal area is an apprximation here for the part of ship submerged in fluid
-            apply_fluid_forces_to_body(model, data, 'asv', 'asv', ANG_DAMP_BETA,CD, 2.0, 5.0, phase)
+            apply_fluid_forces_to_body(model, data, 'asv', 'asv', 2.0, 5.0, phase)
     
             # drag and wave force (ice)
             # For now just approxed frontal area as a particular average 15 m^2 assuming half of the ice burg is submerged in fluid
@@ -512,12 +504,12 @@ def main():
             for n in range(num_floes):
                 
                 name = f'ice_{n}'
-                apply_fluid_forces_to_body(model, data, name, name, ANG_DAMP_BETA,CD,30, 5.0, phase)            
+                apply_fluid_forces_to_body(model, data, name, name, 30, 5.0, phase)            
             
             # step + render
             mujoco.mj_step(model, data)
             viewer.sync()
-            time.sleep(TIMESTEP_SIM)            
+            time.sleep(timestep_sim)            
             
             #Updating the quantities
             body_state = update_body_dict(model, data, body_state)
