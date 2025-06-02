@@ -9,8 +9,16 @@ from textwrap import dedent
 from pathlib import Path
 import torch,os
 
-# constant values defined below based on data referenced in research papers
+from typing import List
+import numpy as np
+import packcircles as pc
+from skimage import draw
+import pickle
 
+from benchnpin.common.geometry.polygon import generate_polygon, poly_area
+from benchnpin.common.utils.mujoco_utils import polygon_from_vertices, extrude_and_export
+
+# constant values defined below based on data referenced in research papers
 ASV_MASS_TOTAL = 6000000.0     # kg
 ICE_DENSITY    = 900.0         # kg m⁻³
 RHO_WATER      = 1025.0        # kg m⁻³
@@ -19,13 +27,26 @@ ANG_DAMP_BETA  = 0.3          # torque coefficient
 STL_SCALE      = 0.3
 
 # Random position of asv
-ASV_X0 = -475.0
-ASV_Y0 = random.uniform(-75.0, 75.0)
+ASV_Y0 = 0
+ASV_X0 = random.uniform(50, 150)
 ASV_POS = np.array([ASV_X0, ASV_Y0])
 
 # rectangular area which has to be avoided for ice placement close to the ship
 ICE_CLEAR_X = 50.0
 ICE_CLEAR_Y = 45.0
+
+
+# parameters for ice field generation
+OBSTACLE = {
+    'min_r': 6,                           # min and max radius of obstacles
+    'max_r': 25,
+    'min_y': 100,                             # boundaries of where obstacles can be placed
+    'circular': False,                      # if True, obstacles are more circular, otherwise they are convex polygons
+    'exp_dist': False                        # if True, obstacle radii are sampled from an exponential distribution
+}
+
+TOL = 0.01              # tolerance of deviation of actual concentration from desired concentration
+SCALE = 8               # scales map by this factor for occupancy grid resolution
     
 # Part 1- building the required file
 
@@ -43,8 +64,16 @@ def hfield_data_as_string(n=64, amp=0.2, kx=2*np.pi/200, ky=2*np.pi/80):
 
 
 
-def header_block(hfield, stl_model_path, sim_timestep, channel_len, channel_wid):
+def header_block(hfield, stl_model_path, sim_timestep, channel_len, channel_wid, num_floes):
     """Creates a header for the XML code"""
+
+    # create mesh entries
+    mesh_entries = []
+    for i in range(num_floes):
+        mesh_entries.append(
+            f'<mesh name="ice_{i}_mesh" file="ice_floes/ice_{i}.stl" scale="1 1 1"/>'
+        )
+
     #DAMPING FOR YAW ANGLE HAS TO BE CHANGED
     header= dedent(f"""\
         <mujoco model="asv_with_ice_random">
@@ -54,11 +83,12 @@ def header_block(hfield, stl_model_path, sim_timestep, channel_len, channel_wid)
           <!-- Global material presets -->
           <asset>
             <mesh name="asv_mesh" file="cs_long.stl" scale="{STL_SCALE} {STL_SCALE} {STL_SCALE}"/>
-            <texture name="ice_tex" type="2d" file="models/ice_type.png" />
+            <texture name="ice_tex" type="2d" file="models/ice_texture1.png" />
             <material name="ice_mat" texture="ice_tex"/>
+            {' '.join(mesh_entries)}
             <texture name="water" type="2d" file="models/Background.png" />
             <material name="water_" texture="water"/>
-            <hfield name="wave_field" nrow="640" ncol="640" size="{channel_len/2} {channel_wid/2} 4.0 2.0">
+            <hfield name="wave_field" nrow="640" ncol="640" size="{channel_wid/2} {channel_len/2} 4.0 2.0">
                {hfield}
             </hfield>
           </asset>
@@ -83,20 +113,46 @@ def header_block(hfield, stl_model_path, sim_timestep, channel_len, channel_wid)
           <worldbody>
 
             <light directional="true" ambient="0.2 0.2 0.2" diffuse="0.8 0.8 0.8" specular="0.3 0.3 0.3" castshadow="false" pos="0 0 4" dir="0 0 -1" name="light0"/>
-            <geom type="plane" size="0 0 0.1" rgba="0 0.47 0.74 1" contype="0" conaffinity="0"/>
+            <geom type="plane" size="100000 100000 0.1" rgba="0 0.47 0.74 1" contype="0" conaffinity="0"/>
             <!-- visual water surface (uses the height-field) -->
             <geom type="hfield" hfield="wave_field" pos="0 0 0" size="1 1 2" rgba="0 0.48 0.9 1" contype="0" conaffinity="0" />
             <geom type="plane" size="100000 100000 0.1" pos="0 0 -1" material="water_" contype="0" conaffinity="0"/>
+
+            <camera name="overview_cam" pos="400 -200 200" euler="60 0 0" fovy="60"/>
             
             <!ASV->
-            <body name="asv" pos="{ASV_X0} {ASV_Y0} 0" euler="1 0 0">
+            <body name="asv" pos="{ASV_X0} {ASV_Y0} 0" quat="0.7071 0 0 0.7071">
               <joint name="asv_x"   type="slide" axis="1 0 0"/>
               <joint name="asv_y"   type="slide" axis="0 1 0"/>
               <joint name="asv_yaw" type="hinge" axis="0 0 1" damping="10.0"/>
-              <geom class="asv_body" type="mesh" mesh="asv_mesh" mass="{ASV_MASS_TOTAL}" euler="0 0 -180" aerodynamic="true"/>
+              <geom class="asv_body" type="mesh" mesh="asv_mesh" mass="{ASV_MASS_TOTAL}" euler="0 0 -180"/>
+              <camera name="asv_cam" pos="-0 0 25" euler="0 -90 -90" fovy="60"/>
             </body>
     """)
     return header
+
+
+ICE_MESH_BODY_TEMPLATE1 = """
+    <body name="ice_{n}" pos="{x:.2f} {y:.2f} 0">
+        <joint name="ice_{n}_x"   type="slide" axis="1 0 0"/>
+        <joint name="ice_{n}_y"   type="slide" axis="0 1 0"/>
+        <joint name="ice_{n}_yaw" type="hinge" axis="0 0 1" damping="75.0"/>
+        <geom class="ice_floe" type="mesh" mesh="ice_{n}_mesh" material="ice_mat"/>
+    </body>
+"""
+
+def generate_ice_mesh_bodies(positions: list[tuple[float, float]]) -> str:
+    """
+    Given a list of (x, y) positions and num_ice_floes = len(positions),
+    generate the <body> XML strings using STL mesh geometries.
+    """
+    body_strings = []
+    for n, (x, y) in enumerate(positions):
+        body_strings.append(
+            ICE_MESH_BODY_TEMPLATE1.format(n=n, x=x, y=y)
+        )
+    return "\n".join(body_strings)
+
 
 ICE_BODY_TEMPLATE ="""
     <body name="ice_{n}" pos="{x:.2f} {y:.2f} 0">
@@ -145,8 +201,8 @@ def random_ice_bodies(concentration: float,
         sz     = 0.6
         radius = math.hypot(sx, sy)
 
-        x = random.uniform(-icefield_len/2 + radius, icefield_len/2 - radius)
-        y = random.uniform(-icefield_wid/2 + radius, icefield_wid/2 - radius)
+        x = random.uniform(radius, icefield_wid - radius)
+        y = random.uniform(radius, icefield_len - radius)
 
         # neighbour search
         cx, cy = cell_of(x, y)
@@ -207,7 +263,7 @@ def footer_block():
           </worldbody>
 
           <actuator>
-            <motor name="asv_forward" joint="asv_x"  ctrlrange="-2e7 2e7" gear="1"/>
+            <motor name="asv_forward" joint="asv_x"  ctrlrange="-6e7 9e7" gear="1"/>
             <motor name="asv_rudder"  joint="asv_yaw" ctrlrange="-1 1"   gear="5"/>
           </actuator>
         </mujoco>
@@ -217,7 +273,50 @@ def footer_block():
 
 
 
-def generate_shipice_xml(concentration, xml_file, sim_timestep, channel_len, channel_wid, icefield_len, icefield_wid) -> str:
+def generate_shipice_xml(concentration, xml_file, sim_timestep, channel_len, channel_wid, icefield_len, icefield_wid, load_cached=True, trial_idx=0) -> str:
+
+    # get current directory of this script
+    current_dir = os.path.dirname(__file__)
+    polygon_file = os.path.join(current_dir, 'models/ice_field' + str(concentration) + '.pkl')
+
+    # generate random ice floes
+    map_shape = (icefield_len, icefield_wid)
+    ship_state = {
+        # range for x, y, theta for generating a random ship starting position
+        'range_x': [200, 300],  # if set to None, then the ship starts at the x position with lowest ice concentration
+        'range_y': [0, 0],
+        'range_theta': [np.pi / 2, np.pi / 2]
+    }
+    goal = (2, channel_len)            # NOTE: change to a tuple so planner doesn't complain
+
+    if load_cached:
+        with open(polygon_file, 'rb') as f:
+            data = pickle.load(f)
+
+    else:
+        data = generate_rand_exp(conc=concentration, map_shape=map_shape, ship_state=ship_state, goal=goal, max_trials=100, filename=polygon_file)
+
+    trial_data = data['exp'][trial_idx]
+    num_stl_floes = len(trial_data['obstacles'])
+
+    # get current directory of this script
+    current_dir = os.path.dirname(__file__)
+    directory = os.path.join(current_dir, 'models/ice_floes')
+    if directory:
+        os.makedirs(directory, exist_ok=True)  # Create directories if they don't exist
+
+    positions = []
+    for i in range(num_stl_floes):
+        vertices = trial_data['obstacles'][i]['vertices']
+        center = np.array(trial_data['obstacles'][i]['centre'])
+        transformed_vertices = vertices - center
+        positions.append(center)
+
+        polygon = polygon_from_vertices(transformed_vertices)
+
+        out_file = os.path.join(directory, 'ice_' + str(i) + '.stl')
+        extrude_and_export(polygon, thickness=1.2, filename=out_file)
+
 
     # get stl model path
     stl_model_path = os.path.join(os.path.dirname(__file__), 'models/')
@@ -225,12 +324,14 @@ def generate_shipice_xml(concentration, xml_file, sim_timestep, channel_len, cha
     # Building the heightfield used for stimulation
     hfield = hfield_data_as_string()
 
-    ice_floe_text, num_floes = random_ice_bodies(concentration, icefield_len=icefield_len, icefield_wid=icefield_wid)
+    # ice_floe_text, num_floes = random_ice_bodies(concentration, icefield_len=icefield_len, icefield_wid=icefield_wid)
 
-    xml_text = header_block(hfield, stl_model_path, sim_timestep, channel_len=channel_len, channel_wid=channel_wid) + ice_floe_text + "\n" + footer_block()
+    ice_floe_text = generate_ice_mesh_bodies(positions)
+
+    xml_text = header_block(hfield, stl_model_path, sim_timestep, channel_len=channel_len, channel_wid=channel_wid, num_floes=num_stl_floes) + ice_floe_text + "\n" + footer_block()
     Path(xml_file).write_text(xml_text)
 
-    return num_floes
+    return num_stl_floes
 
 
 
@@ -454,83 +555,230 @@ def evaluating(body_state,start_xy,goal_x,success):
     return path_efficiency, interaction_effort_score
 
 
-def main():
-    
-    # building XML and writing to disk
-    current_dir = os.path.dirname(__file__)
-    xml_file = os.path.join(current_dir, 'asv_ice_planar_random_fixed.xml')
+def compute_poly_ob_concentration(polys, map_shape):
+    im = np.zeros((map_shape[0] * SCALE, map_shape[1] * SCALE))
+    area = 0
+    for p in polys:
+        area += p['area']
+        rr, cc = p['pixels']
+        im[rr, cc] = 1
 
-    num_floes = generate_shipice_xml(concentration=0.1, xml_file=xml_file)
+    return area / (map_shape[1] * (map_shape[0] - OBSTACLE['min_y'])), im
 
-    # loading into MuJoCo
-    model = mujoco.MjModel.from_xml_path(xml_file)
-    data  = mujoco.MjData(model)
-    body_state = init_body_dict(model, data)
-    
-    # Get all geom-IDs on the body
-    asv_bid = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, "asv")
-    asv_geom_ids = {
-        gid for gid, bid in enumerate(model.geom_bodyid)
-        if bid == asv_bid
+
+def increase_concentration(obstacles, desired_concentration, map_shape):
+    actual_concentration, im = compute_poly_ob_concentration(obstacles, map_shape)
+
+    max_r = OBSTACLE['max_r']
+    num_added = 0
+    trials = 0
+
+    while actual_concentration < desired_concentration - TOL and max_r - OBSTACLE['min_r'] > 0.05:
+        if trials % 10 == 0:
+            print('num trials', trials, 'current concentration', actual_concentration, 'max_r', max_r, 'added obs', num_added)
+        trials += 1
+        r = np.random.uniform(OBSTACLE['min_r'], max_r)
+        slice_shape = int(max(1 / SCALE, r * 2) * SCALE)  # in map units
+
+        # find all the slices that would a new obstacle using a sliding window approach
+        new_obs_centres = []
+        rand_offset_x = np.random.choice(np.arange(slice_shape))
+        rand_offset_y = np.random.choice(np.arange(slice_shape))
+        for i in range(rand_offset_y, im.shape[0] - slice_shape + 1, slice_shape):
+            for j in range(rand_offset_x, im.shape[1] - slice_shape + 1, slice_shape):
+                # skip if slice is beyond ice edge
+                if OBSTACLE['min_y'] * SCALE <= i and i + slice_shape <= map_shape[0] * SCALE:
+                    if im[i: i + slice_shape, j: j + slice_shape].sum() == 0:
+                        new_obs_centres.append([(j + slice_shape / 2) / SCALE, (i + slice_shape / 2) / SCALE])
+
+        if len(new_obs_centres) == 0:
+            # decrease upper bound on r if no slices were found
+            max_r = r
+        else:
+            # randomly choose one of these slices and generate an obstacle
+            indices = np.random.choice(len(new_obs_centres), size=int(len(new_obs_centres) * 0.5), replace=False)
+            for ind in indices:
+                slice_choice = new_obs_centres[ind]
+                x, y = slice_choice
+                r = slice_shape / SCALE / 2
+                vertices = generate_polygon(diameter=r * 2, origin=(x, y), circular=OBSTACLE['circular'])
+
+                if vertices is not None:
+                    # add ob to obstacles list
+                    im_shape = (map_shape[0] * SCALE, map_shape[1] * SCALE)
+                    rr, cc = draw.polygon(vertices[:, 1] * SCALE, vertices[:, 0] * SCALE, shape=im_shape)
+                    if len(rr) == 0 and im[rr, cc].sum() > 0:
+                        continue
+                    obstacles.append({
+                        'vertices': vertices,
+                        'centre': (x, y),
+                        'radius': r,
+                        'pixels': (rr, cc),
+                        'area': poly_area(vertices)
+                    })
+
+                    num_added += 1
+
+                    # compute new poly concentration
+                    actual_concentration, im = compute_poly_ob_concentration(obstacles, map_shape)
+
+    print('added {} obstacles over {} trails!\ndesired concentration {}, actual concentration {}'
+          .format(num_added, trials, desired_concentration, actual_concentration))
+
+    return obstacles
+
+
+def decrease_concentration(obstacles: List[dict], desired_concentration: float, map_shape):
+    actual_concentration, _ = compute_poly_ob_concentration(obstacles, map_shape)
+    num_deleted = 0
+    while actual_concentration > desired_concentration + TOL:
+        ind = np.random.choice(np.arange(len(obstacles)))
+        obstacles = np.delete(obstacles, ind, axis=0)
+        np.random.shuffle(obstacles)
+        actual_concentration, _ = compute_poly_ob_concentration(obstacles, map_shape)
+        num_deleted += 1
+
+    print('deleted {} obstacles!\ndesired concentration {}, actual concentration {}'
+          .format(num_deleted, desired_concentration, actual_concentration))
+    return obstacles
+
+
+def find_best_start_x(obstacles, map_shape, slice_shape=(10, 3)):
+    # generate corresponding occupancy grid given obstacles
+    im = np.zeros((map_shape[0] * SCALE, map_shape[1] * SCALE))
+    for ob in obstacles:
+        rr, cc = draw.polygon(ob['vertices'][:, 1] * SCALE, ob['vertices'][:, 0] * SCALE, shape=im.shape)
+        im[rr, cc] = 1
+
+    # find the slice that has the lowest concentration in obstacles using a sliding window approach
+    # slice_shape[1] needs to be an odd number and be less than MAP_SHAPE[1]
+    # we skip the first and last slice to avoid the ship starting too close to channel boundaries
+    c = []
+    for i in range((im.shape[1] - slice_shape[1] * SCALE) // SCALE):
+        if i == 0:
+            c.append(np.inf)
+        sub_im = im[: slice_shape[0] * SCALE, i * SCALE: (i + slice_shape[1]) * SCALE]
+        c.append(sub_im.sum() / np.multiply(*sub_im.shape))
+
+    # get the indices for all the minimums
+    min_idx = np.where(np.asarray(c) == np.min(c))[0]
+
+    # return index closet to the middle if there are multiple mins
+    if len(min_idx) != 0:
+        best_idx = min_idx[np.argmin(np.abs((min_idx + (min_idx + slice_shape[1])) // 2 - map_shape[1] / 2))].item()
+
+    else:
+        best_idx = min_idx[0]
+
+    return (best_idx + (best_idx + slice_shape[1])) // 2
+
+
+def generate_rand_exp(conc, map_shape, ship_state, goal, max_trials, filename=None):
+    # dict to store the experiments
+    exp_dict = {
+        'meta_data': {
+            'concentration': conc,
+            'map_shape': map_shape,
+            'obstacle_config': OBSTACLE,
+            'ship_state_config': ship_state,
+            'goal': goal,
+            'scale': SCALE,
+        },
+        'exp': {i: {'goal': None, 'ship_state': None, 'obstacles': None} for i in range(max_trials)} 
     }
-    geom_to_body = [
-        mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_BODY, model.geom_bodyid[gid])
-        for gid in range(model.ngeom)
-    ]
-    
 
-    # control parameters- based on RL model LATER
-    forward_force = 20050000.0
-    phase = 0.0
-    timestep_sim = 0.05
-    
-    # launch the passive viewer
-    with mujoco.viewer.launch_passive(model, data) as viewer:
-        
-        while viewer.is_running():
-            
-            # thrust LATER NEED TO ADD ANGLE OF TURN AS WELL
-            phase += 0.2*timestep_sim
-            data.ctrl[0] = forward_force
-            
-            
-            # drag and wave force (ship)
-            # frontal area is an apprximation here for the part of ship submerged in fluid
-            apply_fluid_forces_to_body(model, data, 'asv', 'asv', 2.0, 5.0, phase)
-    
-            # drag and wave force (ice)
-            # For now just approxed frontal area as a particular average 15 m^2 assuming half of the ice burg is submerged in fluid
-            # Angular beta based on approximation to situation
-            for n in range(num_floes):
-                
-                name = f'ice_{n}'
-                apply_fluid_forces_to_body(model, data, name, name, 30, 5.0, phase)            
-            
-            # step + render
-            mujoco.mj_step(model, data)
-            viewer.sync()
-            time.sleep(timestep_sim)            
-            
-            #Updating the quantities
-            body_state = update_body_dict(model, data, body_state)
-                
-            #Reward function quantities
-            
-            cos_phi, num_of_collision, success= rewards(model,data,asv_bid,asv_geom_ids,geom_to_body,body_state)
-            
-            print(f"{'Rewards φ':>12} | {'col':>5} | {'succ':>5}")
-            print("-"*12 + "-+-" + "-"*5 + "-+-" + "-"*5)
-            print(f"{cos_phi:12.6f} | {num_of_collision:5d} | {str(success):5s}")
-            
-            # Still need to add terminated case
-            if success:
-                path_efficiency, interaction_effort_score  = evaluating(body_state, (ASV_X0, ASV_Y0), 500.0, success)
-            
-                print(f"Run finished!  Path-efficiency = {path_efficiency:.3f}   "
-                      f"interaction_effort_score = {interaction_effort_score:.3f}")
-                break
-            
-            
-                    
-if __name__ == "__main__":
-    main()
+    # approximate how many circles we need to pack environment assuming average radius
+    if OBSTACLE['exp_dist']:
+        avg_r = OBSTACLE['min_r'] * 1.5
+    else:
+        avg_r = (OBSTACLE['min_r'] + OBSTACLE['max_r']) / 2
+    num_circ = (np.pi * (((map_shape[0] ** 2 + map_shape[1] ** 2) ** 0.5) / 2) ** 2) / (np.pi * avg_r ** 2)
+    # approach is to first pack the environment with circles then convert circles
+    # to polygons and then do rejection sampling to attain the desired concentration
+
+    for i in range(max_trials):
+        print("current trial: ", i, " / ", max_trials)
+
+        # sample random radii
+        if OBSTACLE['exp_dist']:
+            radii = np.maximum(OBSTACLE['min_r'], np.minimum(
+                OBSTACLE['max_r'], np.random.exponential(scale=avg_r, size=int(num_circ))
+            ))
+        else:
+            radii = np.random.uniform(OBSTACLE['min_r'], OBSTACLE['max_r'], size=int(num_circ))
+        gen = pc.pack(radii)  # this is deterministic! Randomness comes from radii
+        circles = np.asarray([(x, y, r) for (x, y, r) in gen])
+        circles[:, 1] += (-circles[:, 1].min())
+        circles[:, 0] += map_shape[1]
+
+        # remove the circles outside of environment boundaries
+        circles = circles[np.logical_and(circles[:, 0] >= 0,
+                                            circles[:, 0] <= map_shape[1])]
+        circles = circles[np.logical_and(circles[:, 1] >= 0,
+                                            circles[:, 1] <= map_shape[0])]
+        # apply constraints specified in obstacle parameters
+        circles = circles[np.logical_and(circles[:, 1] >= OBSTACLE.get('min_y', 0),
+                                            circles[:, 1] <= map_shape[0])]
+
+        np.random.shuffle(circles)
+
+        # now generate polygons for each circle
+        obstacles = []
+
+        for (x, y, radius) in circles:
+            vertices = generate_polygon(diameter=radius * 2, origin=(x, y), circular=OBSTACLE['circular'])
+
+            if vertices is not None:
+                # take intersection of vertices and environment boundaries
+                vertices[:, 0][vertices[:, 0] < 0] = 0
+                vertices[:, 0][vertices[:, 0] >= map_shape[1]] = map_shape[1]
+
+                min_y = OBSTACLE.get('min_y', False) or 0
+                max_y = map_shape[0]
+                vertices[:, 1][vertices[:, 1] < min_y] = min_y
+                vertices[:, 1][vertices[:, 1] > max_y] = max_y
+
+                im_shape = (map_shape[0] * SCALE, map_shape[1] * SCALE)
+                rr, cc = draw.polygon(vertices[:, 1] * SCALE, vertices[:, 0] * SCALE, shape=im_shape)
+                obstacles.append({
+                    'vertices': vertices,
+                    'centre': (x, y),
+                    'radius': radius,
+                    'pixels': (rr, cc),
+                    'area': poly_area(vertices)
+                })
+
+        # get concentration of ice field with polygon obstacles
+        poly_concentration, _ = compute_poly_ob_concentration(obstacles, map_shape)
+        if abs(conc - poly_concentration) > TOL:
+            print('\ndesired concentration {}, actual concentration {}'.format(conc, poly_concentration))
+            if conc > poly_concentration:
+                # randomly add obstacles:
+                obstacles = increase_concentration(obstacles, conc, map_shape)
+            else:
+                obstacles = decrease_concentration(obstacles, conc, map_shape)
+
+        # add obstacles to dict
+        exp_dict['exp'][i]['obstacles'] = obstacles
+
+        # add goal to dict
+        exp_dict['exp'][i]['goal'] = goal
+
+        # generate ship starting state
+        print(ship_state)
+        if ship_state['range_x'] is None:
+            x = find_best_start_x(obstacles)
+        else:
+            x = np.random.uniform(low=ship_state['range_x'][0], high=ship_state['range_x'][1])
+        y = np.random.uniform(low=ship_state['range_y'][0], high=ship_state['range_y'][1])
+        theta = np.random.uniform(low=ship_state['range_theta'][0], high=ship_state['range_theta'][1])
+
+        # add to ship state to dict
+        exp_dict['exp'][i]['ship_state'] = (x, y, theta)
+
+    # save to disk
+    if filename:
+        with open(filename, 'wb') as f:
+            pickle.dump(exp_dict, f)
+
+    return exp_dict

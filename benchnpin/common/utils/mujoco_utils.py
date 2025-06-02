@@ -1,4 +1,7 @@
 import numpy as np
+import shapely.geometry as sg
+import shapely.ops as so
+import trimesh
 try:
     import mujoco
 except ImportError as e:
@@ -166,3 +169,29 @@ def get_box_2d_vertices(model, data, body_name):
         # Rotate and translate to world frame
         corners_world = corners_local @ R.T + pos
         return corners_world  # shape (4, 2)
+
+
+def polygon_from_vertices(vertices_2d) -> sg.Polygon:
+    """
+    Build a Shapely polygon from a user-supplied list/ndarray of 2-D points.
+    The list **must** describe a *simple* five-vertex outline (no holes).
+    """
+    poly = sg.Polygon(vertices_2d).convex_hull           # guarantee convexity
+    if not poly.is_valid:
+        raise ValueError("Invalid polygon shape")
+    return so.orient(poly, sign=1.0)
+
+
+def extrude_and_export(poly: sg.Polygon,
+                       thickness: float = 0.2,
+                       filename: str = 'ice_stl') -> None:
+    """
+    Extrude the 2-D polygon to the given `thickness` and write a binary STL.
+    """
+    mesh = trimesh.creation.extrude_polygon(poly, height=thickness)
+
+    # Move the base so that Z = 0 is the *bottom* rather than the mid-plane.
+    mesh.apply_translation([0, 0, thickness / 2])
+
+    # Binary STL; overwrite if it exists
+    mesh.export(filename)

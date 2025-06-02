@@ -69,7 +69,8 @@ class ShipIceMujoco(MujocoEnv, utils.EzPickle):
         # build xml file
         self.num_floes = generate_shipice_xml(self.cfg.concentration, xml_file, self.cfg.sim.timestep_sim, 
             self.cfg.environment.channel_len, self.cfg.environment.channel_wid, 
-            self.cfg.environment.icefield_len, self.cfg.environment.icefield_wid)
+            self.cfg.environment.icefield_len, self.cfg.environment.icefield_wid, 
+            load_cached=True, trial_idx=0)
         self.phase = 0.0
 
         utils.EzPickle.__init__(
@@ -174,10 +175,10 @@ class ShipIceMujoco(MujocoEnv, utils.EzPickle):
         gets vertices of all floes, returns a list of shape (num_floes, 4, 2)
         """
         obs = []
-        for n in range(self.num_floes):
-            name = f"ice_{n}"
-            floe_vertices = get_box_2d_vertices(model=self.model, data=self.data, body_name=name)
-            obs.append(floe_vertices)
+        # for n in range(self.num_floes):
+        #     name = f"ice_{n}"
+        #     floe_vertices = get_box_2d_vertices(model=self.model, data=self.data, body_name=name)
+        #     obs.append(floe_vertices)
         return obs
 
 
