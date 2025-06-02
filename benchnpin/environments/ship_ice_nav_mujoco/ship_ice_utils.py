@@ -83,7 +83,7 @@ def header_block(hfield, stl_model_path, sim_timestep, channel_len, channel_wid,
           <!-- Global material presets -->
           <asset>
             <mesh name="asv_mesh" file="cs_long.stl" scale="{STL_SCALE} {STL_SCALE} {STL_SCALE}"/>
-            <texture name="ice_tex" type="2d" file="models/ice_texture1.png" />
+            <texture name="ice_tex" type="2d" file="models/ice_texture.png" />
             <material name="ice_mat" texture="ice_tex"/>
             {' '.join(mesh_entries)}
             <texture name="water" type="2d" file="models/Background.png" />
