@@ -118,7 +118,7 @@ def header_block(hfield, stl_model_path, sim_timestep, channel_len, channel_wid,
             <geom type="hfield" hfield="wave_field" pos="0 0 0" size="1 1 2" rgba="0 0.48 0.9 1" contype="0" conaffinity="0" />
             <geom type="plane" size="100000 100000 0.1" pos="0 0 -1" material="water_" contype="0" conaffinity="0"/>
 
-            <camera name="overview_cam" pos="400 -200 200" euler="60 0 0" fovy="60"/>
+            <camera name="overview_cam" pos="50 -200 200" euler="60 0 0" fovy="60"/>
             
             <!ASV->
             <body name="asv" pos="{ASV_X0} {ASV_Y0} 0" quat="0.7071 0 0 0.7071">
@@ -294,7 +294,7 @@ def generate_shipice_xml(concentration, xml_file, sim_timestep, channel_len, cha
             data = pickle.load(f)
 
     else:
-        data = generate_rand_exp(conc=concentration, map_shape=map_shape, ship_state=ship_state, goal=goal, max_trials=100, filename=polygon_file)
+        data = generate_rand_exp(conc=concentration, map_shape=map_shape, ship_state=ship_state, goal=goal, max_trials=10, filename=polygon_file)
 
     trial_data = data['exp'][trial_idx]
     num_stl_floes = len(trial_data['obstacles'])
