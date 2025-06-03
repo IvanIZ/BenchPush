@@ -21,12 +21,18 @@ env = gym.make('box-delivery-mujoco-v0', render_mode = "human", cfg=cfg)
 env.reset()
 
 terminated = truncated = False
+num_epochs = 20
+num_steps_per_epoch = 2
 
-while True:
-    x = random.uniform(0.5, 1.0)
-    y = random.uniform(0.5, 2.3)
+for i in range(num_epochs):
 
-    goal_pos = [x, y]
-    action = goal_pos
+    env.reset()
+    for t in range(num_steps_per_epoch):
 
-    observation, reward, terminated, truncated, info = env.step(action)
+        x = random.uniform(0.5, 1.0)
+        y = random.uniform(0.5, 2.3)
+
+        goal_pos = [x, y]
+        action = goal_pos
+
+        observation, reward, terminated, truncated, info = env.step(action)

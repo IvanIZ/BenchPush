@@ -13,15 +13,6 @@ import random
 from benchnpin.common.utils.mujoco_utils import inside_poly, quat_z, quat_z_yaw, corners_xy
 
 
-# allowed (x,y) range
-POLY = [
-    (0.315, 0.0), (1.26, 0.0),
-    (1.575, 0.315), (1.575, 2.53),
-    (1.26, 2.845), (0.3, 2.845),
-    (0.3, 2.545), (0.0, 2.545),
-    (0.0, 0.315)
-]
-
 def changing_per_configuration(env_type: str):
     """ 
     Based on the configration, it would create code for pillars along with
@@ -131,14 +122,14 @@ def intersects_keepout(x, y, keep_out):
     return any(inside_poly(x, y, poly) for poly in keep_out)
   
 
-def sample_scene(n_cubes, keep_out,ROBOT_R,CLEAR,ARENA_X,ARENA_Y):
+def sample_scene(n_cubes, keep_out,ROBOT_R,CLEAR,ARENA_X,ARENA_Y, clearance_poly):
     """returns robot pose + list of cube poses (x,y,theta)"""
     
     # Robot iteration for its placement
     for _ in range(200):
         rx = np.random.uniform(*ARENA_X)
         ry = np.random.uniform(*ARENA_Y)
-        if inside_poly(rx, ry, POLY) and not intersects_keepout(rx, ry, keep_out):
+        if inside_poly(rx, ry, clearance_poly) and not intersects_keepout(rx, ry, keep_out):
             break
     robot_qpos = f"{rx:.4f} {ry:.4f} 0.01"
     
@@ -150,7 +141,7 @@ def sample_scene(n_cubes, keep_out,ROBOT_R,CLEAR,ARENA_X,ARENA_Y):
         tries += 1
         x = np.random.uniform(*ARENA_X)
         y = np.random.uniform(*ARENA_Y)
-        if not inside_poly(x, y, POLY):
+        if not inside_poly(x, y, clearance_poly):
             continue
         if intersects_keepout(x, y, keep_out):
             continue        
@@ -312,7 +303,7 @@ def build_xml(robot_qpos, cubes, stl_model_path,extra_xml,Z_CUBE, cube_size):
         cube_xml += f"""
     <body name="cube{i}" pos="{x:.4f} {y:.4f} {Z_CUBE:.3f}">
       <joint name="cube{i}_joint" type="free" />
-      <geom type="box" size="{cube_size}" material="blue_mat" density="500"
+      <geom type="box" size="{cube_size}" material="blue_mat" mass="0.05"
             quat="{qw:.6f} {qx:.6f} {qy:.6f} {qz:.6f}" friction="0.01 0.05 0.0001"/>
     </body>"""
 
@@ -331,8 +322,8 @@ def build_xml(robot_qpos, cubes, stl_model_path,extra_xml,Z_CUBE, cube_size):
     return header + cube_xml + extra_xml + footer
 
 
-def generate_boxDelivery_xml(N,env_type,file_name,stl_model_path_entered,ROBOT_R,CLEAR,Z_CUBE,ARENA_X,ARENA_Y,
-                  cube_half_size):
+def generate_boxDelivery_xml(N,env_type,file_name,ROBOT_R,CLEAR,Z_CUBE,ARENA_X,ARENA_Y,
+                  cube_half_size, clearance_poly):
     
     #Name of input and output file otherwise set to default
     XML_OUT = Path(file_name)
@@ -345,13 +336,13 @@ def generate_boxDelivery_xml(N,env_type,file_name,stl_model_path_entered,ROBOT_R
     extra_xml, keep_out = changing_per_configuration(env_type)
     
     # Finding the robot's q_pos and cubes's randomized data
-    robot_qpos, cubes = sample_scene(N,keep_out,ROBOT_R,CLEAR,ARENA_X,ARENA_Y)
+    robot_qpos, cubes = sample_scene(N,keep_out,ROBOT_R,CLEAR,ARENA_X,ARENA_Y, clearance_poly)
   
     # Building new environemnt and writing it down
     xml_string = build_xml(robot_qpos, cubes,stl_model_path,extra_xml,Z_CUBE, cube_size)
     XML_OUT.write_text(xml_string)
     
-    return XML_OUT
+    return XML_OUT, keep_out
 
 
 def transporting(model, data, joint_id_boxes):

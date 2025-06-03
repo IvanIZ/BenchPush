@@ -1,12 +1,37 @@
 boxes:
-  num_boxes: 1
+  num_boxes: 10
+  clearance: 0.2
+
+train:
+  train_mode: false
+  job_type: 'ppo'
+  job_name: 'ppo_model'
+  batch_size: 32
+  checkpoint_freq: 6000
+  exploration_timesteps: 6000
+  final_exploration: 0.01
+  gamma: 0.99
+  grad_norm_clipping: 10
+  job_id_to_resume: null
+  learning_rate: 0.01
+  learning_starts: 1000
+  n_epochs: 10
+  n_steps: 256
+  replay_buffer_size: 10000
+  resume_training: false
+  target_update_freq: 1000
+  total_timesteps: 60000
+  use_correct_direction_reward: true
+  verbose: 2
+  weight_decay: 0.0001
+
   
 ### ENVIRONMENT PARAMS
 env:
   obstacle_config: small_empty # options are small_empty, small_columns, large_columns, large_divider
-  room_length: 10
-  room_width_small: 5
-  room_width_large: 10
+  room_length: 2.845
+  room_width_small: 1.575
+  room_width_large: 2.5
   receptacle_width: 1.5
   shortest_path_channel_scale: 0.25
   local_map_pixel_width: 224
@@ -14,3 +39,14 @@ env:
   local_map_width: 10 # 10 meters
   wall_thickness: 14
   invert_receptacle_map: false
+  clearance_poly: [
+      [0.315, 0.0], [1.26, 0.0],
+      [1.575, 0.315], [1.575, 2.53],
+      [1.26, 2.845], [0.3, 2.845],
+      [0.3, 2.545], [0.0, 2.545],
+      [0.0, 0.315]
+  ]
+
+agent:
+  action_type: 'position' # options are velocity, heading, position
+  robot_r: 0.15           # robot radius in meter
