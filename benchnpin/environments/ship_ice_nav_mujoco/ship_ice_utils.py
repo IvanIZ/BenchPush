@@ -153,26 +153,18 @@ def generate_ice_mesh_bodies(positions: list[tuple[float, float]]) -> str:
         )
     return "\n".join(body_strings)
 
-
-ICE_BODY_TEMPLATE ="""
-    <body name="ice_{n}" pos="{x:.2f} {y:.2f} 0">
-      <joint name="ice_{n}_x"   type="slide" axis="1 0 0"/>
-      <joint name="ice_{n}_y"   type="slide" axis="0 1 0"/>
-      <joint name="ice_{n}_yaw" type="hinge" axis="0 0 1" damping="75.0"/>
-      <geom class="ice_floe" type="box" size="{sx} {sy} {sz}" material="ice_mat"/>
-    </body>"""
-
+"""
 def random_ice_bodies(concentration: float,
                       spacing: float = 5.0,
                       max_tries: int = 2000000000, 
                       icefield_len = 1000,
                       icefield_wid = 200) -> str:
-    """
+    
     Returning code for placing ice floes until desired concentration is covered,
     Variables:
     spacing- minimum space between ice cubes
     asv_radius- radius along which no cube is place from the origion of ship
-    """
+    
 
     channel_area = icefield_len * icefield_wid
     target_area  = concentration * channel_area
@@ -250,7 +242,7 @@ def random_ice_bodies(concentration: float,
     print(f"[ice] only reached {placed_area/channel_area:.1%} "
               f"coverage after {tries:,} samples in {total_time:.3f}")
 
-    return "\n".join(bodies), num_floes
+    return "\n".join(bodies), num_floes"""
 
 
 
