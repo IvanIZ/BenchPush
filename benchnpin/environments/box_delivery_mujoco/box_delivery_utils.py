@@ -181,6 +181,7 @@ def build_xml(robot_qpos, cubes, stl_model_path,extra_xml,Z_CUBE, cube_size):
     <mesh name="left_tire"   file="left_tire.stl"  scale="0.001 0.001 0.001"/>
     <mesh name="right_tire"  file="right_tire.stl" scale="0.001 0.001 0.001"/>
     <mesh name="lds"         file="lds.stl"        scale="0.001 0.001 0.001"/>
+    <mesh name="bumper"      file="TurtleBot3 Burger Bumper.STL" scale="0.001 0.001 0.001"/>
   </asset>
 
   <visual>
@@ -278,6 +279,8 @@ def build_xml(robot_qpos, cubes, stl_model_path,extra_xml,Z_CUBE, cube_size):
       <geom size="0.015 0.0045 0.01" pos="-0.081 7.96327e-07 0.005" quat="0.707388 -0.706825 0 0" type="box" rgba="0.3 0.3 0.3 1" mass="0.05"/>
       <!-- LDS sensor -->
       <geom pos="-0.032 0 0.182" quat="1 0 0 0" type="mesh" rgba="0.3 0.3 0.3 1" mesh="lds" mass="0.131"/>
+      <!-- Bumper -->
+      <geom pos="-0.04 -0.09 0.01" quat="1 0 0 0" type="mesh" rgba="0.3 0.3 0.3 1" mesh="bumper" mass="0.100"/>
       
       <!-- Left wheel -->
       <body name="wheel_left_link" pos="0 0.08 0.033" quat="0.707388 -0.706825 0 0">
