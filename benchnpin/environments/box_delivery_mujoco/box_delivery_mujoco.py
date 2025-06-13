@@ -399,7 +399,6 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
         
         # Precompute static vertices for walls and columns
         Wall_vertices, columns_from_keepout, corners=precompute_static_vertices(self.initialization_keepouts, self.room_width, self.room_length)
-        print(Wall_vertices)
 
         # Iterating through each wall vertice and keepout columns
         for wall_vertices_each_wall in Wall_vertices+columns_from_keepout+ corners:
