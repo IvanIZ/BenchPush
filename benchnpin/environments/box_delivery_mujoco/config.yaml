@@ -28,25 +28,33 @@ train:
   
 ### ENVIRONMENT PARAMS
 env:
-  obstacle_config: small_empty # options are small_empty, small_columns, large_columns, large_divider
+  obstacle_config: small_columns # options are small_empty, small_columns, large_columns, large_divider
   room_length: 2.845
   room_width_small: 1.575
-  room_width_large: 2.5
-  receptacle_width: 1.5
-  shortest_path_channel_scale: 0.25
-  local_map_pixel_width: 224
+  room_widthath_channel_scale: 0.25
+  local_map_pixel_width: 500
   local_map_pixel_width_sam: 96
-  local_map_width: 10 # 10 meters
-  wall_thickness: 14
+  wall_thickness: 8.0 # Really high wall thickness to ensure nothing in vicinity of local maps
   invert_receptacle_map: false
-  clearance_poly: [
-      [0.315, 0.0], [1.26, 0.0],
-      [1.575, 0.315], [1.575, 2.53],
-      [1.26, 2.845], [0.3, 2.845],
-      [0.3, 2.545], [0.0, 2.545],
-      [0.0, 0.315]
-  ]
+  receptacle_pos_large: 2.5
+  shortest_pition: [-0.6375, 1.2725]
+  receptacle_size: 0.15
+
+small_pillars:
+  num_pillars: 1
+  pillar_half: [0.02, 0.02, 0.20]
+
+large_pillars:
+  num_pillars: 4
+  pillar_half: [0.16, 0.16, 0.10]
+
+large_divider:
+  divider_half: 0
+  divider_height: 0
+  
 
 agent:
   action_type: 'position' # options are velocity, heading, position
-  robot_r: 0.15           # robot radius in meter
+  length: 0.08 
+  width: 0.09
+  robot_clear: 0.15

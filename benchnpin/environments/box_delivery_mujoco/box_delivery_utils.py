@@ -12,8 +12,129 @@ import random
 
 from benchnpin.common.utils.mujoco_utils import inside_poly, quat_z, quat_z_yaw, corners_xy
 
+def precompute_static_vertices(keep_out, room_width, room_length):
+    """
+    Gives list of static vertices that do not change during the simulation
+    """
+    # Walls vertices computation
+    half_width, half_length= room_width/2, room_length/2
+    X0, X1 = -half_width, half_width
+    Y0, Y1 = -half_length, half_length
+    t      = 4.0
 
-def changing_per_configuration(env_type: str):
+    """Wall vertices are defined in the world frame, with a clearance"""
+    Wall_vertices = [
+        ["Wall_left",
+         [(X0-t, Y0-t), (X0, Y0-t), (X0, Y1+t), (X0-t, Y1+t)]],
+        ["Wall_right",
+         [(X1,   Y0-t), (X1+t, Y0-t), (X1+t, Y1+t), (X1, Y1+t)]],
+        ["Wall_bottom",
+         [(X0, Y0-t), (X1, Y0-t), (X1, Y0), (X0, Y0)]],
+        ["Wall_top",
+         [(X0, Y1), (X1, Y1), (X1, Y1+t), (X0, Y1+t)]],
+    ]
+    # Columns and Dividers
+    # File_updating.changing_per_configuration returns 'keep_out', a list
+    # of pillar footprints (each already a list of (x,y) tuples).
+    # We simply wrap them with names here:
+    def columns_from_keepout(keep_out):
+        out = []
+        for k, poly in enumerate(keep_out):
+            shifted = [(x - half_width, y - half_length) for x, y in poly]
+            out.append([f"Column_{k}", shifted])
+        return out
+    
+    # Arena-shifted base polygon for corners
+    base = [
+        (0.0000, 0.0000),
+        (0.3150, 0.0000),
+        (0.1575, 0.0640),
+        (0.0640, 0.1575),
+        (0.0000, 0.3150)
+    ]
+
+    # helper to mirror and then arena-shift
+    def shift(poly, mirror_x: bool, mirror_y: bool, half_x=half_width, half_y=half_length):
+        out = []
+        for x, y in poly:
+            px = (2 * half_x - x) if mirror_x else x
+            py = (2 * half_y - y) if mirror_y else y
+            out.append((px - half_x, py - half_y))
+        return out
+
+    # three corners:  BL (0),  BR (mirror_x),  TL (mirror_y)
+    corners = [
+        ["Corner_BL", shift(base, False, False)],   # bottom-left (x=0, y=0)
+        ["Corner_BR", shift(base, True,  False)],   # bottom-right (x=2Hx, y=0)
+        ["Corner_TL", shift(base, True, True)],    # top-left   (x=0,  y=2Hy)
+    ]
+
+
+    return Wall_vertices, columns_from_keepout(keep_out), corners
+
+
+def dynamic_vertices(model,
+                     data,
+                     qpos_idx_robot: int,
+                     joint_ids_boxes: list[int],
+                     robot_half   =(0.07, 0.09),
+                     cube_half    =0.04):
+    """
+    Returns the vertices of the robot and boxes in the world frame.
+    """
+
+    # robot vertices
+    cx, cy = data.qpos[qpos_idx_robot:qpos_idx_robot+2]
+    cx, cy = cx-0.7875, cy-1.4225
+    qw, qx, qy, qz = data.qpos[qpos_idx_robot+3:qpos_idx_robot+7]
+    yaw  = quat_z_yaw(qw, qx, qy, qz)
+
+    local_robot = np.array([[-robot_half[0], -robot_half[1]],
+                            [ robot_half[0], -robot_half[1]],
+                            [ robot_half[0],  robot_half[1]],
+                            [-robot_half[0],  robot_half[1]]])
+    Robot_vertices = ["robot",
+                      corners_xy(np.array([cx, cy]), yaw, local_robot).tolist(),yaw,(cx, cy)]
+
+    # cubes vertices
+    local_cube = np.array([[-cube_half, -cube_half],
+                           [ cube_half, -cube_half],
+                           [ cube_half,  cube_half],
+                           [-cube_half,  cube_half]])
+
+    Boxes_vertices = []
+    for jid in joint_ids_boxes:
+        adr   = model.jnt_qposadr[jid]
+        bx, by = data.qpos[adr:adr+2]
+        bx, by = bx-0.7875, by-1.4225
+        qw, qx, qy, qz = data.qpos[adr+3:adr+7]
+        yaw  = quat_z_yaw(qw, qx, qy, qz)
+        verts = corners_xy(np.array([bx, by]), yaw, local_cube).tolist()
+        Boxes_vertices.append([verts])
+
+    return Robot_vertices, Boxes_vertices
+
+def receptacle_vertices(receptacle_half, receptacle_local_dimension):
+    """
+    Returns the vertices of the receptacle in the world frame.
+    """
+    # Receptacle vertices
+    x , y = receptacle_half
+
+    d = receptacle_local_dimension
+    local = np.array([
+        [-d, -d],
+        [ d, -d],
+        [ d,  d],
+        [-d,  d]
+    ])
+  
+    Receptacle_vertices = corners_xy(np.array([x, y]), 0, local).tolist()
+
+    return Receptacle_vertices
+
+def changing_per_configuration(env_type: str, clearance_poly, 
+                               ARENA_X, ARENA_Y, n_pillars, half):
     """ 
     Based on the configration, it would create code for pillars along with
     polygon to the area where nothing has to be placed.
@@ -23,72 +144,70 @@ def changing_per_configuration(env_type: str):
         """Returns one pillar at centre cx,cy with half-size"""
         
         xh, yh, zh = half
-        Text=f"""
+        heavy_mass = 1e4
+        Text = f"""
     <!-- pillar {name} -->
-    <geom type="box" size="{xh:.3f} {yh:.3f} {zh:.3f}" pos="{cx:.3f} {cy:.3f} {zh:.3f}""" 
+    <body name="{name}" pos="{cx:.3f} {cy:.3f} {zh:.3f}">
+      <joint name="{name}_joint" type="free"/>
+      <geom type="box" size="{xh:.3f} {yh:.3f} {zh:.3f}" mass="{heavy_mass:.1f}" 
+      contype="1" conaffinity="1"/>
+    </body>
+"""
         Coordinates=[(cx-xh, cy-yh),(cx+xh, cy-yh),(cx+xh, cy+yh),(cx-xh, cy+yh)]
         return Text, Coordinates
     
-    #Area with clearance on walls and columns applied
-    SMALL_POLY = np.array([
-            (0.300, 0.600), (0.615, 0.600), (0.615, 0.300),
-            (0.975, 0.300), (0.975, 0.600), (1.375, 0.600),
-            (1.375, 2.245), (0.975, 2.245), (0.975, 2.600),
-            (0.615, 2.600), (0.615, 2.245), (0.300, 2.245)
-        ])    
-
     extra_xml = ""
-    
     # list of polygons to exclude when sampling
     keep_out  = []
 
-    # small_columns (4 columns 30 × 30 × 40 cm)
+    def generating_centers(n_pillars, half, clearance_poly, ARENA_X, ARENA_Y):
+            """
+            Generates n_pillars centres within the clearance polygon
+            and returns a list of centres.
+            """
+            centres = []
+            rng = np.random.default_rng()
+            attempts = 0
+            while len(centres) < n_pillars and attempts < 50000:
+                attempts += 1
+                
+                # This range is picked on clearance for robot and walls. Chosen the
+                # lowest value
+                cx = rng.uniform(0.600, ARENA_X[1]-0.600)
+                cy = rng.uniform(0.600, ARENA_Y[1]-0.600)
+
+                # test the 4 pillar corners
+                corners = [(cx-half[0], cy-half[1]),
+                           (cx+half[0], cy-half[1]),
+                           (cx+half[0], cy+half[1]),
+                           (cx-half[0], cy+half[1])]
+                if all(inside_poly(x, y, clearance_poly) for x, y in corners):
+                    
+                    clearance = 0.30
+                    diameter   = 2 * half[0]
+                    
+                    # Check for clearance to other pillars
+                    if all(np.hypot(cx - px, cy - py) >= diameter + clearance
+                           for px, py in centres):
+                        centres.append((cx, cy))                    
+            return centres
+
+    # small_columns
     if env_type == "small_columns":
 
-        half = (0.15, 0.15, 0.20)
-        
         # Random number of pillars between 1-4
-        n_pillars = random.randint(1, 3)
-        # Where the centers of the pillars would exists
-        centres = []
-
-        # rejection sample pillar centres until we have 4 non-overlapping
-        # positions whose entire footprint falls inside SMALL_POLY
-        rng = np.random.default_rng()
-        attempts = 0
-        while len(centres) < n_pillars and attempts < 50000:
-            attempts += 1
-            
-            # This range is picked on clearance for robot and walls. Chosen the
-            # lowest value and later verfiying how well it would work out
-            cx = rng.uniform(0.600,1.075)
-            cy = rng.uniform(0.600,1.975)
-
-            # test the 4 pillar corners
-            corners = [(cx-half[0], cy-half[1]),
-                       (cx+half[0], cy-half[1]),
-                       (cx+half[0], cy+half[1]),
-                       (cx-half[0], cy+half[1])]
-            if all(inside_poly(x, y, SMALL_POLY) for x, y in corners):
-                
-                clearance = 0.30
-                diameter   = 2 * half[0]
-                
-                # Check for clearance to other pillars
-                if all(np.hypot(cx - px, cy - py) >= diameter + clearance
-                       for px, py in centres):
-                    centres.append((cx, cy))                    
+        centres=generating_centers(n_pillars, half, clearance_poly, ARENA_X, ARENA_Y)
 
         for k, (cx, cy) in enumerate(centres):
             xml, poly = pillar(f"small_col{k}", cx, cy, half)
             extra_xml += xml
             keep_out.append(poly)        
 
-    # large_columns (4 columns 16 × 16 × 10 cm)
-    # NEED TO CONFIRM
+    # large_columns
     elif env_type == "large_columns":
-        half = (0.16, 0.16, 0.10)  # m
-        centres = [(0.6, 0.6), (0.6, 1.6), (1.0, 0.6), (1.0, 1.6)]
+
+        centres=generating_centers(n_pillars, half, clearance_poly, ARENA_X, ARENA_Y)
+
         for k, (cx, cy) in enumerate(centres):
             xml, poly = pillar(f"large_col{k}", cx, cy, half)
             extra_xml += xml
@@ -126,7 +245,7 @@ def sample_scene(n_cubes, keep_out,ROBOT_R,CLEAR,ARENA_X,ARENA_Y, clearance_poly
     """returns robot pose + list of cube poses (x,y,theta)"""
     
     # Robot iteration for its placement
-    for _ in range(200):
+    for _ in range(2000):
         rx = np.random.uniform(*ARENA_X)
         ry = np.random.uniform(*ARENA_Y)
         if inside_poly(rx, ry, clearance_poly) and not intersects_keepout(rx, ry, keep_out):
@@ -137,7 +256,7 @@ def sample_scene(n_cubes, keep_out,ROBOT_R,CLEAR,ARENA_X,ARENA_Y, clearance_poly
     # Cubes iteration for its placement
     cubes = []
     tries = 0
-    while len(cubes) < n_cubes and tries < 1000:
+    while len(cubes) < n_cubes and tries < 10000:
         tries += 1
         x = np.random.uniform(*ARENA_X)
         y = np.random.uniform(*ARENA_Y)
@@ -157,9 +276,9 @@ def sample_scene(n_cubes, keep_out,ROBOT_R,CLEAR,ARENA_X,ARENA_Y, clearance_poly
     return robot_qpos, cubes
 
 
-def build_xml(robot_qpos, cubes, stl_model_path,extra_xml,Z_CUBE, cube_size):
+def build_xml(robot_qpos, cubes, stl_model_path,extra_xml,Z_CUBE, cube_size, ARENA_X1, ARENA_Y1, goal_half, goal_center):
     """Building data for a different file"""
-    
+    goal_center=[(ARENA_X1/2)+goal_center[0], (ARENA_Y1/2)+ goal_center[1]]
     header = f"""
 <mujoco model="box_delivery_structured_env">
   <compiler angle="radian" autolimits="true" meshdir="{stl_model_path}"/>
@@ -192,8 +311,8 @@ def build_xml(robot_qpos, cubes, stl_model_path,extra_xml,Z_CUBE, cube_size):
   <worldbody>
   
     <!-- Floor -->
-    <body pos="0.7875 1.4225 0">
-      <geom type="box" size="0.7875 1.4225 0.01" friction="0.5 0.05 0.0001"/>
+    <body pos="{ARENA_X1/2} {ARENA_Y1/2} 0">
+      <geom type="box" size="{ARENA_X1/2} {ARENA_Y1/2} 0.01" friction="0.5 0.05 0.0001"/>
     </body>
     
     <!-- Corner 1 -->
@@ -202,19 +321,19 @@ def build_xml(robot_qpos, cubes, stl_model_path,extra_xml,Z_CUBE, cube_size):
     </body>
     
     <!-- Corner 2 -->
-    <body name="corner_2" pos="1.575 0.0 0.05" quat="0 1 1 0">
+    <body name="corner_2" pos="{ARENA_X1} 0.0 0.05" quat="0 1 1 0">
       <geom type="mesh" mesh="corner_full" rgba="0.0 0.3 1.0 1.0"/>
     </body>
     
     <!-- Corner 3 -->
-    <body name="corner_3" pos="1.575 2.845 0.05" quat="0 0 1 0">
+    <body name="corner_3" pos="{ARENA_X1} {ARENA_Y1} 0.05" quat="0 0 1 0">
       <geom type="mesh" mesh="corner_full" rgba="0.0 0.3 1.0 1.0"/>
     </body>
     
     <!-- Marked area -->
     <geom type="box"
-      pos="0.15 2.695 0.01"
-      size="0.15 0.15 0.0005"
+      pos="{goal_center[0]} {goal_center[1]} 0.01"
+      size="{goal_half} {goal_half} 0.0005"
       rgba="0.5 1 0.5 1"
       contype="0"
       conaffinity="0"
@@ -222,52 +341,52 @@ def build_xml(robot_qpos, cubes, stl_model_path,extra_xml,Z_CUBE, cube_size):
     
     <!-- transporting area -->
     <geom type="box"
-      pos="0.05 2.915 0.01"
+      pos="0.05 {ARENA_Y1+0.07} 0.01"
       size="0.05 0.05 0.05"
       rgba="0.5 1 0.5 1"/>
     
     <!-- transporting area Y-walls-->
     <geom type="box"
-      pos="0.05 2.855 1.0"
+      pos="0.05 {ARENA_Y1+0.01} 1.0"
       size="0.05 0.01 1.0"
       rgba="1 1 1 0.1"/>
       
     <geom type="box"
-      pos="0.05 2.965 1.0"
+      pos="0.05 {ARENA_Y1+0.12} 1.0"
       size="0.05 0.01 1.0"
       rgba="1 1 1 0.1"/>
       
     <!-- transporting area X-walls-->
     <geom type="box"
-      pos="-0.01 2.915 1.0"
+      pos="-0.01 {ARENA_Y1+0.07} 1.0"
       size="0.01 0.05 1.0"
       rgba="1 1 1 0.1"/>
       
     <geom type="box"
-      pos="0.11 2.915 1.0"
+      pos="0.11 {ARENA_Y1+0.07} 1.0"
       size="0.01 0.05 1.0"
       rgba="1 1 1 0.1"/>
       
     <!-- X-walls: left and right sides -->
     <geom type="box"
-      pos="-0.01 1.4225 0.15"
-      size="0.01 1.4225 0.15"
+      pos="-0.01 {ARENA_Y1/2} 0.15"
+      size="0.01 {ARENA_Y1/2} 0.15"
       rgba="1 1 1 0.1"/>
 
     <geom type="box"
-      pos="1.585 1.4225 0.15"
-      size="0.01 1.4225 0.15"
+      pos="{ARENA_X1+0.01} {ARENA_Y1/2} 0.15"
+      size="0.01 {ARENA_Y1/2} 0.15"
       rgba="1 1 1 0.1"/>
 
     <!-- Y-walls: bottom and top -->
     <geom type="box"
-      pos="0.7875 -0.01 0.15"
-      size="0.7875 0.01 0.15"
+      pos="{ARENA_X1/2} -0.01 0.15"
+      size="{ARENA_X1/2} 0.01 0.15"
       rgba="1 1 1 0.1"/>
 
     <geom type="box"
-      pos="0.7875 2.855 0.15"
-      size="0.7875 0.01 0.15"
+      pos="{ARENA_X1/2} {ARENA_Y1+0.01} 0.15"
+      size="{ARENA_X1/2} 0.01 0.15"
       rgba="1 1 1 0.1"/>
     
     <!-- robot -->
@@ -324,35 +443,45 @@ def build_xml(robot_qpos, cubes, stl_model_path,extra_xml,Z_CUBE, cube_size):
 """
     return header + cube_xml + extra_xml + footer
 
+def clearance_poly_generator(ARENA_X, ARENA_Y):
+    """ Returns a polygon within which all items must be placed, with a clearance"""
 
-def generate_boxDelivery_xml(N,env_type,file_name,ROBOT_R,CLEAR,Z_CUBE,ARENA_X,ARENA_Y,
-                  cube_half_size, clearance_poly):
+    return [
+            (0.300, 0.600), (0.615, 0.600), (0.615, 0.300),
+            (ARENA_X[1]-0.6, 0.300), (ARENA_X[1]-0.6, 0.600), (ARENA_X[1]-0.3, 0.600),
+            (ARENA_X[1]-0.3, ARENA_Y[1]-0.6), (ARENA_X[1]-0.6, ARENA_Y[1]-0.6), (ARENA_X[1]-0.6, ARENA_Y[1]-0.345),
+            (0.615, ARENA_Y[1]-0.3), (0.615, ARENA_Y[1]-0.6), (0.300, ARENA_Y[1]-0.6)
+        ]
+
+def generate_boxDelivery_xml(N,env_type,file_name,ROBOT_clear,CLEAR,Z_CUBE,ARENA_X,ARENA_Y,
+                  cube_half_size, goal_half, goal_center,num_pillars, pillar_half ):
     
-    #Name of input and output file otherwise set to default
+    # Name of input and output file otherwise set to default
     XML_OUT = Path(file_name)
     stl_model_path = os.path.join(os.path.dirname(__file__), 'models/')
     
-    #Clearnaces and cube sizes
+    # Clearnaces and cube sizes
+    clearance_poly= clearance_poly_generator(ARENA_X, ARENA_Y)
     cube_size = f"{cube_half_size} {cube_half_size} {cube_half_size}"
     
-    #Changing based on configration type
-    extra_xml, keep_out = changing_per_configuration(env_type)
+    # Changing based on configration type
+    extra_xml, keep_out = changing_per_configuration(env_type,clearance_poly, ARENA_X,ARENA_Y, num_pillars, pillar_half)
     
     # Finding the robot's q_pos and cubes's randomized data
-    robot_qpos, cubes = sample_scene(N,keep_out,ROBOT_R,CLEAR,ARENA_X,ARENA_Y, clearance_poly)
+    robot_qpos, cubes = sample_scene(N,keep_out,ROBOT_clear,CLEAR,ARENA_X,ARENA_Y, clearance_poly)
   
     # Building new environemnt and writing it down
-    xml_string = build_xml(robot_qpos, cubes,stl_model_path,extra_xml,Z_CUBE, cube_size)
+    xml_string = build_xml(robot_qpos, cubes,stl_model_path,extra_xml,Z_CUBE, cube_size,ARENA_X[1],ARENA_Y[1], goal_half, goal_center)
     XML_OUT.write_text(xml_string)
     
-    return XML_OUT, keep_out
+    return XML_OUT, keep_out, clearance_poly
 
 
-def transporting(model, data, joint_id_boxes):
+def transporting(model, data, joint_id_boxes, ARENA_X1, ARENA_Y1, goal_half, goal_center, cube_half_size):
     """Teleport a cube only if all its vertices are inside the goal box."""
     
-    # half-edge of your cube
-    HSIZE = 0.03
+    # half-edge of cube
+    HSIZE = cube_half_size
     # local corner coordinates
     corners_local_coordinates = np.array([
         [-HSIZE, -HSIZE],
@@ -361,12 +490,13 @@ def transporting(model, data, joint_id_boxes):
         [-HSIZE,  HSIZE]
     ])
     
-    GOAL_CENTRE = np.array([0.15, 2.695])
-    GOAL_HALF   = np.array([0.15, 0.15])
-    DROP_POS    = np.array([0.05, 2.915, 1.0])
+    goal_center=[(ARENA_X1/2)+goal_center[0], (ARENA_Y1/2)+ goal_center[1]]
+
+    GOAL_HALF   = np.array([goal_half, goal_half])
+    DROP_POS    = np.array([0.05, ARENA_Y1+0.07, 1.0])
     
-    xmin, xmax = GOAL_CENTRE[0] - GOAL_HALF[0], GOAL_CENTRE[0] + GOAL_HALF[0]
-    ymin, ymax = GOAL_CENTRE[1] - GOAL_HALF[1], GOAL_CENTRE[1] + GOAL_HALF[1]
+    xmin, xmax = goal_center[0] - GOAL_HALF[0], goal_center[0] + GOAL_HALF[0]
+    ymin, ymax = goal_center[1] - GOAL_HALF[1], goal_center[1] + GOAL_HALF[1]
 
     for jid in joint_id_boxes[:]:
         qadr = model.jnt_qposadr[jid]

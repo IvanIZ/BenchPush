@@ -20,7 +20,7 @@ fixed_trial_idx: 1
 render:
   log_obs: false        # whether to log occupancy observation
   show: true            # if true display the environment
-  show_obs: false       # if true show occupancy observation
+  show_obs: true       # if true show occupancy observation
   frequency: 20         # frequency of rendering
 sim:
   t_max: 2000  # max number of iterations in simulation loop (originally 5000)

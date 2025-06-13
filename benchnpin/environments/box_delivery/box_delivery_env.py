@@ -1041,6 +1041,8 @@ class BoxDeliveryEnv(gym.Env):
         observation = (observation * 255).astype(np.uint8)
         return observation
     
+    
+    
     def get_local_overhead_map(self):
         rotation_angle = -np.degrees(self.robot.body.angle) + 90
         pos_y = int(np.floor(self.global_overhead_map.shape[0] / 2 - self.robot.body.position.y * self.local_map_pixels_per_meter))
@@ -1059,10 +1061,17 @@ class BoxDeliveryEnv(gym.Env):
         return crop[y_start:y_end, x_start:x_end]
     
     def get_local_map(self, global_map, robot_position, robot_heading):
+        """Takes a global map and returns a local map centered around the robot's position."""
+        
+        # sqrt 2 to provide some clearance around the image when the frame is rotated
         crop_width = self.round_up_to_even(self.local_map_pixel_width * np.sqrt(2))
         rotation_angle = 90 - np.degrees(robot_heading)
+
+        # convert robot position to local pixel coordinates
         pixel_i = int(np.floor(-robot_position[1] * self.local_map_pixels_per_meter + global_map.shape[0] / 2))
         pixel_j = int(np.floor(robot_position[0] * self.local_map_pixels_per_meter + global_map.shape[1] / 2))
+
+        # crops the global map around the robot position and turns it to the robot's heading
         crop = global_map[pixel_i - crop_width // 2:pixel_i + crop_width // 2, pixel_j - crop_width // 2:pixel_j + crop_width // 2]
         rotated_crop = rotate_image(crop, rotation_angle, order=0)
         local_map = rotated_crop[
@@ -1083,6 +1092,7 @@ class BoxDeliveryEnv(gym.Env):
         ), dtype=np.float32)
 
     def create_global_shortest_path_to_receptacle_map(self):
+        """ Creates a global shortest path map to the receptacle."""
         global_map = self.create_padded_room_zeros() + np.inf
         (rx, ry) = self.receptacle_position
         pixel_i, pixel_j = self.position_to_pixel_indices(rx, ry, self.configuration_space.shape)
@@ -1143,6 +1153,9 @@ class BoxDeliveryEnv(gym.Env):
         self.small_obstacle_map = 1 - small_obstacle_map
 
     def update_global_overhead_map(self):
+        """Updates the global overhead map with the current robot and boundaries."""
+
+        # Makes a copy of immovable obstacles
         small_overhead_map = self.small_obstacle_map.copy()
 
         for poly in self.boundaries + self.boxes + [self.robot]:
