@@ -578,56 +578,31 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
             
         }
         return reward, reward_info
-    """
-    def _sample_pillar_centres(self):
-        Return new (cx, cy) pairs for every pillar and the matching keep-outs.
-
-        if self.num_pillars is None or self.pillar_half is None:
-            return [], []                        # small_empty or divider only
-        centres = []
-        rng = np.random.default_rng()
-        tries = 0
-        while len(centres) < self.num_pillars and tries < 50_000:
-            tries += 1
-            cx = rng.uniform(0.60, self.room_width  - 0.60)
-            cy = rng.uniform(0.60, self.room_length - 0.60)
-
-            # four corners of this pillar
-            hx, hy, _ = self.pillar_half
-            corners = [(cx-hx, cy-hy), (cx+hx, cy-hy),
-                        (cx+hx, cy+hy), (cx-hx, cy+hy)]
-            if not all(inside_poly(x, y, self.clearance_poly) for x, y in corners):
-                continue
-            if any(np.hypot(cx-px, cy-py) < 2*hx+0.30 for px, py in centres):
-                continue
-            centres.append((cx, cy))
-
-        keep_out = [[(cx-hx, cy-hy), (cx+hx, cy-hy),
-                        (cx+hx, cy+hy), (cx-hx, cy+hy)] for cx, cy in centres]
-        return centres, keep_out"""
 
     def _sample_pillar_centres(self):
         """
-        Returns
-            active_centres   – list[(cx, cy)] inside the main arena
-            parked_centres   – list[(cx, cy)] on the stand-by plane
-            keep_out_active  – keep-out polygons for *active* pillars only
+        Sample non-overlapping (cx, cy) pairs for every pillar and the matching keep-outs.
         """
 
-        STANDBY_X      = -0.40                       # matches the XML “pillar plane”
-        STANDBY_Z      = self.pillar_half[2]         # same height as normal pillars
-        STANDBY_GAP    = 0.20                        # extra clearance between parked pillars
-        HX, HY, _      = self.pillar_half            # half sizes for convenience
-        STANDBY_STEP   = 2*HX + STANDBY_GAP          # centre-to-centre spacing
+        # matches the XML “pillar plane”
+        STANDBY_X      = -0.40
+        # same height as normal pillars
+        STANDBY_Z      = self.pillar_half[2]
+        # extra clearance between parked pillars
+        STANDBY_GAP    = 0.20
+        # half sizes for convenience
+        HX, HY, _      = self.pillar_half
+        # centre-to-centre spacing
+        STANDBY_STEP   = 2*HX + STANDBY_GAP
         Y_little_extra = 0.20
 
-
+        # “small_empty” scene
         if self.num_pillars is None or self.pillar_half is None:
-            return [], [], []                      # “small_empty” scene
+            return [], [], []
 
         rng = np.random.default_rng()
 
-        # --- decide how many pillars are *in play* this episode -------------
+        # decide how many pillars are in play this episode
         n_active = rng.integers(1, self.num_pillars + 1)
 
         active_centres = []
@@ -651,7 +626,7 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
 
         # parked (inactive) pillars – laid out in a neat row on the stand-by plane
         parked_centres = [
-            (STANDBY_X, Y_little_extra+ k * STANDBY_STEP)                # (cx, cy)
+            (STANDBY_X, Y_little_extra+ k * STANDBY_STEP)
             for k in range(self.num_pillars - n_active)
         ]
 
@@ -666,10 +641,6 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
         """
         Randomly sample non-overlapping (x, y, theta) for robot and boxes.
         Teleport them in simulation using sim.data.qpos.
-
-        Args:
-            robot_r (float): Robot radius, used for clearance check.
-            clearance (float): Minimum distance between any two boxes.
         """
         positions = []
 
@@ -678,51 +649,36 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
         self.initialization_keepouts = keep_outs
         self.observation_init= False
 
-        # ─── place every pillar (active + parked) ──────────────────────────────────────
-        all_centres = active + parked                           # length == self.num_pillars
+        # place every pillar (active + parked)
+        all_centres = active + parked
         for k, (cx, cy) in enumerate(all_centres):
             prefix = "small_col" if "small" in self.cfg.env.obstacle_config else "large_col"
             name   = f"{prefix}{k}"
 
             j_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_JOINT, f"{name}_joint")
             if j_id == -1:
-                continue                                         # safety guard
+                continue
 
             adr = self.model.jnt_qposadr[j_id]
-            self.data.qpos[adr:adr+3]   = [cx, cy, self.pillar_half[2]]   # z unchanged
-            self.data.qpos[adr+3:adr+7] = [1, 0, 0, 0]                    # zero yaw
+            self.data.qpos[adr:adr+3]   = [cx, cy, self.pillar_half[2]]
+            self.data.qpos[adr+3:adr+7] = [1, 0, 0, 0]
             self.data.qvel[adr:adr+6]   = 0
-        
-        """
-        # teleport each pillar body to its new random centre
-        for k, (cx, cy) in enumerate(pillar_centres):
-            prefix = "small_col" if "small" in self.cfg.env.obstacle_config else "large_col"
-            name = f"{prefix}{k}"
-
-            j_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_JOINT,
-                                     f"{name}_joint")
-        
-            if j_id != -1:
-                adr = self.model.jnt_qposadr[j_id]
-                self.data.qpos[adr:adr+3]   = [cx, cy, self.pillar_half[2]]
-                self.data.qpos[adr+3:adr+7] = [1, 0, 0, 0]     # zero yaw
-                self.data.qvel[adr:adr+6]   = 0"""
 
         def is_valid(pos, radius):
             # unpack immediately
             x, y, _ = pos
 
-            # 1) check against previously placed robot/boxes
+            # check against previously placed robot/boxes
             for (px, py, _), pr in positions:
                 dist = np.hypot(x - px, y - py)
                 if dist < (pr + radius + self.cfg.boxes.clearance):
                     return False
 
-            # 2) check against pillar keep-outs
+            # check against pillar keep-outs
             if intersects_keepout(x, y, self.initialization_keepouts):
                 return False
 
-            # 3) finally check your overall clearance polygon
+            # finally check your overall clearance polygon
             if not inside_poly(x, y, self.clearance_poly):
                 return False
 
