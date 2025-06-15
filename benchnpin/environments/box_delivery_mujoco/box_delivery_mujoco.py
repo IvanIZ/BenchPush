@@ -602,8 +602,12 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
 
         rng = np.random.default_rng()
 
-        # decide how many pillars are in play this episode
-        n_active = rng.integers(1, self.num_pillars + 1)
+        if self.adjust_no_pillars: 
+
+            # decide how many pillars are in play this episode
+            n_active = rng.integers(1, self.num_pillars + 1)
+        else:
+            n_active = self.num_pillars
 
         active_centres = []
         tries = 0

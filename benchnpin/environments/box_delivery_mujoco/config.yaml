@@ -42,7 +42,7 @@ env:
 
 small_pillars:
   num_pillars: 6
-  adjust_no_pillars: True # if true, number of pillars would be randomized after each reset to be between 1 and num_pillars
+  adjust_no_pillars: False # if true, number of pillars would be randomized after each reset to be between 1 and num_pillars
   pillar_half: [0.02, 0.02, 0.20]
 
 large_pillars:
