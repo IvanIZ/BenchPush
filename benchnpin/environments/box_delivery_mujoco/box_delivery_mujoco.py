@@ -578,9 +578,9 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
             
         }
         return reward, reward_info
-    
+    """
     def _sample_pillar_centres(self):
-        """Return new (cx, cy) pairs for every pillar and the matching keep-outs."""
+        Return new (cx, cy) pairs for every pillar and the matching keep-outs.
 
         if self.num_pillars is None or self.pillar_half is None:
             return [], []                        # small_empty or divider only
@@ -604,8 +604,63 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
 
         keep_out = [[(cx-hx, cy-hy), (cx+hx, cy-hy),
                         (cx+hx, cy+hy), (cx-hx, cy+hy)] for cx, cy in centres]
-        return centres, keep_out
+        return centres, keep_out"""
 
+    def _sample_pillar_centres(self):
+        """
+        Returns
+            active_centres   – list[(cx, cy)] inside the main arena
+            parked_centres   – list[(cx, cy)] on the stand-by plane
+            keep_out_active  – keep-out polygons for *active* pillars only
+        """
+
+        STANDBY_X      = -0.40                       # matches the XML “pillar plane”
+        STANDBY_Z      = self.pillar_half[2]         # same height as normal pillars
+        STANDBY_GAP    = 0.20                        # extra clearance between parked pillars
+        HX, HY, _      = self.pillar_half            # half sizes for convenience
+        STANDBY_STEP   = 2*HX + STANDBY_GAP          # centre-to-centre spacing
+        Y_little_extra = 0.20
+
+
+        if self.num_pillars is None or self.pillar_half is None:
+            return [], [], []                      # “small_empty” scene
+
+        rng = np.random.default_rng()
+
+        # --- decide how many pillars are *in play* this episode -------------
+        n_active = rng.integers(1, self.num_pillars + 1)
+
+        active_centres = []
+        tries = 0
+        while len(active_centres) < n_active and tries < 50_000:
+            tries += 1
+            cx = rng.uniform(0.60, self.room_width  - 0.60)
+            cy = rng.uniform(0.60, self.room_length - 0.60)
+
+            # pillar corners for clearance checks
+            hx, hy, _ = self.pillar_half
+            corners = [(cx-hx, cy-hy), (cx+hx, cy-hy),
+                    (cx+hx, cy+hy), (cx-hx, cy+hy)]
+
+            if not all(inside_poly(x, y, self.clearance_poly) for x, y in corners):
+                continue
+            if any(np.hypot(cx-px, cy-py) < 2*hx + 0.30 for px, py in active_centres):
+                continue
+
+            active_centres.append((cx, cy))
+
+        # parked (inactive) pillars – laid out in a neat row on the stand-by plane
+        parked_centres = [
+            (STANDBY_X, Y_little_extra+ k * STANDBY_STEP)                # (cx, cy)
+            for k in range(self.num_pillars - n_active)
+        ]
+
+        # keep-outs only for active pillars
+        keep_out_active = [[(cx-hx, cy-hy), (cx+hx, cy-hy),
+                            (cx+hx, cy+hy), (cx-hx, cy+hy)]
+                        for cx, cy in active_centres]
+
+        return active_centres, parked_centres, keep_out_active
 
     def reset_model(self):
         """
@@ -619,10 +674,26 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
         positions = []
 
         # pillars
-        pillar_centres, pillar_keepouts = self._sample_pillar_centres()
-        self.initialization_keepouts = pillar_keepouts
+        active, parked, keep_outs = self._sample_pillar_centres()
+        self.initialization_keepouts = keep_outs
         self.observation_init= False
+
+        # ─── place every pillar (active + parked) ──────────────────────────────────────
+        all_centres = active + parked                           # length == self.num_pillars
+        for k, (cx, cy) in enumerate(all_centres):
+            prefix = "small_col" if "small" in self.cfg.env.obstacle_config else "large_col"
+            name   = f"{prefix}{k}"
+
+            j_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_JOINT, f"{name}_joint")
+            if j_id == -1:
+                continue                                         # safety guard
+
+            adr = self.model.jnt_qposadr[j_id]
+            self.data.qpos[adr:adr+3]   = [cx, cy, self.pillar_half[2]]   # z unchanged
+            self.data.qpos[adr+3:adr+7] = [1, 0, 0, 0]                    # zero yaw
+            self.data.qvel[adr:adr+6]   = 0
         
+        """
         # teleport each pillar body to its new random centre
         for k, (cx, cy) in enumerate(pillar_centres):
             prefix = "small_col" if "small" in self.cfg.env.obstacle_config else "large_col"
@@ -635,7 +706,7 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
                 adr = self.model.jnt_qposadr[j_id]
                 self.data.qpos[adr:adr+3]   = [cx, cy, self.pillar_half[2]]
                 self.data.qpos[adr+3:adr+7] = [1, 0, 0, 0]     # zero yaw
-                self.data.qvel[adr:adr+6]   = 0
+                self.data.qvel[adr:adr+6]   = 0"""
 
         def is_valid(pos, radius):
             # unpack immediately
