@@ -101,15 +101,17 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
         if env_size.strip()=="small_columns":
             self.num_pillars = self.cfg.small_pillars.num_pillars
             self.pillar_half = self.cfg.small_pillars.pillar_half
+            self.adjust_no_pillars= self.cfg.small_pillars.adjust_no_pillars
         elif env_size.strip()=="large_columns":
             self.num_pillars = self.cfg.large_pillars.num_pillars
             self.pillar_half = self.cfg.large_pillars.pillar_half
+            self.adjust_no_pillars= self.cfg.large_pillars.adjust_no_pillars
 
         # generate random environmnt
         xml_file = os.path.join(self.current_dir, 'turtlebot3_burger_updated.xml')
         _, self.initialization_keepouts, self.clearance_poly = generate_boxDelivery_xml (N=self.cfg.boxes.num_boxes, env_type=self.cfg.env.obstacle_config, file_name=xml_file,
                         ROBOT_clear=self.cfg.agent.robot_clear, CLEAR=self.cfg.boxes.clearance, goal_half= self.receptacle_size, goal_center= self.receptacle_position, Z_CUBE=0.02, ARENA_X=(0.0, self.room_width), 
-                        ARENA_Y=(0.0, self.room_length), cube_half_size=0.04, num_pillars=self.num_pillars, pillar_half=self.pillar_half)
+                        ARENA_Y=(0.0, self.room_length), cube_half_size=0.04, num_pillars=self.num_pillars, pillar_half=self.pillar_half, adjust_no_pillars=self.adjust_no_pillars)
         
         utils.EzPickle.__init__(
             self,
@@ -431,7 +433,6 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
         # Converting the value as in 1 for obstacle and 0 for free space
         self.small_obstacle_map = 1 - small_obstacle_map
 
-
     def update_global_overhead_map(self,Robot_vertices, Boxes_vertices):
         """Updates the global overhead map with the current robot and boundaries."""
 
@@ -605,11 +606,6 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
                         (cx+hx, cy+hy), (cx-hx, cy+hy)] for cx, cy in centres]
         return centres, keep_out
 
-    def _get_obs(self):
-
-        observation = np.zeros((100, 100)).astype(np.uint8)
-        return observation
-
 
     def reset_model(self):
         """
@@ -624,7 +620,8 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
 
         # pillars
         pillar_centres, pillar_keepouts = self._sample_pillar_centres()
-        self.initialization_keepouts = pillar_keepouts        # for c-space
+        self.initialization_keepouts = pillar_keepouts
+        self.observation_init= False
         
         # teleport each pillar body to its new random centre
         for k, (cx, cy) in enumerate(pillar_centres):
@@ -697,7 +694,10 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
             self.data.qpos[qadr+3:qadr+7] = quat_z(theta)
             self.data.qvel[qadr:qadr+6] = 0
 
-        observation = self._get_obs()
+        observation=self.generate_observation()
+
+        self.save_local_map(observation, "snapshots/step_023.png")
+
         return observation
 
 

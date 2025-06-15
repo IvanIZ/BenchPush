@@ -276,9 +276,19 @@ def sample_scene(n_cubes, keep_out,ROBOT_R,CLEAR,ARENA_X,ARENA_Y, clearance_poly
     return robot_qpos, cubes
 
 
-def build_xml(robot_qpos, cubes, stl_model_path,extra_xml,Z_CUBE, cube_size, ARENA_X1, ARENA_Y1, goal_half, goal_center):
+def build_xml(robot_qpos, cubes, stl_model_path,extra_xml,Z_CUBE, cube_size, ARENA_X1, ARENA_Y1, goal_half, goal_center, adjust_no_pillars):
     """Building data for a different file"""
     goal_center=[(ARENA_X1/2)+goal_center[0], (ARENA_Y1/2)+ goal_center[1]]
+
+    if adjust_no_pillars is True: 
+      adjust_pillar_plane= f"""
+    <!-- Pillar plane -->
+    <body pos="-0.4 {ARENA_Y1/2} 0">
+      <geom type="box" size="0.4 {ARENA_Y1/2} 0.01" friction="0.5 0.05 0.0001"/>
+    </body>
+"""
+    else:
+      adjust_pillar_plane = ""
     header = f"""
 <mujoco model="box_delivery_structured_env">
   <compiler angle="radian" autolimits="true" meshdir="{stl_model_path}"/>
@@ -441,7 +451,7 @@ def build_xml(robot_qpos, cubes, stl_model_path,extra_xml,Z_CUBE, cube_size, ARE
   </actuator>
 </mujoco>
 """
-    return header + cube_xml + extra_xml + footer
+    return header + cube_xml + extra_xml +adjust_pillar_plane+ footer
 
 def clearance_poly_generator(ARENA_X, ARENA_Y):
     """ Returns a polygon within which all items must be placed, with a clearance"""
@@ -454,7 +464,7 @@ def clearance_poly_generator(ARENA_X, ARENA_Y):
         ]
 
 def generate_boxDelivery_xml(N,env_type,file_name,ROBOT_clear,CLEAR,Z_CUBE,ARENA_X,ARENA_Y,
-                  cube_half_size, goal_half, goal_center,num_pillars, pillar_half ):
+                  cube_half_size, goal_half, goal_center,num_pillars, pillar_half, adjust_no_pillars):
     
     # Name of input and output file otherwise set to default
     XML_OUT = Path(file_name)
@@ -471,7 +481,7 @@ def generate_boxDelivery_xml(N,env_type,file_name,ROBOT_clear,CLEAR,Z_CUBE,ARENA
     robot_qpos, cubes = sample_scene(N,keep_out,ROBOT_clear,CLEAR,ARENA_X,ARENA_Y, clearance_poly)
   
     # Building new environemnt and writing it down
-    xml_string = build_xml(robot_qpos, cubes,stl_model_path,extra_xml,Z_CUBE, cube_size,ARENA_X[1],ARENA_Y[1], goal_half, goal_center)
+    xml_string = build_xml(robot_qpos, cubes,stl_model_path,extra_xml,Z_CUBE, cube_size,ARENA_X[1],ARENA_Y[1], goal_half, goal_center, adjust_no_pillars)
     XML_OUT.write_text(xml_string)
     
     return XML_OUT, keep_out, clearance_poly
