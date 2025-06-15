@@ -41,7 +41,7 @@ env:
   receptacle_size: 0.15
 
 small_pillars:
-  num_pillars: 2
+  num_pillars: 6
   adjust_no_pillars: True # if true, number of pillars would be randomized after each reset to be between 1 and num_pillars
   pillar_half: [0.02, 0.02, 0.20]
 
@@ -50,10 +50,10 @@ large_pillars:
   adjust_no_pillars: True
   pillar_half: [0.16, 0.16, 0.10]
 
+# NOT WORKING YET
 large_divider:
   divider_half: 0
   divider_height: 0
-  
 
 agent:
   action_type: 'position' # options are velocity, heading, position
