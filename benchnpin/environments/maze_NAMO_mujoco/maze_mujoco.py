@@ -5,8 +5,8 @@ from matplotlib import pyplot as plt
 
 from benchnpin.common.utils.utils import DotDict
 from benchnpin.common.occupancy_grid.occupancy_map_mujoco import OccupancyGrid
-from benchnpin.environments.maze_NAMO_mujoco.maze_utils import generate_maze_xml, intersects_keepout
-from benchnpin.common.utils.mujoco_utils import vw_to_wheels, quat_z, inside_poly, get_body_pose_2d, get_box_2d_vertices, quat_z_yaw, corners_xy
+from benchnpin.environments.maze_NAMO_mujoco.maze_utils import generate_maze_xml, intersects_keepout, total_work_done
+from benchnpin.common.utils.mujoco_utils import vw_to_wheels, quat_z, inside_poly, get_body_pose_2d, get_box_2d_vertices, quat_z_yaw, corners_xy, wall_collision, get_box_2d_area
 
 from gymnasium import utils
 from gymnasium.envs.mujoco import MujocoEnv
@@ -21,6 +21,8 @@ except ImportError as e:
         'MuJoCo is not installed, run `pip install "gymnasium[mujoco]"`'
     ) from e
 
+BOUNDARY_PENALTY = -50
+TERMINAL_REWARD = 200
 
 DEFAULT_CAMERA_CONFIG = {
     "distance": 4.0,
@@ -161,6 +163,13 @@ class MazeNAMOMujoco(MujocoEnv, utils.EzPickle):
 
         self.con_fig, self.con_ax = plt.subplots(figsize=(10, 10))
 
+        # get box area list
+        self.areas = []
+        for i in range(self.cfg.boxes.num_boxes):
+            body_name = "cube" + str(i)
+            self.areas.append(get_box_2d_area(self.model, self.data, body_name))
+        self.prev_obs_positions = None
+
 
     def step(self, action):
         self.t += 1
@@ -179,17 +188,57 @@ class MazeNAMOMujoco(MujocoEnv, utils.EzPickle):
         # truncation=False as the time limit is handled by the `TimeLimit` wrapper added during `make`
 
         # get observation
-        observation = self.generate_observation()
-
+        obs_vertices, obs_positions = self.get_current_boxes()
+        observation = self.generate_observation(obs_vertices)
         if self.cfg.log_obs:
             self.log_observation(observation)
 
-        reward = 0
+        # check for collision
+        collide_wall = wall_collision(self.data, self.model)
+
+        # get updated obstacles and compute work done
+        work = total_work_done(self.prev_obs_positions, obs_positions, self.areas)
+        self.total_work[0] += work
+        self.total_work[1].append(work)
+        self.prev_obs_positions = obs_positions
+
+        # check episode terminal condition
+        if self.goal_is_reached() or collide_wall:
+            terminated = True
+        else:
+            terminated = False
+
+        # compute reward
+        if not self.goal_is_reached():
+            dist_value = self.get_distance_value()
+
+            if self.prev_dist_value is None:
+                dist_increment_reward = 0
+            else:
+                dist_increment_reward = (self.prev_dist_value - dist_value) * self.k_increment
+            self.prev_dist_value = dist_value
+        else:
+            dist_increment_reward = 0
+        collision_reward = -work
+
+        reward = self.beta * collision_reward + dist_increment_reward
+        
+        # apply constraint penalty
+        if collide_wall:
+            reward += BOUNDARY_PENALTY
+
+        # apply terminal reward
+        trial_success = False
+        if terminated and not collide_wall:
+            reward += TERMINAL_REWARD
+            trial_success = True
+
+
         info = {}
-        return observation, reward, False, False, info
+        return observation, reward, terminated, False, info
 
 
-    def generate_observation(self):
+    def generate_observation(self, obs_vertices):
 
         # get robot state
         robot_pose = get_body_pose_2d(self.model, self.data, body_name='base')
@@ -200,16 +249,31 @@ class MazeNAMOMujoco(MujocoEnv, utils.EzPickle):
                                 [ robot_half[0], -robot_half[1]],
                                 [ robot_half[0],  robot_half[1]],
                                 [-robot_half[0],  robot_half[1]]])
-
-        obstacles = self.get_box_vertices()
         
         robot_footprint_local , movable_obstacles_local, wall_local, distance_map_local = self.occupancy.ego_view_map_maze(robot_pose, 
-                                                                local_robot_vertices, obstacles, self.maze_walls, self.global_distance_map)
+                                                                local_robot_vertices, obs_vertices, self.maze_walls, self.global_distance_map)
         observation = np.concatenate((np.array([robot_footprint_local]), 
                                       np.array([movable_obstacles_local]), np.array([wall_local]), np.array([distance_map_local])))  # (5, local H, local W)
         #for resnet input
         observation = (observation*255).astype(np.uint8)
         return observation
+
+
+    def goal_is_reached(self):
+        #check if the goal is within the robot's dimensions
+        robot_x, robot_y, _ = get_body_pose_2d(self.model, self.data, body_name='base')
+        goal_dist = ((robot_x - self.cfg.env.goal_position[0])**2 + (robot_y - self.cfg.env.goal_position[1])**2)**(0.5)
+        if goal_dist <= self.cfg.env.goal_size + self.cfg.agent.robot_r:
+            return True
+        else:
+            return False
+
+
+    def get_distance_value(self):
+        robot_pose = get_body_pose_2d(self.model, self.data, body_name='base')
+        robot_pixel_x = int(robot_pose[0] * self.cfg.occ.m_to_pix_scale) 
+        robot_pixel_y = int(robot_pose[1] * self.cfg.occ.m_to_pix_scale)
+        return self.global_distance_map[robot_pixel_y, robot_pixel_x]
 
     
     def log_observation(self, observation):
@@ -270,13 +334,15 @@ class MazeNAMOMujoco(MujocoEnv, utils.EzPickle):
         self.con_fig.savefig(fp, bbox_inches='tight', transparent=False, pad_inches=0)
 
     
-    def get_box_vertices(self):
-        obstacles = []
+    def get_current_boxes(self):
+        obs_verts = []
+        obs_pos = []
         for i in range(self.cfg.boxes.num_boxes):
             body_name = "cube" + str(i)
-            vertices = get_box_2d_vertices(self.model, self.data, body_name)
-            obstacles.append(vertices)
-        return np.array(obstacles)
+            vertices, pos = get_box_2d_vertices(self.model, self.data, body_name)
+            obs_verts.append(vertices)
+            obs_pos.append(pos)
+        return np.array(obs_verts), np.array(obs_pos)
 
 
     def get_robot_vertices(self):
@@ -304,8 +370,8 @@ class MazeNAMOMujoco(MujocoEnv, utils.EzPickle):
 
 
     def _get_obs(self):
-
-        observation = self.generate_observation()
+        obs_vertices, _ = self.get_current_boxes()
+        observation = self.generate_observation(obs_vertices)
         return observation
 
 
@@ -325,7 +391,11 @@ class MazeNAMOMujoco(MujocoEnv, utils.EzPickle):
         else:
             self.episode_idx += 1
         self.t = 0
+        self.prev_dist_value = None
 
+        # keep track of running total of work
+        self.total_work = [0, []]
+        
         positions = []
 
         def is_valid(pos, radius):
@@ -385,6 +455,10 @@ class MazeNAMOMujoco(MujocoEnv, utils.EzPickle):
             self.data.qpos[qadr:qadr+2] = np.array([x, y])
             self.data.qpos[qadr+3:qadr+7] = quat_z(theta)
             self.data.qvel[qadr:qadr+6] = 0
+
+        
+        # get box position
+        _, self.prev_obs_positions = self.get_current_boxes()
 
         observation = self._get_obs()
         return observation

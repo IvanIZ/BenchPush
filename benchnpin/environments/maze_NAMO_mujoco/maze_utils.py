@@ -28,7 +28,7 @@ def changing_per_configuration(maze_version, maze_width, maze_len):
     <!-- pillar {name} -->
     <body name="{name}" pos="{cx:.3f} {cy:.3f} {zh:.3f}">
       <joint name="{name}_joint" type="free"/>
-      <geom type="box" size="{xh:.3f} {yh:.3f} {zh:.3f}" mass="{heavy_mass:.1f}" 
+      <geom name="{name}" type="box" size="{xh:.3f} {yh:.3f} {zh:.3f}" mass="{heavy_mass:.1f}" 
       rgba="0.4 0.4 0.4 1" contype="1" conaffinity="1"/>
     </body>
 """
@@ -48,7 +48,7 @@ def changing_per_configuration(maze_version, maze_width, maze_len):
       wall_y = maze_len * (1/3)
       wall_width = 0.025
       wall_len = maze_len * (1/3)
-      xml, poly = wall("u_shape_wall", wall_x, wall_y, (wall_width, wall_len, 0.1))
+      xml, poly = wall("wall_u_shape", wall_x, wall_y, (wall_width, wall_len, 0.1))
       extra_xml += xml
       keep_out.append(poly)
 
@@ -59,7 +59,7 @@ def changing_per_configuration(maze_version, maze_width, maze_len):
       wall1_y = maze_len * (1/3)
       wall1_width = 0.025
       wall1_len = maze_len * (1/3)
-      xml, poly = wall("u_shape_wall1", wall1_x, wall1_y, (wall1_width, wall1_len, 0.1))
+      xml, poly = wall("wall_z_shape1", wall1_x, wall1_y, (wall1_width, wall1_len, 0.1))
       extra_xml += xml
       keep_out.append(poly)
 
@@ -67,7 +67,7 @@ def changing_per_configuration(maze_version, maze_width, maze_len):
       wall2_y = maze_len * (2/3)
       wall2_width = 0.025
       wall2_len = maze_len * (1/3)
-      xml, poly = wall("u_shape_wall2", wall2_x, wall2_y, (wall2_width, wall2_len, 0.1))
+      xml, poly = wall("wall_z_shape2", wall2_x, wall2_y, (wall2_width, wall2_len, 0.1))
       extra_xml += xml
       keep_out.append(poly)
 
@@ -174,23 +174,23 @@ def build_xml(robot_qpos, cubes, stl_model_path,extra_xml,Z_CUBE, cube_size, maz
       friction="0.5 0.05 0.0001"/>
       
     <!-- X-walls: left and right sides -->
-    <geom type="box"
+    <geom name="wall_left" type="box"
       pos="0 {maze_len/2} 0.15"
       size="0.01 {maze_len/2} 0.15"
       rgba="1 1 1 0.1"/>
 
-    <geom type="box"
+    <geom name="wall_right" type="box"
       pos="{maze_width} {maze_len/2} 0.15"
       size="0.01 {maze_len/2} 0.15"
       rgba="1 1 1 0.1"/>
 
     <!-- Y-walls: bottom and top -->
-    <geom type="box"
+    <geom name="wall_bottom" type="box"
       pos="{maze_width/2} 0 0.15"
       size="{maze_width/2} 0.01 0.15"
       rgba="1 1 1 0.1"/>
 
-    <geom type="box"
+    <geom name="wall_top" type="box"
       pos="{maze_width/2} {maze_len} 0.15"
       size="{maze_width/2} 0.01 0.15"
       rgba="1 1 1 0.1"/>
@@ -199,26 +199,26 @@ def build_xml(robot_qpos, cubes, stl_model_path,extra_xml,Z_CUBE, cube_size, maz
     <body name="base" pos="{robot_qpos}" euler="0 0 3.141592653589793">
       <joint type="free" name="base_joint"/>
       <!-- chassis -->
-      <geom pos="-0.032 0 0.01" type="mesh" rgba="{robot_rgb[0]} {robot_rgb[1]} {robot_rgb[2]} 1" mesh="burger_base" friction="0.1 0.02 0.0001" mass="0.8"/>
+      <geom name="robot_chassis" pos="-0.032 0 0.01" type="mesh" rgba="{robot_rgb[0]} {robot_rgb[1]} {robot_rgb[2]} 1" mesh="burger_base" friction="0.1 0.02 0.0001" mass="0.8"/>
       <!-- small box sensor -->
-      <geom size="0.015 0.0045 0.01" pos="-0.081 7.96327e-07 0.005" quat="0.707388 -0.706825 0 0" type="box" rgba="{robot_rgb[0]} {robot_rgb[1]} {robot_rgb[2]} 1" mass="0.05"/>
+      <geom name="robot_sensor" size="0.015 0.0045 0.01" pos="-0.081 7.96327e-07 0.005" quat="0.707388 -0.706825 0 0" type="box" rgba="{robot_rgb[0]} {robot_rgb[1]} {robot_rgb[2]} 1" mass="0.05"/>
       <!-- LDS sensor -->
-      <geom pos="-0.032 0 0.182" quat="1 0 0 0" type="mesh" rgba="{robot_rgb[0]} {robot_rgb[1]} {robot_rgb[2]} 1" mesh="lds" mass="0.131"/>
+      <geom name="robot_LDS" pos="-0.032 0 0.182" quat="1 0 0 0" type="mesh" rgba="{robot_rgb[0]} {robot_rgb[1]} {robot_rgb[2]} 1" mesh="lds" mass="0.131"/>
       <!-- Bumper -->
-      <geom pos="-0.04 -0.09 0.01" quat="1 0 0 0" type="mesh" rgba="0.3 0.13 0.08 1" mesh="bumper" mass="0.100"/>
+      <geom name="robot_bumper" pos="-0.04 -0.09 0.01" quat="1 0 0 0" type="mesh" rgba="0.3 0.13 0.08 1" mesh="bumper" mass="0.100"/>
       
       <!-- Left wheel -->
       <body name="wheel_left_link" pos="0 0.08 0.033" quat="0.707388 -0.706825 0 0">
         <inertial pos="0 0 0" quat="-0.000890159 0.706886 0.000889646 0.707326" mass="0.0284989" diaginertia="2.07126e-05 1.11924e-05 1.11756e-05"/>
         <joint name="wheel_left_joint" pos="0 0 0" axis="0 0 1"/>
-        <geom quat="0.707388 0.706825 0 0" type="mesh" rgba="{robot_rgb[0]+0.1} {robot_rgb[1]+0.1} {robot_rgb[2]+0.1} 1" mesh="left_tire" friction="1.2 0.01 0.001"/>
+        <geom name="robot_wheel_l" quat="0.707388 0.706825 0 0" type="mesh" rgba="{robot_rgb[0]+0.1} {robot_rgb[1]+0.1} {robot_rgb[2]+0.1} 1" mesh="left_tire" friction="1.2 0.01 0.001"/>
       </body>
       
       <!-- Right wheel -->
       <body name="wheel_right_link" pos="0 -0.08 0.033" quat="0.707388 -0.706825 0 0">
         <inertial pos="0 0 0" quat="-0.000890159 0.706886 0.000889646 0.707326" mass="0.0284989" diaginertia="2.07126e-05 1.11924e-05 1.11756e-05"/>
         <joint name="wheel_right_joint" pos="0 0 0" axis="0 0 1"/>
-        <geom quat="0.707388 0.706825 0 0" type="mesh" rgba="{robot_rgb[0]+0.1} {robot_rgb[1]+0.1} {robot_rgb[2]+0.1} 1" mesh="right_tire" friction="1.2 0.01 0.001"/>
+        <geom name="robot_wheel_r" quat="0.707388 0.706825 0 0" type="mesh" rgba="{robot_rgb[0]+0.1} {robot_rgb[1]+0.1} {robot_rgb[2]+0.1} 1" mesh="right_tire" friction="1.2 0.01 0.001"/>
       </body>
     </body>
       
@@ -285,44 +285,17 @@ def generate_maze_xml(N, maze_version, file_name,ROBOT_R,CLEAR,Z_CUBE,ARENA_X,AR
     return XML_OUT, np.array(walls)
 
 
-def transporting(model, data, joint_id_boxes):
-    """Teleport a cube only if all its vertices are inside the goal box."""
-    
-    # half-edge of your cube
-    HSIZE = 0.03
-    # local corner coordinates
-    corners_local_coordinates = np.array([
-        [-HSIZE, -HSIZE],
-        [ HSIZE, -HSIZE],
-        [ HSIZE,  HSIZE],
-        [-HSIZE,  HSIZE]
-    ])
-    
-    GOAL_CENTRE = np.array([0.15, 2.695])
-    GOAL_HALF   = np.array([0.15, 0.15])
-    DROP_POS    = np.array([0.05, 2.915, 1.0])
-    
-    xmin, xmax = GOAL_CENTRE[0] - GOAL_HALF[0], GOAL_CENTRE[0] + GOAL_HALF[0]
-    ymin, ymax = GOAL_CENTRE[1] - GOAL_HALF[1], GOAL_CENTRE[1] + GOAL_HALF[1]
+def total_work_done(prev_obstacles, curr_obstacles, obs_area):
+  """
+  Compute the total approximated work done
+  """
+  work = 0
 
-    for jid in joint_id_boxes[:]:
-        qadr = model.jnt_qposadr[jid]
+  for ob_a, ob_b, area in zip(prev_obstacles, curr_obstacles, obs_area):
+    prev_x, prev_y = ob_a
+    curr_x, curr_y = ob_b
 
-        # joint centre (x,y) and quaternion
-        centre_xy = data.qpos[qadr : qadr+2]
-        qw, qx, qy, qz = data.qpos[qadr+3 : qadr+7]
+    dist = ((prev_x - curr_x)**2 + (prev_y - curr_y)**2)**(0.5)
+    work += dist * area
 
-        # yaw from quaternion
-        yaw = quat_z_yaw(qw, qx, qy, qz)
-
-        # world vertices
-        verts = corners_xy(centre_xy, yaw,corners_local_coordinates)
-
-        # containment test – every vertex must satisfy the four inequalities
-        inside = np.all((xmin <= verts[:,0]) & (verts[:,0] <= xmax) &
-                        (ymin <= verts[:,1]) & (verts[:,1] <= ymax))
-
-        if inside:
-            data.qpos[qadr:qadr+3] = DROP_POS
-            joint_id_boxes.remove(jid)
-            name = model.names[jid]
+  return work

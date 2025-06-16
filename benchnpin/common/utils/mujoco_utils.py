@@ -126,7 +126,7 @@ def get_body_pose_2d(model, data, body_name):
 
 def get_box_2d_vertices(model, data, body_name):
         """
-        Get the vertices in world coordinate of a box geometry
+        Get the vertices and position in world coordinate of a box geometry
         NOTE this function assumes that the body only has one geometry. Suitable for checking cubes and ice floes
         """
         body_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, body_name)
@@ -168,7 +168,32 @@ def get_box_2d_vertices(model, data, body_name):
 
         # Rotate and translate to world frame
         corners_world = corners_local @ R.T + pos
-        return corners_world  # shape (4, 2)
+        return corners_world, pos  # shape (4, 2), (2, )
+
+
+def get_box_2d_area(model, data, body_name):
+    """
+    Get the vertices in world coordinate of a box geometry
+    NOTE this function assumes that the body only has one geometry. Suitable for checking cubes and ice floes
+    """
+    body_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, body_name)
+
+    # World position of the box (x, y)
+    pos = data.xpos[body_id][:2]  # take only x, y
+
+    # Find the first box geom belonging to this body
+    geom_id = None
+    for i in range(model.ngeom):
+        if model.geom_bodyid[i] == body_id and model.geom_type[i] == mujoco.mjtGeom.mjGEOM_BOX:
+            geom_id = i
+            break
+    if geom_id is None:
+        raise ValueError(f"No box geom found for body '{body_name}'")
+
+    # Extract box half-sizes
+    w, h = model.geom_size[geom_id][:2]  # use x, y half-lengths
+
+    return (2 * w) * (h * 2)
 
 
 def polygon_from_vertices(vertices_2d) -> sg.Polygon:
@@ -195,3 +220,24 @@ def extrude_and_export(poly: sg.Polygon,
 
     # Binary STL; overwrite if it exists
     mesh.export(filename)
+
+
+def wall_collision(data, model):
+    """
+    Check if the robot collides with a wall
+    NOTE: assume all robot geoms names start with "robot", and all wall geoms names start with "wall"
+    """
+            
+    for i in range(data.ncon):
+        c = data.contact[i]
+        g1, g2 = c.geom1, c.geom2
+
+        # Get geom names from name buffer
+        name1 = model.geom(g1).name
+        name2 = model.geom(g2).name
+
+        if (name1.startswith("robot") and name2.startswith("wall")) or \
+                (name2.startswith("robot") and name1.startswith("wall")):
+                print("wall collide!!")
+                return True
+    return False
