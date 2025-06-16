@@ -32,6 +32,13 @@ register(
 
 
 register(
+     id="maze-NAMO-mujoco-v0",
+     entry_point="benchnpin.environments.maze_NAMO_mujoco:MazeNAMOMujoco",
+     max_episode_steps=400,
+)
+
+
+register(
      id="area-clearing-v0",
      entry_point="benchnpin.environments.area_clearing:AreaClearingEnv",
      max_episode_steps=30000,

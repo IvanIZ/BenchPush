@@ -1,0 +1,60 @@
+occ:     # occupancy map grid size
+  m_to_pix_scale: 160   # number of pixels per meter when generating the raw occupancy map
+  local_width: 1.2      # local moving window width (in meter)
+  local_height: 1.2     # local moving window height (in meter)
+
+boxes:
+  num_boxes: 10
+  clearance: 0.2
+
+low_dim_state: false
+
+output_dir: "logs/"   # 'output/trial0'
+log_obs: false      # whether to log observations for debugging purpose
+
+### ENVIRONMENT PARAMS
+maze_version: 1           # maze versions 1 and 2 are available
+
+env1:
+  length: 2.845
+  width: 1.575
+  receptacle_width: 1.5
+  shortest_path_channel_scale: 0.25
+  local_map_pixel_width: 224
+  local_map_pixel_width_sam: 96
+  local_map_width: 10 # 10 meters
+  wall_thickness: 14
+  invert_receptacle_map: false
+  clearance_poly: [
+      [0.315, 0.0], [1.26, 0.0],
+      [1.575, 0.315], [1.575, 2.53],
+      [1.26, 2.845], [0.3, 2.845],
+      [0.3, 2.545], [0.0, 2.545],
+      [0.0, 0.315]
+  ]
+  goal_position: [0.394, 0.394]
+  goal_size: 0.15
+
+env2:
+  length: 2.845
+  width: 2.5
+  receptacle_width: 1.5
+  shortest_path_channel_scale: 0.25
+  local_map_pixel_width: 224
+  local_map_pixel_width_sam: 96
+  local_map_width: 10 # 10 meters
+  wall_thickness: 14
+  invert_receptacle_map: false
+  clearance_poly: [
+      [0.315, 0.0], [1.26, 0.0],
+      [1.575, 0.315], [1.575, 2.53],
+      [1.26, 2.845], [0.3, 2.845],
+      [0.3, 2.545], [0.0, 2.545],
+      [0.0, 0.315]
+  ]
+  goal_position: [0.394, 0.394]
+  goal_size: 0.15
+
+agent:
+  action_type: 'position' # options are velocity, heading, position
+  robot_r: 0.15           # robot radius in meter
