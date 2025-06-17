@@ -280,8 +280,9 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
 
             if self.render_mode == "human" and step_count % 10 == 0:
                 self.render()
-
-            if self.robot_hits_static():
+            
+            collision_occurance=self.robot_hits_static()
+            if collision_occurance:
                 self.collision= True
             
             tries+=1
@@ -807,66 +808,31 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
         return motion_dict, cubes_total_distance
 
     # contacts
-    def robot_hits_static(self) -> bool:
+    def robot_hits_static(self):
         """
-        Returns True iff *any* MuJoCo contact for this step is between a
-        robot geom (name starts with "robot") and a static-obstacle geom
-        whose name starts with one of:
-            "wall", "small_col", "large_col", "corner"
         """
 
-        ROBOT_PREFIX    = ""
-        STATIC_PREFIXES = ("Wall", "Corner", "small_col", "large_col")
+        ROBOT_PREFIX    = "base"
+        STATIC_PREFIXES = ("wall", "small_col", "large_col", "corner")
 
         for k in range(self.data.ncon):
-            c          = self.data.contact[k]
-            g1, g2     = c.geom1, c.geom2
+            c   = self.data.contact[k]
+            g1, g2 = c.geom1, c.geom2
+
             n1 = mujoco.mj_id2name(self.model, mujoco.mjtObj.mjOBJ_GEOM, g1)
             n2 = mujoco.mj_id2name(self.model, mujoco.mjtObj.mjOBJ_GEOM, g2)
-            # unnamed geoms come back as None
+
+            # skip any unnamed geoms
             if not n1 or not n2:
                 continue
-            if (n1.startswith(ROBOT_PREFIX) and n2.startswith(STATIC_PREFIXES)) \
-            or (n2.startswith(ROBOT_PREFIX) and n1.startswith(STATIC_PREFIXES)):
+
+            # check robot vs any static prefix
+            hit1 = ROBOT_PREFIX in n1.lower() and any(pref in n2.lower() for pref in STATIC_PREFIXES)
+            hit2 = ROBOT_PREFIX in n2.lower() and any(pref in n1.lower() for pref in STATIC_PREFIXES)
+
+            if hit1 or hit2:
                 return True
         return False
-
-    
-    """
-    def robot_hits_static(self) -> bool:
-        True iff any vertex of the robot body lies inside ANY wall/column/corner
-        polygon in self.excluded_polygons.
-
-        # sizes
-        # half-sizes, lightly inflated for a buffer
-        inflate     = 1.05                               # 5 % margin
-        half_len    = 0.5 * self.robot_info.length * inflate
-        half_wid    = 0.5 * self.robot_info.width  * inflate
-
-        # pose
-        # MuJoCo world arena-centred frame  (same frame used by static polygons)
-        cx, cy = self.data.qpos[self.qpos_index_base : self.qpos_index_base+2]
-        cx -= 0.5 * self.room_width
-        cy -= 0.5 * self.room_length
-
-        qw, qx, qy, qz = self.data.qpos[self.qpos_index_base+3 :
-                                        self.qpos_index_base+7]
-        yaw = quat_z_yaw(qw, qx, qy, qz)
-
-        # polygon
-        local = np.array([[-half_len, -half_wid],
-                        [ half_len, -half_wid],
-                        [ half_len,  half_wid],
-                        [-half_len,  half_wid]])
-        robot_poly = corners_xy(np.array([cx, cy]), yaw, local).tolist()
-
-        # test
-        static_polys = [poly for _, poly in self.excluded_polygons]
-
-        for vx, vy in robot_poly:
-            if any(inside_poly(vx, vy, poly) for poly in static_polys):
-                return True
-        return False"""
 
     def reset_model(self):
         """

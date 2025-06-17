@@ -322,26 +322,26 @@ def build_xml(robot_qpos, cubes, stl_model_path,extra_xml,Z_CUBE, cube_size, ARE
   
     <!-- Floor -->
     <body pos="{ARENA_X1/2} {ARENA_Y1/2} 0">
-      <geom type="box" size="{ARENA_X1/2} {ARENA_Y1/2} 0.01" friction="0.5 0.05 0.0001" contype="1" conaffinity="1"/>
+      <geom name="floor" type="box" size="{ARENA_X1/2} {ARENA_Y1/2} 0.01" friction="0.5 0.05 0.0001" contype="1" conaffinity="1"/>
     </body>
     
     <!-- Corner 1 -->
     <body name="corner_1" pos="0.0 0.0 0.05" quat="0 1 0 0">
-      <geom type="mesh" mesh="corner_full" rgba="0.0 0.3 1.0 1.0" contype="1" conaffinity="1"/>
+      <geom name="corner_1" type="mesh" mesh="corner_full" rgba="0.0 0.3 1.0 1.0" contype="1" conaffinity="1"/>
     </body>
     
     <!-- Corner 2 -->
     <body name="corner_2" pos="{ARENA_X1} 0.0 0.05" quat="0 1 1 0">
-      <geom type="mesh" mesh="corner_full" rgba="0.0 0.3 1.0 1.0" contype="1" conaffinity="1"/>
+      <geom name="corner_2" type="mesh" mesh="corner_full" rgba="0.0 0.3 1.0 1.0" contype="1" conaffinity="1"/>
     </body>
     
     <!-- Corner 3 -->
     <body name="corner_3" pos="{ARENA_X1} {ARENA_Y1} 0.05" quat="0 0 1 0">
-      <geom type="mesh" mesh="corner_full" rgba="0.0 0.3 1.0 1.0" contype="1" conaffinity="1"/>
+      <geom name="corner_3" type="mesh" mesh="corner_full" rgba="0.0 0.3 1.0 1.0" contype="1" conaffinity="1"/>
     </body>
     
     <!-- Marked area -->
-    <geom type="box"
+    <geom name="marked_area" type="box"
       pos="{goal_center[0]} {goal_center[1]} 0.01"
       size="{goal_half} {goal_half} 0.0005"
       rgba="0.5 1 0.5 1"
@@ -350,29 +350,29 @@ def build_xml(robot_qpos, cubes, stl_model_path,extra_xml,Z_CUBE, cube_size, ARE
       friction="0.5 0.05 0.0001"/>
     
     <!-- transporting area -->
-    <geom type="box"
+    <geom name="transporting_area" type="box"
       pos="0.05 {ARENA_Y1+0.07} 0.01"
       size="0.05 0.05 0.05"
       rgba="0.5 1 0.5 1"/>
     
     <!-- transporting area Y-walls-->
-    <geom type="box"
+    <geom name="transporting_wall_y1" type="box"
       pos="0.05 {ARENA_Y1+0.01} 1.0"
       size="0.05 0.01 1.0"
       rgba="1 1 1 0.1" contype="1" conaffinity="1"/>
       
-    <geom type="box"
+    <geom name="transporting_wall_y2" type="box"
       pos="0.05 {ARENA_Y1+0.12} 1.0"
       size="0.05 0.01 1.0"
       rgba="1 1 1 0.1" contype="1" conaffinity="1"/>
       
     <!-- transporting area X-walls-->
-    <geom type="box"
+    <geom name="transporting_wall_x1" type="box"
       pos="-0.01 {ARENA_Y1+0.07} 1.0"
       size="0.01 0.05 1.0"
       rgba="1 1 1 0.1" contype="1" conaffinity="1"/>
       
-    <geom type="box"
+    <geom name="transporting_wall_x2" type="box"
       pos="0.11 {ARENA_Y1+0.07} 1.0"
       size="0.01 0.05 1.0"
       rgba="1 1 1 0.1" contype="1" conaffinity="1"/>
@@ -403,13 +403,13 @@ def build_xml(robot_qpos, cubes, stl_model_path,extra_xml,Z_CUBE, cube_size, ARE
     <body name="base" pos="{robot_qpos}" euler="0 0 3.141592653589793">
       <joint type="free" name="base_joint"/>
       <!-- chassis -->
-      <geom pos="-0.032 0 0.01" type="mesh" rgba="{robot_rgb[0]} {robot_rgb[1]} {robot_rgb[2]} 1" mesh="burger_base" friction="0.1 0.02 0.0001" mass="0.8" contype="1" conaffinity="1"/>
+      <geom name="base_chasis" pos="-0.032 0 0.01" type="mesh" rgba="{robot_rgb[0]} {robot_rgb[1]} {robot_rgb[2]} 1" mesh="burger_base" friction="0.1 0.02 0.0001" mass="0.8" contype="1" conaffinity="1"/>
       <!-- small box sensor -->
-      <geom size="0.015 0.0045 0.01" pos="-0.081 7.96327e-07 0.005" quat="0.707388 -0.706825 0 0" type="box" rgba="{robot_rgb[0]} {robot_rgb[1]} {robot_rgb[2]} 1" mass="0.05" contype="1" conaffinity="1"/>
+      <geom name="base_sensor_1" size="0.015 0.0045 0.01" pos="-0.081 7.96327e-07 0.005" quat="0.707388 -0.706825 0 0" type="box" rgba="{robot_rgb[0]} {robot_rgb[1]} {robot_rgb[2]} 1" mass="0.05" contype="1" conaffinity="1"/>
       <!-- LDS sensor -->
-      <geom pos="-0.032 0 0.182" quat="1 0 0 0" type="mesh" rgba="{robot_rgb[0]} {robot_rgb[1]} {robot_rgb[2]} 1" mesh="lds" mass="0.131" contype="1" conaffinity="1"/>
+      <geom name="base_sensor_2" pos="-0.032 0 0.182" quat="1 0 0 0" type="mesh" rgba="{robot_rgb[0]} {robot_rgb[1]} {robot_rgb[2]} 1" mesh="lds" mass="0.131" contype="1" conaffinity="1"/>
       <!-- Bumper -->
-      <geom pos="-0.04 -0.09 0.01" quat="1 0 0 0" type="mesh" rgba="0.3 0.13 0.08 1" mesh="bumper" mass="0.100" contype="1" conaffinity="1"/>
+      <geom name="base_bumper" pos="-0.04 -0.09 0.01" quat="1 0 0 0" type="mesh" rgba="0.3 0.13 0.08 1" mesh="bumper" mass="0.100" contype="1" conaffinity="1"/>
       
       <!-- Left wheel -->
       <body name="wheel_left_link" pos="0 0.08 0.033" quat="0.707388 -0.706825 0 0">
