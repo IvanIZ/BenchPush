@@ -161,47 +161,47 @@ def changing_per_configuration(env_type: str, clearance_poly,
     keep_out  = []
 
     def generating_centers(n_pillars, half, clearance_poly, ARENA_X, ARENA_Y):
-            """
-            Generates n_pillars centres within the clearance polygon
-            and returns a list of centres.
-            """
-            centres = []
-            rng = np.random.default_rng()
-            attempts = 0
-            while len(centres) < n_pillars and attempts < 50000:
-                attempts += 1
-                
-                # This range is picked on clearance for robot and walls. Chosen the
-                # lowest value
-                cx = rng.uniform(0.600, ARENA_X[1]-0.600)
-                cy = rng.uniform(0.600, ARENA_Y[1]-0.600)
+      """
+      Generates n_pillars centres within the clearance polygon
+      and returns a list of centres.
+      """
+      centres = []
+      rng = np.random.default_rng()
+      attempts = 0
+      while len(centres) < n_pillars and attempts < 50000:
+        attempts += 1
+        
+        # This range is picked on clearance for robot and walls. Chosen the
+        # lowest value
+        cx = rng.uniform(0.600, ARENA_X[1]-0.600)
+        cy = rng.uniform(0.600, ARENA_Y[1]-0.600)
 
-                # test the 4 pillar corners
-                corners = [(cx-half[0], cy-half[1]),
-                           (cx+half[0], cy-half[1]),
-                           (cx+half[0], cy+half[1]),
-                           (cx-half[0], cy+half[1])]
-                if all(inside_poly(x, y, clearance_poly) for x, y in corners):
-                    
-                    clearance = 0.30
-                    diameter   = 2 * half[0]
-                    
-                    # Check for clearance to other pillars
-                    if all(np.hypot(cx - px, cy - py) >= diameter + clearance
-                           for px, py in centres):
-                        centres.append((cx, cy))                    
-            return centres
+        # test the 4 pillar corners
+        corners = [(cx-half[0], cy-half[1]),
+                    (cx+half[0], cy-half[1]),
+                    (cx+half[0], cy+half[1]),
+                    (cx-half[0], cy+half[1])]
+        if all(inside_poly(x, y, clearance_poly) for x, y in corners):
+            
+          clearance = 0.30
+          diameter   = 2 * half[0]
+          
+          # Check for clearance to other pillars
+          if all(np.hypot(cx - px, cy - py) >= diameter + clearance
+                  for px, py in centres):
+              centres.append((cx, cy))                    
+      return centres
 
     # small_columns
     if env_type == "small_columns":
 
-        # Random number of pillars between 1-4
-        centres=generating_centers(n_pillars, half, clearance_poly, ARENA_X, ARENA_Y)
+      # Random number of pillars between 1-4
+      centres=generating_centers(n_pillars, half, clearance_poly, ARENA_X, ARENA_Y)
 
-        for k, (cx, cy) in enumerate(centres):
-            xml, poly = pillar(f"small_col{k}", cx, cy, half)
-            extra_xml += xml
-            keep_out.append(poly)        
+      for k, (cx, cy) in enumerate(centres):
+        xml, poly = pillar(f"small_col{k}", cx, cy, half)
+        extra_xml += xml
+        keep_out.append(poly)        
 
     # large_columns
     elif env_type == "large_columns":
@@ -322,22 +322,22 @@ def build_xml(robot_qpos, cubes, stl_model_path,extra_xml,Z_CUBE, cube_size, ARE
   
     <!-- Floor -->
     <body pos="{ARENA_X1/2} {ARENA_Y1/2} 0">
-      <geom type="box" size="{ARENA_X1/2} {ARENA_Y1/2} 0.01" friction="0.5 0.05 0.0001"/>
+      <geom type="box" size="{ARENA_X1/2} {ARENA_Y1/2} 0.01" friction="0.5 0.05 0.0001" contype="1" conaffinity="1"/>
     </body>
     
     <!-- Corner 1 -->
     <body name="corner_1" pos="0.0 0.0 0.05" quat="0 1 0 0">
-      <geom type="mesh" mesh="corner_full" rgba="0.0 0.3 1.0 1.0"/>
+      <geom type="mesh" mesh="corner_full" rgba="0.0 0.3 1.0 1.0" contype="1" conaffinity="1"/>
     </body>
     
     <!-- Corner 2 -->
     <body name="corner_2" pos="{ARENA_X1} 0.0 0.05" quat="0 1 1 0">
-      <geom type="mesh" mesh="corner_full" rgba="0.0 0.3 1.0 1.0"/>
+      <geom type="mesh" mesh="corner_full" rgba="0.0 0.3 1.0 1.0" contype="1" conaffinity="1"/>
     </body>
     
     <!-- Corner 3 -->
     <body name="corner_3" pos="{ARENA_X1} {ARENA_Y1} 0.05" quat="0 0 1 0">
-      <geom type="mesh" mesh="corner_full" rgba="0.0 0.3 1.0 1.0"/>
+      <geom type="mesh" mesh="corner_full" rgba="0.0 0.3 1.0 1.0" contype="1" conaffinity="1"/>
     </body>
     
     <!-- Marked area -->
@@ -359,57 +359,57 @@ def build_xml(robot_qpos, cubes, stl_model_path,extra_xml,Z_CUBE, cube_size, ARE
     <geom type="box"
       pos="0.05 {ARENA_Y1+0.01} 1.0"
       size="0.05 0.01 1.0"
-      rgba="1 1 1 0.1"/>
+      rgba="1 1 1 0.1" contype="1" conaffinity="1"/>
       
     <geom type="box"
       pos="0.05 {ARENA_Y1+0.12} 1.0"
       size="0.05 0.01 1.0"
-      rgba="1 1 1 0.1"/>
+      rgba="1 1 1 0.1" contype="1" conaffinity="1"/>
       
     <!-- transporting area X-walls-->
     <geom type="box"
       pos="-0.01 {ARENA_Y1+0.07} 1.0"
       size="0.01 0.05 1.0"
-      rgba="1 1 1 0.1"/>
+      rgba="1 1 1 0.1" contype="1" conaffinity="1"/>
       
     <geom type="box"
       pos="0.11 {ARENA_Y1+0.07} 1.0"
       size="0.01 0.05 1.0"
-      rgba="1 1 1 0.1"/>
+      rgba="1 1 1 0.1" contype="1" conaffinity="1"/>
       
     <!-- X-walls: left and right sides -->
-    <geom type="box"
+    <geom name="Wall_X1" type="box"
       pos="-0.01 {ARENA_Y1/2} 0.15"
       size="0.01 {ARENA_Y1/2} 0.15"
-      rgba="1 1 1 0.1"/>
+      rgba="1 1 1 0.1" contype="1" conaffinity="1"/>
 
-    <geom type="box"
+    <geom name="Wall_X2" type="box"
       pos="{ARENA_X1+0.01} {ARENA_Y1/2} 0.15"
       size="0.01 {ARENA_Y1/2} 0.15"
-      rgba="1 1 1 0.1"/>
+      rgba="1 1 1 0.1" contype="1" conaffinity="1"/>
 
     <!-- Y-walls: bottom and top -->
-    <geom type="box"
+    <geom name="Wall_Y1" type="box"
       pos="{ARENA_X1/2} -0.01 0.15"
       size="{ARENA_X1/2} 0.01 0.15"
-      rgba="1 1 1 0.1"/>
+      rgba="1 1 1 0.1" contype="1" conaffinity="1"/>
 
-    <geom type="box"
+    <geom name="Wall_Y2" type="box"
       pos="{ARENA_X1/2} {ARENA_Y1+0.01} 0.15"
       size="{ARENA_X1/2} 0.01 0.15"
-      rgba="1 1 1 0.1"/>
+      rgba="1 1 1 0.1" contype="1" conaffinity="1"/>
     
      <!-- robot -->
     <body name="base" pos="{robot_qpos}" euler="0 0 3.141592653589793">
       <joint type="free" name="base_joint"/>
       <!-- chassis -->
-      <geom pos="-0.032 0 0.01" type="mesh" rgba="{robot_rgb[0]} {robot_rgb[1]} {robot_rgb[2]} 1" mesh="burger_base" friction="0.1 0.02 0.0001" mass="0.8"/>
+      <geom pos="-0.032 0 0.01" type="mesh" rgba="{robot_rgb[0]} {robot_rgb[1]} {robot_rgb[2]} 1" mesh="burger_base" friction="0.1 0.02 0.0001" mass="0.8" contype="1" conaffinity="1"/>
       <!-- small box sensor -->
-      <geom size="0.015 0.0045 0.01" pos="-0.081 7.96327e-07 0.005" quat="0.707388 -0.706825 0 0" type="box" rgba="{robot_rgb[0]} {robot_rgb[1]} {robot_rgb[2]} 1" mass="0.05"/>
+      <geom size="0.015 0.0045 0.01" pos="-0.081 7.96327e-07 0.005" quat="0.707388 -0.706825 0 0" type="box" rgba="{robot_rgb[0]} {robot_rgb[1]} {robot_rgb[2]} 1" mass="0.05" contype="1" conaffinity="1"/>
       <!-- LDS sensor -->
-      <geom pos="-0.032 0 0.182" quat="1 0 0 0" type="mesh" rgba="{robot_rgb[0]} {robot_rgb[1]} {robot_rgb[2]} 1" mesh="lds" mass="0.131"/>
+      <geom pos="-0.032 0 0.182" quat="1 0 0 0" type="mesh" rgba="{robot_rgb[0]} {robot_rgb[1]} {robot_rgb[2]} 1" mesh="lds" mass="0.131" contype="1" conaffinity="1"/>
       <!-- Bumper -->
-      <geom pos="-0.04 -0.09 0.01" quat="1 0 0 0" type="mesh" rgba="0.3 0.13 0.08 1" mesh="bumper" mass="0.100"/>
+      <geom pos="-0.04 -0.09 0.01" quat="1 0 0 0" type="mesh" rgba="0.3 0.13 0.08 1" mesh="bumper" mass="0.100" contype="1" conaffinity="1"/>
       
       <!-- Left wheel -->
       <body name="wheel_left_link" pos="0 0.08 0.033" quat="0.707388 -0.706825 0 0">
@@ -436,7 +436,7 @@ def build_xml(robot_qpos, cubes, stl_model_path,extra_xml,Z_CUBE, cube_size, ARE
     <body name="cube{i}" pos="{x:.4f} {y:.4f} {Z_CUBE:.3f}">
       <joint name="cube{i}_joint" type="free" />
       <geom type="box" size="{cube_size}" material="blue_mat" mass="0.05"
-            quat="{qw:.6f} {qx:.6f} {qy:.6f} {qz:.6f}" friction="0.01 0.05 0.0001"/>
+            quat="{qw:.6f} {qx:.6f} {qy:.6f} {qz:.6f}" friction="0.01 0.05 0.0001" contype="1" conaffinity="1"/>
     </body>"""
 
         

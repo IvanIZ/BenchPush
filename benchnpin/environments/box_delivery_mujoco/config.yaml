@@ -24,7 +24,8 @@ train:
   use_correct_direction_reward: true
   verbose: 2
   weight_decay: 0.0001
-  inactivity_cutoff: 100
+  inactivity_cutoff: 1000
+  tries_before_inactive: 3000
 
   
 ### ENVIRONMENT PARAMS

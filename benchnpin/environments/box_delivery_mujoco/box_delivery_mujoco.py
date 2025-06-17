@@ -213,6 +213,8 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
         self.inactivity_cutoff = self.cfg.train.inactivity_cutoff
         self.robot_cumulative_reward=0
         self.inactivity_counter=0
+        self.collision= True
+        self.tries_before_inactive= self.cfg.train.tries_before_inactive
 
 
     def save_local_map(self, obs_uint8, out_path) -> None:
@@ -244,7 +246,10 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
         
         goal = action
         self.no_completed_boxes=0
+        truncated = False
+        terminated = False
         self.collision= False
+        tries=0
 
         # navigate to the desired goal
         step_count = 0
@@ -278,6 +283,13 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
 
             if self.robot_hits_static():
                 self.collision= True
+            
+            tries+=1
+
+            if tries>self.tries_before_inactive:
+
+                truncated= True
+                break
 
         curr_xy   = self.data.xpos[self.base_body_id][:2].copy()
         curr_head = quat_z_yaw(*self.data.qpos[self.qpos_index_base+3:self.qpos_index_base+7])
@@ -288,13 +300,25 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
 
         # get observation
         observation=self.generate_observation()
-        reward, terminated, truncated= self._get_rew()
+        reward= self._get_rew()
         info = {}
 
         print("Robot reward",reward)
         self.save_local_map(observation, "snapshots/step_023.png")
 
-        return observation, reward, False, False, info
+
+        # check if episode is done
+        if len(self.joint_id_boxes) == 0:
+
+            terminated = True
+        
+        self.inactivity_counter += 1
+
+        if self.inactivity_counter >= self.inactivity_cutoff:
+
+            truncated = True
+
+        return observation, reward, terminated, truncated, info
     
 
     # Observation generation functions
@@ -620,7 +644,7 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
 
         self.motion_dict, cubes_total_distance= self.update_motion_dict(self.motion_dict)
 
-        if cubes_total_distance>0.01:
+        if cubes_total_distance<-0.01 or 0.01<cubes_total_distance:
             robot_reward+=self.partial_rewards_scale * cubes_total_distance
 
         # reward for cubes in receptacle
@@ -665,7 +689,7 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
 
             truncated = True
 
-        return robot_reward, terminated, truncated
+        return robot_reward
 
     def _sample_pillar_centres(self):
         """
@@ -744,8 +768,8 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
 
         # cubes
         for jid in self.joint_id_boxes:
-            bid = self.model.jnt_bodyid[jid]                     # body that owns the joint
-            adr = self.model.jnt_qposadr[jid]                    # qpos indices
+            bid = self.model.jnt_bodyid[jid]
+            adr = self.model.jnt_qposadr[jid]
             bx, by = self.data.qpos[adr:adr+2]
             track[bid] = [0.0, np.array([bx, by], dtype=float),
                         float(self.model.body_mass[bid])]
@@ -782,12 +806,36 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
 
         return motion_dict, cubes_total_distance
 
-
+    # contacts
     def robot_hits_static(self) -> bool:
         """
+        Returns True iff *any* MuJoCo contact for this step is between a
+        robot geom (name starts with "robot") and a static-obstacle geom
+        whose name starts with one of:
+            "wall", "small_col", "large_col", "corner"
+        """
+
+        ROBOT_PREFIX    = ""
+        STATIC_PREFIXES = ("Wall", "Corner", "small_col", "large_col")
+
+        for k in range(self.data.ncon):
+            c          = self.data.contact[k]
+            g1, g2     = c.geom1, c.geom2
+            n1 = mujoco.mj_id2name(self.model, mujoco.mjtObj.mjOBJ_GEOM, g1)
+            n2 = mujoco.mj_id2name(self.model, mujoco.mjtObj.mjOBJ_GEOM, g2)
+            # unnamed geoms come back as None
+            if not n1 or not n2:
+                continue
+            if (n1.startswith(ROBOT_PREFIX) and n2.startswith(STATIC_PREFIXES)) \
+            or (n2.startswith(ROBOT_PREFIX) and n1.startswith(STATIC_PREFIXES)):
+                return True
+        return False
+
+    
+    """
+    def robot_hits_static(self) -> bool:
         True iff any vertex of the robot body lies inside ANY wall/column/corner
         polygon in self.excluded_polygons.
-        """
 
         # sizes
         # half-sizes, lightly inflated for a buffer
@@ -818,7 +866,7 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
         for vx, vy in robot_poly:
             if any(inside_poly(vx, vy, poly) for poly in static_polys):
                 return True
-        return False
+        return False"""
 
     def reset_model(self):
         """
