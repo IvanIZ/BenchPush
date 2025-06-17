@@ -149,7 +149,7 @@ def changing_per_configuration(env_type: str, clearance_poly,
     <!-- pillar {name} -->
     <body name="{name}" pos="{cx:.3f} {cy:.3f} {zh:.3f}">
       <joint name="{name}_joint" type="free"/>
-      <geom type="box" size="{xh:.3f} {yh:.3f} {zh:.3f}" mass="{heavy_mass:.1f}" 
+      <geom name="{name}" type="box" size="{xh:.3f} {yh:.3f} {zh:.3f}" mass="{heavy_mass:.1f}" 
       contype="1" conaffinity="1" rgba="0.647 0.165 0.165 0.4"/>
     </body>
 """

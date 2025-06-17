@@ -807,7 +807,7 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
         """
 
         ROBOT_PREFIX    = "base"
-        STATIC_PREFIXES = ("wall", "small_col", "large_col", "corner")
+        STATIC_PREFIXES = ("wall", "small_col", "large_col", "divider", "corner")
 
         for k in range(self.data.ncon):
             c   = self.data.contact[k]
@@ -819,9 +819,6 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
             # skip any unnamed geoms
             if not n1 or not n2:
                 continue
-
-            # normalize to lowercase
-            l1, l2 = n1.lower(), n2.lower()
 
             # check robot vs any static prefix
             hit1 = ROBOT_PREFIX in n1.lower() and any(pref in n2.lower() for pref in STATIC_PREFIXES)
