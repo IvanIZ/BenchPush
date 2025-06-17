@@ -610,6 +610,8 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
         NONMOVEMENT_TURN_THRESHOLD = np.radians(0.05)
 
         robot_reward = 0
+        collision= False
+        non_movement_penalty=False
 
         # partial reward for moving cubes towards receptacle
         cubes_distance = 0
@@ -625,13 +627,16 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
             self.inactivity_counter=0
         
         # penalty for hitting obstacles
+        print(self.robot_hits_static())
         if self.robot_hits_static():
+            collision= True
             robot_reward -= self.collision_penalty
             
         
         # penalty for small movements
         if self._step_dx < NONMOVEMENT_DIST_THRESHOLD and \
         self._step_dyaw < NONMOVEMENT_TURN_THRESHOLD:
+            non_movement_penalty=True
             robot_reward -= self.non_movement_penalty
         
         # Compute stats
@@ -650,9 +655,11 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
         # check if episode is done
         terminated = False
         if len(self.joint_id_boxes) == 0:
+
             terminated = True
         
         truncated = False
+
         if self.inactivity_counter >= self.inactivity_cutoff:
 
             truncated = True
@@ -774,30 +781,42 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
 
         return motion_dict, cubes_total_distance
 
-    def robot_hits_static(self):
+
+    def robot_hits_static(self) -> bool:
         """
-        Returns True iff *any* vertex of the robot body lies inside ANY polygon
-        in `excluded_polygons` (a list like  [["Wall_left",[(x,y)…]], …] ).
+        True iff any vertex of the robot body lies inside ANY wall/column/corner
+        polygon in self.excluded_polygons.
         """
 
-        robot_half=(self.robot_info.length, self.robot_info.width)
-        # -- robot world vertices -------------------------------------------------
-        cx, cy = self.data.qpos[self.qpos_index_base:self.qpos_index_base+2]
-        qw, qx, qy, qz = self.data.qpos[self.qpos_index_base+3:self.qpos_index_base+7]
+        # sizes
+        # half-sizes, lightly inflated for a buffer
+        inflate     = 1.05                               # 5 % margin
+        half_len    = 0.5 * self.robot_info.length * inflate
+        half_wid    = 0.5 * self.robot_info.width  * inflate
+
+        # pose
+        # MuJoCo world arena-centred frame  (same frame used by static polygons)
+        cx, cy = self.data.qpos[self.qpos_index_base : self.qpos_index_base+2]
+        cx -= 0.5 * self.room_width
+        cy -= 0.5 * self.room_length
+
+        qw, qx, qy, qz = self.data.qpos[self.qpos_index_base+3 :
+                                        self.qpos_index_base+7]
         yaw = quat_z_yaw(qw, qx, qy, qz)
 
-        local = np.array([[-robot_half[0], -robot_half[1]],
-                        [ robot_half[0], -robot_half[1]],
-                        [ robot_half[0],  robot_half[1]],
-                        [-robot_half[0],  robot_half[1]]])
+        # polygon
+        local = np.array([[-half_len, -half_wid],
+                        [ half_len, -half_wid],
+                        [ half_len,  half_wid],
+                        [-half_len,  half_wid]])
         robot_poly = corners_xy(np.array([cx, cy]), yaw, local).tolist()
 
-        # -- test each robot vertex against every static poly --------------------
+        # test
         static_polys = [poly for _, poly in self.excluded_polygons]
+
         for vx, vy in robot_poly:
             if any(inside_poly(vx, vy, poly) for poly in static_polys):
                 return True
-
         return False
 
     def reset_model(self):
