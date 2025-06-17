@@ -29,7 +29,7 @@ train:
   
 ### ENVIRONMENT PARAMS
 env:
-  obstacle_config: small_empty # options are small_empty, small_columns, large_columns, large_divider
+  obstacle_config: small_columns # options are small_empty, small_columns, large_columns, large_divider
   room_length: 2.845
   room_width_small: 1.575
   room_width_large: 2.5

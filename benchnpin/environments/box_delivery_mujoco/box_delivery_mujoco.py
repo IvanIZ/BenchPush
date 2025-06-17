@@ -243,7 +243,8 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
     def step(self, action):
         
         goal = action
-        self.no_completed_boxes=0 
+        self.no_completed_boxes=0
+        self.collision= False
 
         # navigate to the desired goal
         step_count = 0
@@ -270,11 +271,13 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
                         self.room_length,goal_half= self.receptacle_size, goal_center= self.receptacle_position, cube_half_size=0.04)
 
             if self.no_completed_boxes_new > self.no_completed_boxes:
-
                 self.no_completed_boxes=self.no_completed_boxes_new
 
             if self.render_mode == "human" and step_count % 10 == 0:
                 self.render()
+
+            if self.robot_hits_static():
+                self.collision= True
 
         curr_xy   = self.data.xpos[self.base_body_id][:2].copy()
         curr_head = quat_z_yaw(*self.data.qpos[self.qpos_index_base+3:self.qpos_index_base+7])
@@ -610,7 +613,6 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
         NONMOVEMENT_TURN_THRESHOLD = np.radians(0.05)
 
         robot_reward = 0
-        collision= False
         non_movement_penalty=False
 
         # partial reward for moving cubes towards receptacle
@@ -627,9 +629,8 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
             self.inactivity_counter=0
         
         # penalty for hitting obstacles
-        print(self.robot_hits_static())
-        if self.robot_hits_static():
-            collision= True
+        if self.collision:
+            
             robot_reward -= self.collision_penalty
             
         
