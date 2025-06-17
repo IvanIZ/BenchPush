@@ -34,7 +34,7 @@ register(
 register(
      id="maze-NAMO-mujoco-v0",
      entry_point="benchnpin.environments.maze_NAMO_mujoco:MazeNAMOMujoco",
-     max_episode_steps=400,
+     max_episode_steps=2000,
 )
 
 
