@@ -675,21 +675,6 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
         self.total_work[0] += work
         self.total_work[1].append(work)
         self.prev_cubes = updated_cubes"""
-
-        self.inactivity_counter += 1
-        
-        # check if episode is done
-        terminated = False
-        if len(self.joint_id_boxes) == 0:
-
-            terminated = True
-        
-        truncated = False
-
-        if self.inactivity_counter >= self.inactivity_cutoff:
-
-            truncated = True
-
         return robot_reward
 
     def _sample_pillar_centres(self):
@@ -782,12 +767,16 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
         In-place update of motion_dict.
         Skips cubes that have already been teleported away (their body_id is gone).
         """
+        goal_xy = np.array([
+        self.receptacle_position[0] + 0.5 * self.room_width,
+        self.receptacle_position[1] + 0.5 * self.room_length])
+
         # robot
         length, last_xy, mass = motion_dict[self.base_body_id]
         cx, cy = self.data.xpos[self.base_body_id][:2]
         dist = np.linalg.norm(np.array([cx, cy]) - last_xy)
         motion_dict[self.base_body_id][0] += dist
-        motion_dict[self.base_body_id][1][:] = (cx, cy)          # mutate in place
+        motion_dict[self.base_body_id][1][:] = (cx, cy)
 
         # cubes still present
         live_bodies = {self.model.jnt_bodyid[jid] for jid in self.joint_id_boxes}
@@ -796,19 +785,24 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
         for body_id in live_bodies:
 
             length, last_xy, mass = motion_dict[body_id]
-            # every cube is driven by “free” joint => first 2 qpos are x,y
-            adr = self.model.body_jntadr[body_id]               # first joint address
-            jpos = self.model.jnt_qposadr[adr]                  # its qpos index
-            bx, by = self.data.qpos[jpos:jpos+2]
-            dist = np.linalg.norm(np.array([bx, by]) - last_xy)
-            motion_dict[body_id][0] += dist
-            motion_dict[body_id][1][:] = (bx, by)
-            cubes_total_distance+=dist
+
+            adr  = self.model.body_jntadr[body_id]
+            jpos = self.model.jnt_qposadr[adr]
+            cur_xy = self.data.qpos[jpos : jpos+2]
+
+            # progress *before* we mutate last_xy
+            prev_d = np.linalg.norm(last_xy - goal_xy)
+            curr_d = np.linalg.norm(cur_xy  - goal_xy)
+            cubes_total_distance += prev_d - curr_d
+
+            # book-keeping for next step
+            motion_dict[body_id][0] += np.linalg.norm(cur_xy - last_xy)
+            motion_dict[body_id][1][:] = cur_xy
 
         return motion_dict, cubes_total_distance
 
     # contacts
-    def robot_hits_static(self):
+    def robot_hits_static(self) -> bool:
         """
         """
 
@@ -825,6 +819,9 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
             # skip any unnamed geoms
             if not n1 or not n2:
                 continue
+
+            # normalize to lowercase
+            l1, l2 = n1.lower(), n2.lower()
 
             # check robot vs any static prefix
             hit1 = ROBOT_PREFIX in n1.lower() and any(pref in n2.lower() for pref in STATIC_PREFIXES)

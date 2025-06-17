@@ -303,7 +303,7 @@ def build_xml(robot_qpos, cubes, stl_model_path,extra_xml,Z_CUBE, cube_size, ARE
 
   <asset>
 
-    <material name="blue_mat" rgba="0.0 0.3 1.0 1.0"/>
+    <material name="blue_mat" rgba="0.4 0.3 0.2 1"/>
 
     <mesh name="corner_full" file="corner_full.stl" scale="0.001 0.001 0.001"/>
     <mesh name="burger_base" file="burger_base.stl"scale="0.001 0.001 0.001"/>
