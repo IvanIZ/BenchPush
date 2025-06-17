@@ -150,7 +150,7 @@ def changing_per_configuration(env_type: str, clearance_poly,
     <body name="{name}" pos="{cx:.3f} {cy:.3f} {zh:.3f}">
       <joint name="{name}_joint" type="free"/>
       <geom type="box" size="{xh:.3f} {yh:.3f} {zh:.3f}" mass="{heavy_mass:.1f}" 
-      contype="1" conaffinity="1"/>
+      contype="1" conaffinity="1" rgba="0.647 0.165 0.165 0.4"/>
     </body>
 """
         Coordinates=[(cx-xh, cy-yh),(cx+xh, cy-yh),(cx+xh, cy+yh),(cx-xh, cy+yh)]
@@ -276,7 +276,7 @@ def sample_scene(n_cubes, keep_out,ROBOT_R,CLEAR,ARENA_X,ARENA_Y, clearance_poly
     return robot_qpos, cubes
 
 
-def build_xml(robot_qpos, cubes, stl_model_path,extra_xml,Z_CUBE, cube_size, ARENA_X1, ARENA_Y1, goal_half, goal_center, adjust_no_pillars):
+def build_xml(robot_qpos, cubes, stl_model_path,extra_xml,Z_CUBE, cube_size, ARENA_X1, ARENA_Y1, goal_half, goal_center, adjust_no_pillars, robot_rgb):
     """Building data for a different file"""
     goal_center=[(ARENA_X1/2)+goal_center[0], (ARENA_Y1/2)+ goal_center[1]]
 
@@ -399,30 +399,30 @@ def build_xml(robot_qpos, cubes, stl_model_path,extra_xml,Z_CUBE, cube_size, ARE
       size="{ARENA_X1/2} 0.01 0.15"
       rgba="1 1 1 0.1"/>
     
-    <!-- robot -->
+     <!-- robot -->
     <body name="base" pos="{robot_qpos}" euler="0 0 3.141592653589793">
       <joint type="free" name="base_joint"/>
       <!-- chassis -->
-      <geom pos="-0.032 0 0.01" type="mesh" rgba="0.3 0.3 0.3 1" mesh="burger_base" friction="0.1 0.02 0.0001" mass="0.8"/>
+      <geom pos="-0.032 0 0.01" type="mesh" rgba="{robot_rgb[0]} {robot_rgb[1]} {robot_rgb[2]} 1" mesh="burger_base" friction="0.1 0.02 0.0001" mass="0.8"/>
       <!-- small box sensor -->
-      <geom size="0.015 0.0045 0.01" pos="-0.081 7.96327e-07 0.005" quat="0.707388 -0.706825 0 0" type="box" rgba="0.3 0.3 0.3 1" mass="0.05"/>
+      <geom size="0.015 0.0045 0.01" pos="-0.081 7.96327e-07 0.005" quat="0.707388 -0.706825 0 0" type="box" rgba="{robot_rgb[0]} {robot_rgb[1]} {robot_rgb[2]} 1" mass="0.05"/>
       <!-- LDS sensor -->
-      <geom pos="-0.032 0 0.182" quat="1 0 0 0" type="mesh" rgba="0.3 0.3 0.3 1" mesh="lds" mass="0.131"/>
+      <geom pos="-0.032 0 0.182" quat="1 0 0 0" type="mesh" rgba="{robot_rgb[0]} {robot_rgb[1]} {robot_rgb[2]} 1" mesh="lds" mass="0.131"/>
       <!-- Bumper -->
-      <geom pos="-0.04 -0.09 0.01" quat="1 0 0 0" type="mesh" rgba="0.3 0.3 0.3 1" mesh="bumper" mass="0.100"/>
+      <geom pos="-0.04 -0.09 0.01" quat="1 0 0 0" type="mesh" rgba="0.3 0.13 0.08 1" mesh="bumper" mass="0.100"/>
       
       <!-- Left wheel -->
       <body name="wheel_left_link" pos="0 0.08 0.033" quat="0.707388 -0.706825 0 0">
         <inertial pos="0 0 0" quat="-0.000890159 0.706886 0.000889646 0.707326" mass="0.0284989" diaginertia="2.07126e-05 1.11924e-05 1.11756e-05"/>
         <joint name="wheel_left_joint" pos="0 0 0" axis="0 0 1"/>
-        <geom quat="0.707388 0.706825 0 0" type="mesh" rgba="0.3 0.3 0.3 1" mesh="left_tire" friction="1.2 0.01 0.001"/>
+        <geom quat="0.707388 0.706825 0 0" type="mesh" rgba="{robot_rgb[0]+0.1} {robot_rgb[1]+0.1} {robot_rgb[2]+0.1} 1" mesh="left_tire" friction="1.2 0.01 0.001"/>
       </body>
       
       <!-- Right wheel -->
       <body name="wheel_right_link" pos="0 -0.08 0.033" quat="0.707388 -0.706825 0 0">
         <inertial pos="0 0 0" quat="-0.000890159 0.706886 0.000889646 0.707326" mass="0.0284989" diaginertia="2.07126e-05 1.11924e-05 1.11756e-05"/>
         <joint name="wheel_right_joint" pos="0 0 0" axis="0 0 1"/>
-        <geom quat="0.707388 0.706825 0 0" type="mesh" rgba="0.3 0.3 0.3 1" mesh="right_tire" friction="1.2 0.01 0.001"/>
+        <geom quat="0.707388 0.706825 0 0" type="mesh" rgba="{robot_rgb[0]+0.1} {robot_rgb[1]+0.1} {robot_rgb[2]+0.1} 1" mesh="right_tire" friction="1.2 0.01 0.001"/>
       </body>
     </body>
       
@@ -481,7 +481,7 @@ def generate_boxDelivery_xml(N,env_type,file_name,ROBOT_clear,CLEAR,Z_CUBE,ARENA
     robot_qpos, cubes = sample_scene(N,keep_out,ROBOT_clear,CLEAR,ARENA_X,ARENA_Y, clearance_poly)
   
     # Building new environemnt and writing it down
-    xml_string = build_xml(robot_qpos, cubes,stl_model_path,extra_xml,Z_CUBE, cube_size,ARENA_X[1],ARENA_Y[1], goal_half, goal_center, adjust_no_pillars)
+    xml_string = build_xml(robot_qpos, cubes,stl_model_path,extra_xml,Z_CUBE, cube_size,ARENA_X[1],ARENA_Y[1], goal_half, goal_center, adjust_no_pillars, robot_rgb=(0.1, 0.1, 0.1))
     XML_OUT.write_text(xml_string)
     
     return XML_OUT, keep_out, clearance_poly
@@ -490,6 +490,7 @@ def generate_boxDelivery_xml(N,env_type,file_name,ROBOT_clear,CLEAR,Z_CUBE,ARENA
 def transporting(model, data, joint_id_boxes, ARENA_X1, ARENA_Y1, goal_half, goal_center, cube_half_size):
     """Teleport a cube only if all its vertices are inside the goal box."""
     
+    initial_len = len(joint_id_boxes)
     # half-edge of cube
     HSIZE = cube_half_size
     # local corner coordinates
@@ -509,6 +510,7 @@ def transporting(model, data, joint_id_boxes, ARENA_X1, ARENA_Y1, goal_half, goa
     ymin, ymax = goal_center[1] - GOAL_HALF[1], goal_center[1] + GOAL_HALF[1]
 
     for jid in joint_id_boxes[:]:
+
         qadr = model.jnt_qposadr[jid]
 
         # joint centre (x,y) and quaternion
@@ -528,4 +530,9 @@ def transporting(model, data, joint_id_boxes, ARENA_X1, ARENA_Y1, goal_half, goa
         if inside:
             data.qpos[qadr:qadr+3] = DROP_POS
             joint_id_boxes.remove(jid)
-            name = model.names[jid]
+
+    # number of boxes that are transported
+    final_len = len(joint_id_boxes)
+    no_boxes = initial_len - final_len
+    
+    return joint_id_boxes, no_boxes
