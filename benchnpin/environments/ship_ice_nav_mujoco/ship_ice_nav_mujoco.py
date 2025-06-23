@@ -67,7 +67,7 @@ class ShipIceMujoco(MujocoEnv, utils.EzPickle):
         xml_file = os.path.join(self.current_dir, 'asv_ice_planar_random.xml')
 
         # build xml file
-        self.num_floes = generate_shipice_xml(self.cfg.concentration, xml_file, self.cfg.sim.timestep_sim, 
+        self.num_floes, self.ice_area_dict = generate_shipice_xml(self.cfg.concentration, xml_file, self.cfg.sim.timestep_sim, 
             self.cfg.environment.channel_len, self.cfg.environment.channel_wid, 
             self.cfg.environment.icefield_len, self.cfg.environment.icefield_wid, 
             load_cached=True, trial_idx=0)
@@ -139,13 +139,13 @@ class ShipIceMujoco(MujocoEnv, utils.EzPickle):
         self.data.ctrl[:] = ctrl
 
         # drag and wave force (ship)
-        # frontal area is an apprximation here for the part of ship submerged in fluid
-        apply_fluid_forces_to_body(self.model, self.data, 'asv', 'asv', 2.0, 5.0, self.phase)
+        # frontal area is an approximation here for the part of ship submerged in fluid
+        apply_fluid_forces_to_body(self.model, self.data, 'asv', 'asv', self.phase, self.ice_area_dict)
 
         # Apply drag to all ice floes
         for n in range(self.num_floes):
             name = f"ice_{n}"
-            apply_fluid_forces_to_body(self.model, self.data, name, name, 30, 5.0, self.phase)
+            apply_fluid_forces_to_body(self.model, self.data, name, name, self.phase, self.ice_area_dict)
         
         mujoco.mj_step(self.model, self.data)
 
