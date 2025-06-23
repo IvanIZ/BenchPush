@@ -25,9 +25,9 @@ RHO_WATER      = 1025.0        # kg m⁻³
 CD             = 1.0
 DAMP_BETA_SHIP      = 0.5
 ANG_DAMP_BETA_SHIP  = 1.0       # torque coefficient
-DAMP_BETA_ICE       = 55.0
-ANG_DAMP_BETA_ICE   = 55.0       # torque coefficient
-STL_SCALE      = 0.3
+DAMP_BETA_ICE       = 105.0
+ANG_DAMP_BETA_ICE   = 105.0       # torque coefficient
+STL_SCALE      = 0.4
 
 # Random position of asv
 ASV_Y0 = 0
@@ -133,7 +133,7 @@ def header_block(hfield, stl_model_path, sim_timestep, channel_len, channel_wid,
               <joint name="asv_y"   type="slide" axis="0 -1 0"/>
               <joint name="asv_yaw" type="hinge" axis="0 0 -1" damping="10.0"/>
               <geom type="mesh" mesh="cs_long_bottom" mass="{ASV_MASS_TOTAL/2}" rgba="0.698 0.133 0.133 1"/>
-              <geom type="mesh" mesh="cs_long_top" mass="{ASV_MASS_TOTAL/2}" rgba="0.0 0.2 0.4 1"/>
+              <geom type="mesh" mesh="cs_long_top" mass="{ASV_MASS_TOTAL/2}" rgba="0.45 0.47 0.50 1"/>
               <geom type="mesh" mesh="CONTAINER_Full" pos="{1*STL_SCALE*10} {4*STL_SCALE*10} {1*STL_SCALE*10}"  rgba="0.588 0.204 0.188 1"/>
               <geom type="mesh" mesh="CONTAINER_Full" pos="{-0.4*STL_SCALE*10} {4*STL_SCALE*10} {1*STL_SCALE*10}" rgba="0.169 0.329 0.553 1"/>
               <geom type="mesh" mesh="CONTAINER_Full" pos="{-1.8*STL_SCALE*10} {4*STL_SCALE*10} {1*STL_SCALE*10}" rgba="0.216 0.278 0.310 1"/>
