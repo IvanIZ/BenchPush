@@ -21,9 +21,13 @@ env.reset()
 
 terminated = truncated = False
 while True:
-    forward_force = 40050000.0      # 15N forward force
-    rudder_control = 0      # no turning
-    action = [forward_force, rudder_control]
+    # forward_force = 40050000.0      # 15N forward force
+    # rudder_control = 0.5     # no turning
+    # action = [forward_force, rudder_control]
+
+    forward_speed = 40.0      # 2 m/s
+    angular_speed = 0.     # no turning
+    action = [forward_speed, angular_speed]
 
     observation, reward, terminated, truncated, info = env.step(action)
     env.render()

@@ -35,7 +35,9 @@ class CostMap:
         self.scale = scale  # scales everything by this factor
         self.cost_map = np.zeros((int(m * scale), int(n * scale)))
         self.alpha = alpha
-        self.ship_mass = 1.0            # intentionally set to 1.0 to match the setup from ICRA 2023 work; likewise here we assume density = 1.0
+        print("collision alpha: ", alpha)
+        # self.ship_mass = 1.0            # intentionally set to 1.0 to match the setup from ICRA 2023 work; likewise here we assume density = 1.0
+        self.ship_mass = ship_mass
         self.obstacles = []
         self.horizon = horizon * scale if horizon else None
         self.margin = margin

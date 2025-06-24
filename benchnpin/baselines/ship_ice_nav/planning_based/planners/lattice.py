@@ -37,15 +37,15 @@ class LatticePlanner():
         costmap = CostMap(horizon=self.cfg.a_star.horizon,
                         ship_mass=self.cfg.ship.mass, **self.cfg.costmap)
         ship = Ship(scale=self.cfg.costmap.scale, **self.cfg.ship)
-        prim = Primitives(cache=False, **self.cfg.prim)
-        swath_dict = generate_swath(ship, prim, cache=False,  model_inference=False)
+        prim = Primitives(cache=True, **self.cfg.prim)
+        swath_dict = generate_swath(ship, prim, cache=True,  model_inference=False)
         # ship.plot(prim.turning_radius)
         # prim.plot()
         # view_all_swaths(swath_dict); exit()
         debug_ice_model = False
 
         ship_no_padding = Ship(scale=self.cfg.costmap.scale, vertices=self.cfg.ship.vertices, padding=0, mass=self.cfg.ship.mass)
-        swath_dict_no_padding = generate_swath(ship_no_padding, prim, cache=False, model_inference=True)
+        swath_dict_no_padding = generate_swath(ship_no_padding, prim, cache=True, model_inference=True, cache_path='.noPad_swath.pkl')
         # view_all_swaths(swath_dict_no_padding); exit()
 
         a_star = AStar(cmap=costmap,
@@ -77,7 +77,6 @@ class LatticePlanner():
         # check if there is new obstacle information
         costmap.update(obs, ship_pos_scaled[1] - ship.max_ship_length / 2,
                     vs=(self.cfg.controller.target_speed * self.cfg.costmap.scale + 1e-8))
-
         # compute path to goal
         ship_pos = copy.deepcopy(ship_pos_scaled)     # probably don't need it but just to be safe
         search_result = a_star.search(

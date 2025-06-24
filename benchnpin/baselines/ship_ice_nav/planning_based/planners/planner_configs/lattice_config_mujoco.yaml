@@ -30,7 +30,8 @@ occ:
   map_height: 25       # occupancy map height (in meter)
   map_width: 12        # occupancy map width (in meter)
 a_star:
-  horizon: 30  # receding horizon in metres (needs to be an int for it to be enabled)
+  horizon: 700  # receding horizon in metres (needs to be an int for it to be enabled)
+  margin: 500
   replan: true
   smooth_path:
     add_nodes: 10  # number of nodes to add in node path
@@ -38,37 +39,39 @@ a_star:
   weight: 1        # static weighting for weighed A* f(n) = g(n) + w * h(n) where weight > 1
 #  h_baseline: True  # if true, then heuristic is simply euclidean distance to goal
 costmap:
-  m: 76       # height of ice channel in metres, can set to large number for 'infinite' ice channel
-  n: 12       # width of ice channel in metres
-  scale: 5    # this gives a resolution of 1/scale x 1/scale metres
-  alpha: 10   # collision cost multiplier
+  m: 1000       # height of ice channel in metres, can set to large number for 'infinite' ice channel
+  n: 200       # width of ice channel in metres
+  scale: 3    # this gives a resolution of 1/scale x 1/scale metres
+  alpha: 10000   # collision cost multiplier
+  margin: 40
 prim:
-  scale: 5 # Note, there is a limit on how small prim scale can be in relation to costmap scale
+  scale: 3 # Note, there is a limit on how small prim scale can be in relation to costmap scale
+  world_scale: 38  # NRC scale to world scae (2m ship --> 76m ship = 38)
   num_headings: 8  # number of headings in the discretized heading space
-  step_size: 0.1   # step size for sampling points on the path
+  step_size: 10   # step size for sampling points on the path
   turning_radius: 2.0  # turning radius of the ship in lattice units
 ship:
-  mass: 1  # mass of the NRC ship in kg
+  mass: 6000000  # mass of the NRC ship in kg
   padding: 0.25  # adds padding to ship footprint
-  vertices: [[1., -0.],
+  vertices: [[76.0, -0.0],
 
-            [0.9, 0.10],
-            [0.5, 0.25],
-            [0.25, 0.25],
-            [0, 0.25],
-            [-0.25, 0.25],
-            [-0.5, 0.25],
-            [-0.75, 0.25],
-            [-1., 0.25],
+            [68.4, 7.6],
+            [38.0, 19.0],
+            [19.0, 19.0],
+            [0.0, 19.0],
+            [-19.0, 19.0],
+            [-38.0, 19.0],
+            [-57.0, 19.0],
+            [-76.0, 19.0],
 
-            [-1., -0.25],
-            [-0.75, -0.25],
-            [-0.5, -0.25],
-            [-0.25, -0.25],
-            [0, -0.25],
-            [0.25, -0.25],
-            [0.5, -0.25],
-            [0.9, -0.10]]
+            [-76.0, -19.0],
+            [-57.0, -19.0],
+            [-38.0, -19.0],
+            [-19.0, -19.0],
+            [0.0, -19.0],
+            [19.0, -19.0],
+            [38.0, -19.0],
+            [68.4, -7.6]]
 
 ### SIMULATION PARAMS
 sim:
@@ -93,7 +96,7 @@ seed: 1
 
 ### SHIP MODEL AND CONTROLLER PARAMS
 controller:
-  dt: 0.8  # the ship dynamics model was discretized with this dt (originally 0.02)
+  dt: 0.005  # the ship dynamics model was discretized with this dt (originally 0.02)
   # States: [r, u, v] : yaw rate (deg/s), surge velocity (m/s), sway velocity (m/s)
   A:
     - [ 0.9909, 0., 0. ]
@@ -108,7 +111,7 @@ controller:
   # look ahead distance
   Lfc: 0.5
   # target speed
-  target_speed: 0.8  # m/s
+  target_speed: 40  # m/s
   PID_gains:  # gains for 3 PIDs
     - [ 5, 0, 5 ]
     - [ 10, 0, 20 ]

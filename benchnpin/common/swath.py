@@ -12,7 +12,7 @@ Swath = Dict[Tuple, np.ndarray]
 CACHED_SWATH = '.swath.pkl'  # save to disk swaths so no need to regenerate every time
 
 
-def generate_swath(ship, prim, cache=True, model_inference=False) -> Swath:
+def generate_swath(ship, prim, cache=True, model_inference=False, cache_path=None) -> Swath:
     """
     Generate swath for each motion primitive given the ship footprint
     For each edge we generate the swath centered on a square array
@@ -21,9 +21,12 @@ def generate_swath(ship, prim, cache=True, model_inference=False) -> Swath:
     The resolution of the swath (i.e. the size of a grid cell) is
     the same as the resolution of the costmap, i.e. they are 1:1
     """
-    if os.path.isfile(CACHED_SWATH) and cache:
+    if cache_path is None:
+        cache_path = CACHED_SWATH
+
+    if os.path.isfile(cache_path) and cache:
         print('LOADING CACHED SWATH! Confirm, this is expected behaviour...')
-        return pickle.load(open(CACHED_SWATH, 'rb'))
+        return pickle.load(open(cache_path, 'rb'))
 
     # this is super hacky, but basically we make the halves larger than
     # the ship vertices to fix the issue of overlap across concatenated swaths
@@ -79,7 +82,7 @@ def generate_swath(ship, prim, cache=True, model_inference=False) -> Swath:
                 swath_dict[edge, h + origin[2]] = array
 
     if cache:
-        with open(CACHED_SWATH, 'wb') as file:
+        with open(cache_path, 'wb') as file:
             pickle.dump(swath_dict, file)
 
     return swath_dict

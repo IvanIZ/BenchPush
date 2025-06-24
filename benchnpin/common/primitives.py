@@ -18,18 +18,21 @@ class Primitives:
     def __init__(
             self,
             scale: float = 1,
+            world_scale: float = 1,
             turning_radius: float = 1,
             num_headings: int = 8 or 16,
             step_size: float = 0.25,
             cache=True,
     ):
         """
-        :param scale: scale factor for the primitives
+        :param scale: scale factor for the primitives (scale to costmap scale)
+        :param world_scale: scaling factor to some real-world realistic scale
         :param turning_radius: turning radius of the ship in metres
         :param num_headings: number of headings in the discretized heading space
         :param step_size: step size for sampling points on the path
         :param cache: whether to cache the primitive paths to disk
         """
+        scale = scale * world_scale
         self.scale = scale
         self.turning_radius = turning_radius * self.scale
         self.num_headings = num_headings
@@ -79,6 +82,7 @@ class Primitives:
                     #     plt.plot([x[i], px[i]], [y[i], py[i]], 'r-')
 
             ax.set_aspect('equal')
+            plt.savefig('prim.png')
             plt.show()
 
     def get_max_prim(self):
@@ -300,6 +304,6 @@ class Primitives:
 
 if __name__ == '__main__':
     # for testing purposes
-    p = Primitives(scale=1, turning_radius=2, num_headings=8, step_size=0.025, cache=False)
+    p = Primitives(scale=3, world_scale=38, turning_radius=2, num_headings=8, step_size=10, cache=False)
     # p = Primitives(scale=1, turning_radius=1, num_headings=16, cache=False)
     p.plot(0, all_headings=False)

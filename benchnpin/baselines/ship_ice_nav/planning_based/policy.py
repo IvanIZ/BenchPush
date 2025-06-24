@@ -61,13 +61,13 @@ class PlanningBasedPolicy(BasePolicy):
             self.dp_state = self.dp.state
         
         # call ideal controller to get angular velocity control
-        omega, _ = self.dp.ideal_control(ship_pos[0], ship_pos[1], ship_pos[2])
+        omega, v = self.dp.ideal_control(ship_pos[0], ship_pos[1], ship_pos[2])
 
         # update setpoint
         x_s, y_s, h_s = self.dp.get_setpoint()
         self.dp.setpoint = np.asarray([x_s, y_s, np.unwrap([self.dp_state.yaw, h_s])[1]])
 
-        return omega / action_scale
+        return omega / action_scale, self.lattice_planner.cfg.controller.target_speed
 
 
     def evaluate(self, num_eps: int, model_eps: str ='latest') -> Tuple[List[float], List[float], List[float], str]:

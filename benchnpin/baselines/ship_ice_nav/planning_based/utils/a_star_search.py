@@ -150,10 +150,11 @@ class AStar:
             try:
                 node = open_set_queue.get_item()
             except queue.Empty:
-                self.logger.error('Open set is empty!')
+                print('Open set is empty!')
                 break
 
-            # print('node', node)
+            print('node', node)
+            print("cmap height: ", self.cmap.shape[0], "; cost map width: ", self.cost_map.shape[1])
             node = node[1]
 
             # compute dis to goal node
@@ -200,6 +201,7 @@ class AStar:
                 new_nodes = []
                 node_path_smth = []
 
+                self.smooth_path = False
                 if self.smooth_path:
                     node_path_length.reverse()
                     full_path, node_path_smth, new_nodes, length = path_smoothing(
@@ -265,6 +267,12 @@ class AStar:
                     continue
 
                 if 0 < neighbour[0] < self.cost_map.shape[1] and 0 < neighbour[1] < self.cmap.shape[0]:
+                    
+                    # debug = False
+                    # if node[1] > 1400 and neighbour[1] > 1500:
+                    #     debug = True
+                    #     print(neighbour)
+
                     # get swath and swath cost
                     key = (e, int(node[2]))
                     if key not in self.swath_dict:
@@ -273,7 +281,7 @@ class AStar:
                         self.swath_dict_no_pad[key] = rotate_swath(self.orig_swath_dict_no_pad[key], theta_0)
                         self.swath_arg_dict_no_pad[key] = np.argwhere(self.swath_dict_no_pad[key] == 1)
 
-                    swath_cost = self.get_swath_cost(node, self.swath_arg_dict[key], self.cost_map, self.max_val)
+                    swath_cost = self.get_swath_cost(node, self.swath_arg_dict[key], self.cost_map, self.max_val, debug)
                     
                     assert swath_cost >= 0, 'swath cost is negative! {}'.format(swath_cost)
 
@@ -287,6 +295,12 @@ class AStar:
                         neighbour = open_set.query(neighbour)[0]  # get the key the first time neighbour was added
 
                     # if neighbour not in g_score or temp_g_score < g_score[neighbour]:
+                    # if node[1] > 1400 and neighbour[1] > 1500:
+                    #     print("neighbour_in_open_set: ", neighbour_in_open_set)
+                    #     print("score less than neighbor: ", temp_g_score < g_score.get(neighbour, np.inf))
+                    #     print("neighbor_score: ", temp_g_score, "; g_score: ", g_score.get(neighbour, np.inf))
+                    #     print("node g_score: ", g_score[node], "; swath cost: ", swath_cost, "; path_len: ", temp_path_length)
+
                     if temp_g_score < g_score.get(neighbour, np.inf):
                         # this path to neighbor is better than any previous one. Record it!
                         came_from[neighbour] = node
@@ -358,13 +372,18 @@ class AStar:
 
     @staticmethod
     @jit(nopython=True, cache=True, fastmath=True)
-    def get_swath_cost(start_pos, swath, cost_map, max_val) -> float:
+    def get_swath_cost(start_pos, swath, cost_map, max_val, debug=False) -> float:
         cost = 0
         for i in swath:
             # indices cannot be negative or be greater than the cost map size
             ind1 = int(start_pos[1]) + i[0] - max_val
             ind2 = int(start_pos[0]) + i[1] - max_val
             if ind1 < 0 or ind2 < 0 or ind1 >= cost_map.shape[0] or ind2 >= cost_map.shape[1]:
+                # if debug:
+                #     print("inside get swath cost --------")
+                #     print("inf cost due to boundary!")
+                #     print("ind 1, 2: ", ind1, ind2, "; costmap shape: ", cost_map.shape)
+
                 return np.inf
             cost += cost_map[ind1, ind2]
 
