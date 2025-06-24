@@ -385,6 +385,8 @@ def load_ice_field(concentration, xml_file, sim_timestep, channel_len, channel_w
     if directory:
         os.makedirs(directory, exist_ok=True)  # Create directories if they don't exist
 
+    ice_area_dict=dict()
+
     positions = []
     print(num_stl_floes)
     ice_idx = 0
@@ -399,6 +401,9 @@ def load_ice_field(concentration, xml_file, sim_timestep, channel_len, channel_w
         positions.append(center)
 
         polygon = polygon_from_vertices(vertices)
+
+        area_2d = polygon.area        # Shapely gives signed area directly
+        ice_area_dict[f'ice_{ice_idx}'] = area_2d        # NEW
 
         out_file = os.path.join(directory, 'ice_' + str(ice_idx) + '.stl')
         extrude_and_export(polygon, thickness=1.2, filename=out_file)
@@ -419,7 +424,7 @@ def load_ice_field(concentration, xml_file, sim_timestep, channel_len, channel_w
     xml_text = header_block(hfield, stl_model_path, sim_timestep, channel_len=channel_len, channel_wid=channel_wid, num_floes=num_stl_floes) + ice_floe_text + "\n" + footer_block()
     Path(xml_file).write_text(xml_text)
 
-    return num_stl_floes
+    return num_stl_floes, ice_area_dict
 
 
 

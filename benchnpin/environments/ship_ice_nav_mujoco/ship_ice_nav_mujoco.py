@@ -71,10 +71,10 @@ class ShipIceMujoco(MujocoEnv, utils.EzPickle):
             self.cfg.environment.channel_len, self.cfg.environment.channel_wid, 
             self.cfg.environment.icefield_len, self.cfg.environment.icefield_wid, 
             load_cached=True, trial_idx=0)
-        # self.num_floes = load_ice_field(self.cfg.concentration, xml_file, self.cfg.sim.timestep_sim, 
-        #     self.cfg.environment.channel_len, self.cfg.environment.channel_wid, 
-        #     self.cfg.environment.icefield_len, self.cfg.environment.icefield_wid, 
-        #     load_cached=True, trial_idx=0)
+        self.num_floes, self.ice_area_dict = load_ice_field(self.cfg.concentration, xml_file, self.cfg.sim.timestep_sim, 
+            self.cfg.environment.channel_len, self.cfg.environment.channel_wid, 
+            self.cfg.environment.icefield_len, self.cfg.environment.icefield_wid, 
+            load_cached=True, trial_idx=0)
 
         self.phase = 0.0
 
