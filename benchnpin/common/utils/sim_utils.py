@@ -136,6 +136,7 @@ def generate_sim_corners(space, corners: List[dict]):
 def create_polygon(space, vertices, x, y, density, heading=0, label='poly', idx=None, radius=0.02, color=None):
     body = pymunk.Body(body_type=pymunk.Body.DYNAMIC)
     body.position = (x, y)
+    body.angle = heading
     dummy_shape = pymunk.Poly(None, vertices)
     centre_of_g = dummy_shape.center_of_gravity
     vs = [(x - centre_of_g[0], y - centre_of_g[1]) for x, y in vertices]
