@@ -25,8 +25,8 @@ while True:
     # rudder_control = 0.5     # no turning
     # action = [forward_force, rudder_control]
 
-    forward_speed = 40.0      # 2 m/s
-    angular_speed = 0.     # no turning
+    forward_speed = 80.0      # 2 m/s
+    angular_speed = 0.0     # no turning
     action = [forward_speed, angular_speed]
 
     observation, reward, terminated, truncated, info = env.step(action)

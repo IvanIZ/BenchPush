@@ -19,15 +19,14 @@ import json
 from benchnpin.common.geometry.polygon import generate_polygon, poly_area
 from benchnpin.common.utils.mujoco_utils import polygon_from_vertices, extrude_and_export
 
-# constant values defined below based on data referenced in research papers
 ASV_MASS_TOTAL = 6000000.0     # kg
-ICE_DENSITY    = 900.0         # kg m⁻³
+ICE_DENSITY    = 9000.0        # kg m⁻³
 RHO_WATER      = 1025.0        # kg m⁻³
 CD             = 1.0
-DAMP_BETA_SHIP      = 0.5
-ANG_DAMP_BETA_SHIP  = 1.0       # torque coefficient
-DAMP_BETA_ICE       = 105.0
-ANG_DAMP_BETA_ICE   = 105.0       # torque coefficient
+DAMP_BETA_SHIP      = 50.0
+ANG_DAMP_BETA_SHIP  = 100.0       # torque coefficient
+DAMP_BETA_ICE       = 1050.0
+ANG_DAMP_BETA_ICE   = 1050.0     # torque coefficient
 STL_SCALE      = 0.4
 
 # Random position of asv
@@ -284,7 +283,7 @@ def footer_block():
             <!-- <motor name="asv_forward" joint="asv_x"  ctrlrange="-6e7 9e7" gear="1"/> -->
             <!-- <motor name="asv_rudder"  joint="asv_yaw" ctrlrange="-6e7 9e7"   gear="5"/> -->
 
-            <velocity name="asv_forward" joint="asv_x"  ctrlrange="-50 50" forcelimited="false" kv="1000000.0"/>
+            <velocity name="asv_forward" joint="asv_x"  ctrlrange="-80 80" forcelimited="false" kv="1000000.0"/>
             <velocity name="asv_rudder"  joint="asv_yaw" ctrlrange="-10 10" forcelimited="false" kv="10000000000.0"/>
           </actuator>
         </mujoco>
@@ -347,7 +346,7 @@ def generate_shipice_xml(concentration, xml_file, sim_timestep, channel_len, cha
         ice_area_dict[f'ice_{i}'] = area_2d        # NEW
 
         out_file = os.path.join(directory, 'ice_' + str(i) + '.stl')
-        extrude_and_export(polygon, thickness=1.2, filename=out_file)
+        extrude_and_export(polygon, h_min=0.4, h_max=1.0, filename=out_file)
 
 
     # get stl model path
@@ -406,7 +405,7 @@ def load_ice_field(concentration, xml_file, sim_timestep, channel_len, channel_w
         ice_dict[f'ice_{ice_idx}'] = {'area': area_2d, 'vertices': vertices}
 
         out_file = os.path.join(directory, 'ice_' + str(ice_idx) + '.stl')
-        extrude_and_export(polygon, thickness=1.2, filename=out_file)
+        extrude_and_export(polygon, h_min=0.4, h_max=1.0, filename=out_file)
 
         ice_idx += 1
 

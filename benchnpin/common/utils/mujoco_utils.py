@@ -207,19 +207,55 @@ def polygon_from_vertices(vertices_2d) -> sg.Polygon:
     return so.orient(poly, sign=1.0)
 
 
-def extrude_and_export(poly: sg.Polygon,
-                       thickness: float = 0.2,
-                       filename: str = 'ice_stl') -> None:
+def extrude_and_export(
+        poly: sg.Polygon,
+        h_min: float = 0.2,
+        h_max: float = 1.0,
+        filename: str = "ice_floe.stl",
+        seed: int | None = None
+) -> None:
     """
-    Extrude the 2-D polygon to the given `thickness` and write a binary STL.
+    Extrude a 2-D polygon into a 3-D ‘ice floe’ whose thickness varies
+    point-to-point on the upper surface.
+
+    Parameters
+    ----------
+    poly : shapely.geometry.Polygon
+        The (convex) planform of the floe, in metres.
+    h_min, h_max : float
+        Minimum and maximum thicknesses to sample [m].
+    filename : str
+        Path for the binary STL that will be written (over-written if it exists).
+    seed : int | None
+        Fix the RNG seed for full reproducibility.
     """
-    mesh = trimesh.creation.extrude_polygon(poly, height=thickness)
+    if not poly.is_valid or poly.is_empty:
+        raise ValueError("Input polygon is invalid or empty")
 
-    # Move the base so that Z = 0 is the *bottom* rather than the mid-plane.
-    mesh.apply_translation([0, 0, thickness / 2])
+    if seed is not None:
+        np.random.seed(seed)
 
-    # Binary STL; overwrite if it exists
-    mesh.export(filename)
+    # 1. Extrude once to the *maximum* possible thickness
+    base_mesh = trimesh.creation.extrude_polygon(poly, height=h_max)
+
+    # 2. Identify vertices that belong to the *top* cap
+    #
+    # `extrude_polygon` puts the mid-plane at z = 0, so the top cap
+    # initially sits at +h_max/2.  Numerical noise → use a small tolerance.
+    z_top      = base_mesh.vertices[:, 2].max()
+    top_mask   = np.abs(base_mesh.vertices[:, 2] - z_top) < 1e-6
+    n_top_verts = top_mask.sum()
+
+    # 3. Draw a random thickness for *each* top-cap vertex.
+    #    Their z-coordinate becomes that thickness (bottom is 0).
+    random_thick = np.random.uniform(h_min, h_max, size=n_top_verts)
+    base_mesh.vertices[top_mask, 2] = random_thick
+
+    # 4. Slide the whole mesh down so that the bottom sits exactly at z = 0
+    base_mesh.vertices[:, 2] -= base_mesh.vertices[:, 2].min()
+
+    # 5. Export as binary STL (over-write OK)
+    base_mesh.export(filename)
 
 
 def wall_collision(data, model):
