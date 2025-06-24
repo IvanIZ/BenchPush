@@ -130,23 +130,23 @@ def header_block(hfield, stl_model_path, sim_timestep, channel_len, channel_wid,
             <camera name="overview_cam" pos="50 -200 200" euler="60 0 0" fovy="60"/>
             
             <!ASV->
-            <body name="asv" pos="{ASV_X0} {ASV_Y0} 0" quat="0.7071 0 0 -0.7071">
-              <joint name="asv_x"   type="slide" axis="-1 0 0"/>
-              <joint name="asv_y"   type="slide" axis="0 -1 0"/>
-              <joint name="asv_yaw" type="hinge" axis="0 0 -1" damping="10.0"/>
-              <geom type="mesh" mesh="cs_long_bottom" mass="{ASV_MASS_TOTAL/2}" rgba="0.698 0.133 0.133 1"/>
-              <geom type="mesh" mesh="cs_long_top" mass="{ASV_MASS_TOTAL/2}" rgba="0.45 0.47 0.50 1"/>
-              <geom type="mesh" mesh="CONTAINER_Full" pos="{1*STL_SCALE*10} {4*STL_SCALE*10} {1*STL_SCALE*10}"  rgba="0.588 0.204 0.188 1"/>
-              <geom type="mesh" mesh="CONTAINER_Full" pos="{-0.4*STL_SCALE*10} {4*STL_SCALE*10} {1*STL_SCALE*10}" rgba="0.169 0.329 0.553 1"/>
-              <geom type="mesh" mesh="CONTAINER_Full" pos="{-1.8*STL_SCALE*10} {4*STL_SCALE*10} {1*STL_SCALE*10}" rgba="0.216 0.278 0.310 1"/>
-              <geom type="mesh" mesh="CONTAINER_Full" pos="{-3.2*STL_SCALE*10} {4*STL_SCALE*10} {1*STL_SCALE*10}" rgba="0.439 0.502 0.565 1"/>
-              <geom type="mesh" mesh="CONTAINER_Full" pos="{-4.6*STL_SCALE*10} {4*STL_SCALE*10} {1*STL_SCALE*10}" rgba="0.588 0.204 0.188 1"/>
-              <geom type="mesh" mesh="CONTAINER_Full" pos="{-6.0*STL_SCALE*10} {4*STL_SCALE*10} {1*STL_SCALE*10}"  rgba="0.588 0.204 0.188 1"/>/>
-              <geom type="mesh" mesh="CONTAINER_Full" pos="{-7.4*STL_SCALE*10} {4*STL_SCALE*10} {1*STL_SCALE*10}"  rgba="0.588 0.204 0.188 1"/>/>
-              <geom type="mesh" mesh="CONTAINER_Full" pos="{-8.8*STL_SCALE*10} {4*STL_SCALE*10} {1*STL_SCALE*10}" rgba="0.216 0.278 0.310 1"/>
-              <geom type="mesh" mesh="CONTAINER_Full" pos="{-10.2*STL_SCALE*10} {4*STL_SCALE*10} {1*STL_SCALE*10}" rgba="1.000 0.843 0.000 1"/>
-              <geom type="mesh" mesh="CONTAINER_Full" pos="{-11.6*STL_SCALE*10} {4*STL_SCALE*10} {1*STL_SCALE*10}" rgba="0.588 0.204 0.188 1"/>
-              <geom type="mesh" mesh="CONTAINER_Full" pos="{-13.0*STL_SCALE*10} {4*STL_SCALE*10} {1*STL_SCALE*10}" rgba="0.588 0.204 0.188 1"/>
+            <body name="asv" pos="{ASV_X0} {ASV_Y0} 0" quat="0.7071 0 0 0.7071">
+              <joint name="asv_x"   type="slide" axis="1 0 0"/>
+              <joint name="asv_y"   type="slide" axis="0 1 0"/>
+              <joint name="asv_yaw" type="hinge" axis="0 0 1" damping="10.0"/>
+              <geom type="mesh" mesh="cs_long_bottom" mass="{ASV_MASS_TOTAL/2}" rgba="0.698 0.133 0.133 1" euler="0 0 -180"/>
+              <geom type="mesh" mesh="cs_long_top" mass="{ASV_MASS_TOTAL/2}" rgba="0.45 0.47 0.50 1" euler="0 0 -180"/>
+              <geom type="mesh" mesh="CONTAINER_Full" pos="{-1*STL_SCALE*10} {-4*STL_SCALE*10} {1*STL_SCALE*10}"  rgba="0.588 0.204 0.188 1" euler="0 0 -180"/>
+              <geom type="mesh" mesh="CONTAINER_Full" pos="{0.4*STL_SCALE*10} {-4*STL_SCALE*10} {1*STL_SCALE*10}" rgba="0.169 0.329 0.553 1" euler="0 0 -180"/>
+              <geom type="mesh" mesh="CONTAINER_Full" pos="{1.8*STL_SCALE*10} {-4*STL_SCALE*10} {1*STL_SCALE*10}" rgba="0.216 0.278 0.310 1" euler="0 0 -180"/>
+              <geom type="mesh" mesh="CONTAINER_Full" pos="{3.2*STL_SCALE*10} {-4*STL_SCALE*10} {1*STL_SCALE*10}" rgba="0.439 0.502 0.565 1" euler="0 0 -180"/>
+              <geom type="mesh" mesh="CONTAINER_Full" pos="{4.6*STL_SCALE*10} {-4*STL_SCALE*10} {1*STL_SCALE*10}" rgba="0.588 0.204 0.188 1" euler="0 0 -180"/>
+              <geom type="mesh" mesh="CONTAINER_Full" pos="{6.0*STL_SCALE*10} {-4*STL_SCALE*10} {1*STL_SCALE*10}"  rgba="0.588 0.204 0.188 1" euler="0 0 -180"/>/>
+              <geom type="mesh" mesh="CONTAINER_Full" pos="{7.4*STL_SCALE*10} {-4*STL_SCALE*10} {1*STL_SCALE*10}"  rgba="0.588 0.204 0.188 1" euler="0 0 -180"/>/>
+              <geom type="mesh" mesh="CONTAINER_Full" pos="{8.8*STL_SCALE*10} {-4*STL_SCALE*10} {1*STL_SCALE*10}" rgba="0.216 0.278 0.310 1" euler="0 0 -180"/>
+              <geom type="mesh" mesh="CONTAINER_Full" pos="{10.2*STL_SCALE*10} {-4*STL_SCALE*10} {1*STL_SCALE*10}" rgba="1.000 0.843 0.000 1" euler="0 0 -180"/>
+              <geom type="mesh" mesh="CONTAINER_Full" pos="{11.6*STL_SCALE*10} {-4*STL_SCALE*10} {1*STL_SCALE*10}" rgba="0.588 0.204 0.188 1" euler="0 0 -180"/>
+              <geom type="mesh" mesh="CONTAINER_Full" pos="{13.0*STL_SCALE*10} {-4*STL_SCALE*10} {1*STL_SCALE*10}" rgba="0.588 0.204 0.188 1" euler="0 0 -180"/>
 
 
 
