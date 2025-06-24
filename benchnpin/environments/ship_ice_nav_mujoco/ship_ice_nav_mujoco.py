@@ -18,7 +18,7 @@ except ImportError as e:
 
 from benchnpin.common.utils.mujoco_utils import get_body_pose_2d, get_box_2d_vertices
 from benchnpin.common.utils.utils import DotDict
-from benchnpin.environments.ship_ice_nav_mujoco.ship_ice_utils import generate_shipice_xml, apply_fluid_forces_to_body
+from benchnpin.environments.ship_ice_nav_mujoco.ship_ice_utils import generate_shipice_xml, apply_fluid_forces_to_body, load_ice_field
 
 
 DEFAULT_CAMERA_CONFIG = {
@@ -71,6 +71,11 @@ class ShipIceMujoco(MujocoEnv, utils.EzPickle):
             self.cfg.environment.channel_len, self.cfg.environment.channel_wid, 
             self.cfg.environment.icefield_len, self.cfg.environment.icefield_wid, 
             load_cached=True, trial_idx=0)
+        # self.num_floes = load_ice_field(self.cfg.concentration, xml_file, self.cfg.sim.timestep_sim, 
+        #     self.cfg.environment.channel_len, self.cfg.environment.channel_wid, 
+        #     self.cfg.environment.icefield_len, self.cfg.environment.icefield_wid, 
+        #     load_cached=True, trial_idx=0)
+
         self.phase = 0.0
 
         utils.EzPickle.__init__(
@@ -196,6 +201,17 @@ class ShipIceMujoco(MujocoEnv, utils.EzPickle):
 
         observation = np.zeros((100, 100)).astype(np.uint8)
         return observation
+
+
+    def update_path(self, waypoints):
+        for i, point in enumerate(waypoints):
+            self.model.site(f"wp{i}").pos[:2] = point[:2]
+            # print("update path point: ", point, "; updated position: ", self.model.site(f"wp{i}").pos)
+
+        # Move the rest out of view
+        for i in range(len(waypoints), 500):
+            site_id = self.model.site(f"wp{i}").id
+            self.data.site_xpos[site_id] = np.array([1000, 1000, 1000])
 
 
     def reset_model(self):

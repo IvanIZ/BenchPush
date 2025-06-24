@@ -14,6 +14,7 @@ import numpy as np
 import packcircles as pc
 from skimage import draw
 import pickle
+import json
 
 from benchnpin.common.geometry.polygon import generate_polygon, poly_area
 from benchnpin.common.utils.mujoco_utils import polygon_from_vertices, extrude_and_export
@@ -27,7 +28,7 @@ ANG_DAMP_BETA  = 0.3          # torque coefficient
 STL_SCALE      = 0.3
 
 # Random position of asv
-ASV_Y0 = 0
+ASV_Y0 = 100
 ASV_X0 = random.uniform(50, 150)
 ASV_POS = np.array([ASV_X0, ASV_Y0])
 
@@ -37,10 +38,11 @@ ICE_CLEAR_Y = 45.0
 
 
 # parameters for ice field generation
+OBS_MIN_Y = 200
 OBSTACLE = {
     'min_r': 6,                           # min and max radius of obstacles
     'max_r': 25,
-    'min_y': 100,                             # boundaries of where obstacles can be placed
+    'min_y': OBS_MIN_Y,                             # boundaries of where obstacles can be placed
     'circular': False,                      # if True, obstacles are more circular, otherwise they are convex polygons
     'exp_dist': False                        # if True, obstacle radii are sampled from an exponential distribution
 }
@@ -120,7 +122,7 @@ def header_block(hfield, stl_model_path, sim_timestep, channel_len, channel_wid,
 
             <camera name="overview_cam" pos="50 -200 200" euler="60 0 0" fovy="60"/>
             
-            <!ASV->
+            <!-- ASV -->
             <body name="asv" pos="{ASV_X0} {ASV_Y0} 0" quat="0.7071 0 0 0.7071">
               <joint name="asv_x"   type="slide" axis="1 0 0"/>
               <joint name="asv_y"   type="slide" axis="0 1 0"/>
@@ -128,6 +130,8 @@ def header_block(hfield, stl_model_path, sim_timestep, channel_len, channel_wid,
               <geom class="asv_body" type="mesh" mesh="asv_mesh" mass="{ASV_MASS_TOTAL}" euler="0 0 -180"/>
               <camera name="asv_cam" pos="-0 0 25" euler="0 -90 -90" fovy="60"/>
             </body>
+
+            {generate_waypoint_sites(500)}
     """)
     return header
 
@@ -255,14 +259,23 @@ def footer_block():
           </worldbody>
 
           <actuator>
-            <motor name="asv_forward" joint="asv_x"  ctrlrange="-6e7 9e7" gear="1"/>
-            <motor name="asv_rudder"  joint="asv_yaw" ctrlrange="-1 1"   gear="5"/>
+            <!-- <motor name="asv_forward" joint="asv_x"  ctrlrange="-6e7 9e7" gear="1"/> -->
+            <!-- <motor name="asv_rudder"  joint="asv_yaw" ctrlrange="-6e7 9e7"   gear="5"/> -->
+
+            <velocity name="asv_forward" joint="asv_x"  ctrlrange="-50 50" forcelimited="false" kv="1000000.0"/>
+            <velocity name="asv_rudder"  joint="asv_yaw" ctrlrange="-10 10" forcelimited="false" kv="10000000000.0"/>
           </actuator>
         </mujoco>
     """)
     
     return footer
 
+
+def generate_waypoint_sites(num_sites=500):
+    site_template = (
+        '<site name="wp{0}" pos="0 500 5" size="1" rgba="0 1 0 1" type="sphere"/>'
+    )
+    return "\n".join([site_template.format(i) for i in range(num_sites)])
 
 
 def generate_shipice_xml(concentration, xml_file, sim_timestep, channel_len, channel_wid, icefield_len, icefield_wid, load_cached=True, trial_idx=0) -> str:
@@ -308,6 +321,62 @@ def generate_shipice_xml(concentration, xml_file, sim_timestep, channel_len, cha
 
         out_file = os.path.join(directory, 'ice_' + str(i) + '.stl')
         extrude_and_export(polygon, thickness=1.2, filename=out_file)
+
+
+    # get stl model path
+    stl_model_path = os.path.join(os.path.dirname(__file__), 'models/')
+
+    # Building the heightfield used for stimulation
+    hfield = hfield_data_as_string()
+
+    # ice_floe_text, num_floes = random_ice_bodies(concentration, icefield_len=icefield_len, icefield_wid=icefield_wid)
+
+    ice_floe_text = generate_ice_mesh_bodies(positions)
+
+    xml_text = header_block(hfield, stl_model_path, sim_timestep, channel_len=channel_len, channel_wid=channel_wid, num_floes=num_stl_floes) + ice_floe_text + "\n" + footer_block()
+    Path(xml_file).write_text(xml_text)
+
+    return num_stl_floes
+
+
+
+def load_ice_field(concentration, xml_file, sim_timestep, channel_len, channel_wid, icefield_len, icefield_wid, load_cached=True, trial_idx=0) -> str:
+
+    # get current directory of this script
+    current_dir = os.path.dirname(__file__)
+    polygon_file = os.path.join(current_dir, 'models/fields/field3.json')
+
+    with open(polygon_file, 'rb') as f:
+        data = json.load(f)
+
+    trial_data = data
+    num_stl_floes = len(trial_data['ice'])
+
+    # get current directory of this script
+    current_dir = os.path.dirname(__file__)
+    directory = os.path.join(current_dir, 'models/ice_floes')
+    if directory:
+        os.makedirs(directory, exist_ok=True)  # Create directories if they don't exist
+
+    positions = []
+    print(num_stl_floes)
+    ice_idx = 0
+    for ice_key, ice_data in trial_data['ice'].items():
+        vertices = np.array(ice_data['perimeter'])
+        center = np.array(ice_data['location'])
+        vertices = np.flip(vertices, axis=1)
+        center = np.flip(center, axis=0)
+
+        # offset positions
+        center[1] = center[1] + OBS_MIN_Y
+        positions.append(center)
+
+        polygon = polygon_from_vertices(vertices)
+
+        out_file = os.path.join(directory, 'ice_' + str(ice_idx) + '.stl')
+        extrude_and_export(polygon, thickness=1.2, filename=out_file)
+
+        ice_idx += 1
 
 
     # get stl model path
