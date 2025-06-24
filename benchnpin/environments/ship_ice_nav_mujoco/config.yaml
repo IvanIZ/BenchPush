@@ -7,7 +7,7 @@ target_speed: 0.8  # m/s
 # parameters for low-dim observations
 low_dim_state: false
 fixed_trial_idx: 4 
-random_start: false
+random_start: true
 start_x_range: 7
 
 ship:

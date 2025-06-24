@@ -24,8 +24,11 @@ ASV_MASS_TOTAL = 6000000.0     # kg
 ICE_DENSITY    = 900.0         # kg m⁻³
 RHO_WATER      = 1025.0        # kg m⁻³
 CD             = 1.0
-ANG_DAMP_BETA  = 0.3          # torque coefficient
-STL_SCALE      = 0.3
+DAMP_BETA_SHIP      = 0.5
+ANG_DAMP_BETA_SHIP  = 1.0       # torque coefficient
+DAMP_BETA_ICE       = 105.0
+ANG_DAMP_BETA_ICE   = 105.0       # torque coefficient
+STL_SCALE      = 0.4
 
 # Random position of asv
 ASV_Y0 = 100
@@ -85,6 +88,10 @@ def header_block(hfield, stl_model_path, sim_timestep, channel_len, channel_wid,
           <!-- Global material presets -->
           <asset>
             <mesh name="asv_mesh" file="cs_long.stl" scale="{STL_SCALE} {STL_SCALE} {STL_SCALE}"/>
+            <mesh name="cs_long_bottom" file="cs_long_bottom.stl" scale="{STL_SCALE} {STL_SCALE} {STL_SCALE}"/>
+            <mesh name="cs_long_top" file="cs_long_top.stl" scale="{STL_SCALE} {STL_SCALE} {STL_SCALE}"/>
+            <mesh name="CONTAINER_Full" file="CONTAINER_Full.stl" scale="{STL_SCALE} {STL_SCALE} {STL_SCALE}"/>
+
             <texture name="ice_tex" type="2d" file="models/ice_texture.png" />
             <material name="ice_mat" texture="ice_tex"/>
             {' '.join(mesh_entries)}
@@ -122,12 +129,27 @@ def header_block(hfield, stl_model_path, sim_timestep, channel_len, channel_wid,
 
             <camera name="overview_cam" pos="50 -200 200" euler="60 0 0" fovy="60"/>
             
-            <!-- ASV -->
-            <body name="asv" pos="{ASV_X0} {ASV_Y0} 0" quat="0.7071 0 0 0.7071">
-              <joint name="asv_x"   type="slide" axis="1 0 0"/>
-              <joint name="asv_y"   type="slide" axis="0 1 0"/>
-              <joint name="asv_yaw" type="hinge" axis="0 0 1" damping="10.0"/>
-              <geom class="asv_body" type="mesh" mesh="asv_mesh" mass="{ASV_MASS_TOTAL}" euler="0 0 -180"/>
+            <!ASV->
+            <body name="asv" pos="{ASV_X0} {ASV_Y0} 0" quat="0.7071 0 0 -0.7071">
+              <joint name="asv_x"   type="slide" axis="-1 0 0"/>
+              <joint name="asv_y"   type="slide" axis="0 -1 0"/>
+              <joint name="asv_yaw" type="hinge" axis="0 0 -1" damping="10.0"/>
+              <geom type="mesh" mesh="cs_long_bottom" mass="{ASV_MASS_TOTAL/2}" rgba="0.698 0.133 0.133 1"/>
+              <geom type="mesh" mesh="cs_long_top" mass="{ASV_MASS_TOTAL/2}" rgba="0.45 0.47 0.50 1"/>
+              <geom type="mesh" mesh="CONTAINER_Full" pos="{1*STL_SCALE*10} {4*STL_SCALE*10} {1*STL_SCALE*10}"  rgba="0.588 0.204 0.188 1"/>
+              <geom type="mesh" mesh="CONTAINER_Full" pos="{-0.4*STL_SCALE*10} {4*STL_SCALE*10} {1*STL_SCALE*10}" rgba="0.169 0.329 0.553 1"/>
+              <geom type="mesh" mesh="CONTAINER_Full" pos="{-1.8*STL_SCALE*10} {4*STL_SCALE*10} {1*STL_SCALE*10}" rgba="0.216 0.278 0.310 1"/>
+              <geom type="mesh" mesh="CONTAINER_Full" pos="{-3.2*STL_SCALE*10} {4*STL_SCALE*10} {1*STL_SCALE*10}" rgba="0.439 0.502 0.565 1"/>
+              <geom type="mesh" mesh="CONTAINER_Full" pos="{-4.6*STL_SCALE*10} {4*STL_SCALE*10} {1*STL_SCALE*10}" rgba="0.588 0.204 0.188 1"/>
+              <geom type="mesh" mesh="CONTAINER_Full" pos="{-6.0*STL_SCALE*10} {4*STL_SCALE*10} {1*STL_SCALE*10}"  rgba="0.588 0.204 0.188 1"/>/>
+              <geom type="mesh" mesh="CONTAINER_Full" pos="{-7.4*STL_SCALE*10} {4*STL_SCALE*10} {1*STL_SCALE*10}"  rgba="0.588 0.204 0.188 1"/>/>
+              <geom type="mesh" mesh="CONTAINER_Full" pos="{-8.8*STL_SCALE*10} {4*STL_SCALE*10} {1*STL_SCALE*10}" rgba="0.216 0.278 0.310 1"/>
+              <geom type="mesh" mesh="CONTAINER_Full" pos="{-10.2*STL_SCALE*10} {4*STL_SCALE*10} {1*STL_SCALE*10}" rgba="1.000 0.843 0.000 1"/>
+              <geom type="mesh" mesh="CONTAINER_Full" pos="{-11.6*STL_SCALE*10} {4*STL_SCALE*10} {1*STL_SCALE*10}" rgba="0.588 0.204 0.188 1"/>
+              <geom type="mesh" mesh="CONTAINER_Full" pos="{-13.0*STL_SCALE*10} {4*STL_SCALE*10} {1*STL_SCALE*10}" rgba="0.588 0.204 0.188 1"/>
+
+
+
               <camera name="asv_cam" pos="-0 0 25" euler="0 -90 -90" fovy="60"/>
             </body>
 
@@ -294,6 +316,8 @@ def generate_shipice_xml(concentration, xml_file, sim_timestep, channel_len, cha
     }
     goal = (2, channel_len)            # NOTE: change to a tuple so planner doesn't complain
 
+    ice_area_dict=dict()
+
     if load_cached:
         with open(polygon_file, 'rb') as f:
             data = pickle.load(f)
@@ -316,8 +340,11 @@ def generate_shipice_xml(concentration, xml_file, sim_timestep, channel_len, cha
         center = np.array(trial_data['obstacles'][i]['centre'])
         transformed_vertices = vertices - center
         positions.append(center)
-
+        
         polygon = polygon_from_vertices(transformed_vertices)
+
+        area_2d = polygon.area        # Shapely gives signed area directly
+        ice_area_dict[f'ice_{i}'] = area_2d        # NEW
 
         out_file = os.path.join(directory, 'ice_' + str(i) + '.stl')
         extrude_and_export(polygon, thickness=1.2, filename=out_file)
@@ -336,7 +363,7 @@ def generate_shipice_xml(concentration, xml_file, sim_timestep, channel_len, cha
     xml_text = header_block(hfield, stl_model_path, sim_timestep, channel_len=channel_len, channel_wid=channel_wid, num_floes=num_stl_floes) + ice_floe_text + "\n" + footer_block()
     Path(xml_file).write_text(xml_text)
 
-    return num_stl_floes
+    return num_stl_floes, ice_area_dict
 
 
 
@@ -398,9 +425,18 @@ def load_ice_field(concentration, xml_file, sim_timestep, channel_len, channel_w
 
 # Part 2- Performing operations in the file
 
-
-def apply_fluid_forces_to_body(model, data, body_name, joint_prefix, area, angular_beta, phase, beta=ANG_DAMP_BETA, Cd=CD, wave_amp=0.2, g=9.81, thickness=0.6, kx=2*np.pi/200, ky=2*np.pi/80, max_omega=5):
+def apply_fluid_forces_to_body(model, data, body_name, joint_prefix, phase, ice_area_dict,angular_beta_ship=ANG_DAMP_BETA_SHIP, beta_ship=DAMP_BETA_SHIP, angular_beta_ice=ANG_DAMP_BETA_ICE, beta_ice=DAMP_BETA_ICE, Cd=CD, wave_amp=0.2, g=9.81, thickness=0.6, kx=2*np.pi/200, ky=2*np.pi/80, max_omega=5):
     """Drag force and wave force in two dimensions"""
+
+    if body_name=="asv":
+        area=30
+        beta = beta_ship
+        angular_beta = angular_beta_ship
+    else:
+        # This is for the ice pieces area of the floating thing based on the body_name
+        area = ice_area_dict.get(body_name)
+        beta = beta_ice
+        angular_beta = angular_beta_ice
     
     # clear out last frame’s forces only
     mujoco.mju_zero(data.qfrc_applied)        
@@ -422,15 +458,8 @@ def apply_fluid_forces_to_body(model, data, body_name, joint_prefix, area, angul
     v_dir = v / v_mag if v_mag > 1e-3 else np.zeros(2)
 
     F_linear = -beta * v
-    F_quad = -1.0 * RHO_WATER * Cd * area * v_mag**2 * v_dir
+    F_quad = -0.5 * RHO_WATER * Cd * area * v_mag**2 * v_dir
     Fxy_drag = F_linear + F_quad
-    
-    """
-    # Angular velocity (yaw only)
-    total_torque = np.zeros((3, 1)).astype(np.float64)
-    omega_z = data.qvel[dof_yaw]
-    total_torque = np.array([0, 0, -angular_beta * omega_z])
-    total_torque = total_torque.reshape((3, -1))"""
     
     
     omega_z = data.qvel[dof_yaw]
