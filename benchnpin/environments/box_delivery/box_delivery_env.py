@@ -139,6 +139,7 @@ class BoxDeliveryEnv(gym.Env):
         self.goal_reward = rewards.goal_reward
         self.collision_penalty = rewards.collision_penalty
         self.non_movement_penalty = rewards.non_movement_penalty
+        self.correct_direction_reward_scale = rewards.correct_direction_reward_scale
 
         # misc
         self.ministep_size = self.cfg.misc.ministep_size
@@ -748,7 +749,7 @@ class BoxDeliveryEnv(gym.Env):
             dist_moved = initial_box_distances[box.idx] - final_box_distances[box.idx]
             boxes_distance += abs(dist_moved)
             if self.cfg.train.use_correct_direction_reward and dist_moved > 0:
-                dist_moved *= self.cfg.rewards.correct_direction_reward_scale
+                dist_moved *= self.correct_direction_reward_scale
             robot_reward += self.partial_rewards_scale * dist_moved
 
             # reward for boxes in receptacle
@@ -788,7 +789,7 @@ class BoxDeliveryEnv(gym.Env):
         self.total_work[1].append(work)
         self.prev_boxes = updated_boxes
 
-        # increment inactivity counter, which measures steps elapsed since the previus box was stashed
+        # increment inactivity counter, which measures steps elapsed since the previous box was stashed
         if robot_boxes == 0:
             self.inactivity_counter += 1
         
