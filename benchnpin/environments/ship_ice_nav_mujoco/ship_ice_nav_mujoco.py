@@ -16,7 +16,7 @@ except ImportError as e:
         'MuJoCo is not installed, run `pip install "gymnasium[mujoco]"`'
     ) from e
 
-from benchnpin.common.utils.mujoco_utils import get_body_pose_2d, get_box_2d_vertices
+from benchnpin.common.utils.mujoco_utils import get_body_pose_2d, get_box_2d_vertices, corners_xy
 from benchnpin.common.utils.utils import DotDict
 from benchnpin.environments.ship_ice_nav_mujoco.ship_ice_utils import generate_shipice_xml, apply_fluid_forces_to_body, load_ice_field
 
@@ -67,11 +67,11 @@ class ShipIceMujoco(MujocoEnv, utils.EzPickle):
         xml_file = os.path.join(self.current_dir, 'asv_ice_planar_random.xml')
 
         # build xml file
-        self.num_floes, self.ice_area_dict = generate_shipice_xml(self.cfg.concentration, xml_file, self.cfg.sim.timestep_sim, 
+        self.num_floes, self.ice_dict = generate_shipice_xml(self.cfg.concentration, xml_file, self.cfg.sim.timestep_sim, 
             self.cfg.environment.channel_len, self.cfg.environment.channel_wid, 
             self.cfg.environment.icefield_len, self.cfg.environment.icefield_wid, 
             load_cached=True, trial_idx=0)
-        self.num_floes, self.ice_area_dict = load_ice_field(self.cfg.concentration, xml_file, self.cfg.sim.timestep_sim, 
+        self.num_floes, self.ice_dict = load_ice_field(self.cfg.concentration, xml_file, self.cfg.sim.timestep_sim, 
             self.cfg.environment.channel_len, self.cfg.environment.channel_wid, 
             self.cfg.environment.icefield_len, self.cfg.environment.icefield_wid, 
             load_cached=True, trial_idx=0)
@@ -145,12 +145,12 @@ class ShipIceMujoco(MujocoEnv, utils.EzPickle):
 
         # drag and wave force (ship)
         # frontal area is an approximation here for the part of ship submerged in fluid
-        apply_fluid_forces_to_body(self.model, self.data, 'asv', 'asv', self.phase, self.ice_area_dict)
+        apply_fluid_forces_to_body(self.model, self.data, 'asv', 'asv', self.phase, self.ice_dict)
 
         # Apply drag to all ice floes
         for n in range(self.num_floes):
             name = f"ice_{n}"
-            apply_fluid_forces_to_body(self.model, self.data, name, name, self.phase, self.ice_area_dict)
+            apply_fluid_forces_to_body(self.model, self.data, name, name, self.phase, self.ice_dict)
         
         mujoco.mj_step(self.model, self.data)
 
@@ -180,10 +180,12 @@ class ShipIceMujoco(MujocoEnv, utils.EzPickle):
         gets vertices of all floes, returns a list of shape (num_floes, 4, 2)
         """
         obs = []
-        # for n in range(self.num_floes):
-        #     name = f"ice_{n}"
-        #     floe_vertices = get_box_2d_vertices(model=self.model, data=self.data, body_name=name)
-        #     obs.append(floe_vertices)
+        for n in range(self.num_floes):
+            name = f"ice_{n}"
+            x, y, yaw = get_body_pose_2d(self.model, self.data, name)
+            floe_vertices = corners_xy(np.array([x, y]), yaw, self.ice_dict[name]['vertices'])
+            obs.append(floe_vertices)
+
         return obs
 
 

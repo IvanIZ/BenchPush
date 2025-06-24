@@ -30,7 +30,7 @@ occ:
   map_height: 25       # occupancy map height (in meter)
   map_width: 12        # occupancy map width (in meter)
 a_star:
-  horizon: 700  # receding horizon in metres (needs to be an int for it to be enabled)
+  horizon: 1500  # receding horizon in metres (needs to be an int for it to be enabled)
   margin: 500
   replan: true
   smooth_path:
