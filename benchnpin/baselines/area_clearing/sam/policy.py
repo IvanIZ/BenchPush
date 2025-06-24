@@ -1,6 +1,7 @@
 from benchnpin.baselines.base_class import BasePolicy
 from benchnpin.baselines.feature_extractors import DenseActionSpaceDQN
 from benchnpin.common.metrics.task_driven_metric import TaskDrivenMetric
+from benchnpin.common.utils.utils import DotDict
 import benchnpin.environments
 import gymnasium as gym
 from collections import namedtuple
@@ -199,6 +200,12 @@ class AreaClearingSAM(BasePolicy):
 
 
     def train(self, job_id) -> None:
+        # create environment
+        env = gym.make('box-delivery-v0', cfg=self.cfg)
+        env = env.unwrapped
+        env.configure_env_for_SAM()
+        self.cfg = env.cfg # update cfg with env-specific config
+
         job_id = job_id
         params = self.cfg['train']
         self.batch_size = params['batch_size']
@@ -226,16 +233,6 @@ class AreaClearingSAM(BasePolicy):
         logging.basicConfig(filename=os.path.join(log_dir, f'{self.model_name}.log'), level=logging.DEBUG)
         logging.info("starting training...")
         logging.info(f"Job ID: {job_id}")
-
-        # create environment
-        if self.cfg is not None:
-            env = gym.make('area-clearing-v0', cfg=self.cfg)
-            # env = gym.make('area-clearing-v0')
-        else:
-            env = gym.make('area-clearing-v0')
-        env = env.unwrapped
-
-        env.configure_env_for_SAM()
 
         # policy
         policy = DenseActionSpacePolicy(env.action_space.high, env.num_channels, self.final_exploration,

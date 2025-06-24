@@ -1,6 +1,7 @@
 from benchnpin.baselines.base_class import BasePolicy
 from benchnpin.baselines.feature_extractors import DenseActionSpaceDQN
 from benchnpin.common.metrics.task_driven_metric import TaskDrivenMetric
+from benchnpin.common.utils.utils import DotDict
 import gymnasium as gym
 from collections import namedtuple
 import random
@@ -197,6 +198,11 @@ class BoxDeliverySAM(BasePolicy):
 
 
     def train(self, job_id) -> None:
+        # create environment
+        env = gym.make('box-delivery-v0', cfg=self.cfg)
+        env = env.unwrapped
+        self.cfg = env.cfg # update cfg with env-specific config
+
         job_id = job_id
         params = self.cfg['train']
         self.batch_size = params['batch_size']
@@ -224,10 +230,6 @@ class BoxDeliverySAM(BasePolicy):
         logging.basicConfig(filename=os.path.join(log_dir, f'{self.model_name}.log'), level=logging.DEBUG)
         logging.info("starting training...")
         logging.info(f"Job ID: {job_id}")
-
-        # create environment
-        env = gym.make('box-delivery-v0', cfg=self.cfg)
-        env = env.unwrapped
 
         # policy
         policy = DenseActionSpacePolicy(env.action_space.high, env.num_channels, self.final_exploration,

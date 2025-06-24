@@ -1,6 +1,8 @@
 # BenchNPIN: Benchmarking Non-prehensile Interactive Navigation
 BenchNPIN is a comprehensive suite of benchmarking tools for mobile robot non-prehensile interactive navigation. The goal of BenchNPIN is to provide researchers a standarized platform for training and evaluating algorithms in non-prehensile interactive navigation. BenchNPIN provides simulated environments for a wide range of non-prehensile interactive navigation tasks, metrics specifically capturing both task efficiency and interaction effort, policy templates with reference implementations. 
 
+Checkout our paper "[Bench-NPIN: Benchmarking Non-prehensile Interactive Navigation](https://arxiv.org/abs/2505.12084)", currently under review for IROS 2025. [[Project Page](https://sites.google.com/view/bench-npin/home)]
+
 
 ## The Environments
 
@@ -75,7 +77,7 @@ The `pip install` above is sufficient to run _Ship-Ice_ and _Maze_ environments.
 ```bash
 git clone https://github.com/IvanIZ/spfa.git
 cd spfa
-python setup.py install
+pip install -e .
 ```
 
 
@@ -86,22 +88,26 @@ python setup.py install
 git clone https://github.com/IvanIZ/BenchNPIN.git
 ```
 
-2. Install dependencies.
+2. Clone the submodules (spfa and GLNS)
 ```bash
 cd BenchNPIN
+git submodule update --init --recursive
+```
+
+3. Install dependencies.
+```bash
 pip install -r requirements.txt
 ```
 
-3. Install Gym environment
+4. Install Gym environment
 ```bash
 pip install -e .
 ```
 
-4. Install shortest path module
+5. Install shortest path module
 ```bash
-git clone https://github.com/IvanIZ/spfa.git
-cd spfa
-python setup.py install
+cd deps/spfa
+pip install -e .
 ```
 
 ## Usage
@@ -203,3 +209,9 @@ BaseMetric.plot_algs_scores(benchmark_results, save_fig_dir='./')
 ### Trained Models
 
 You may download the our trained model weights from [here](https://drive.google.com/drive/folders/1jBeFHgArBXuH7eQCzlNSVhZjhJIFlQVY?usp=sharing).
+
+### GTSP policy requirements
+
+To run the GTSP policy, we use a fork of the [GLNS](https://github.com/stephenlsmith/GLNS.jl) solver. To run this solver, the [Julia](https://julialang.org/) programming language must be installed. 
+
+The path to the GLNS solver can be configured as a parameter. Please refer to the cofiguration example for [Area-Clearing](./scripts/configure_area_clearing.py).
