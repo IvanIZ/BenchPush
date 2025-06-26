@@ -146,7 +146,7 @@ def build_xml(robot_qpos, cubes, stl_model_path,extra_xml,Z_CUBE, cube_size, maz
     <mesh name="left_tire"   file="left_tire.stl"  scale="0.001 0.001 0.001"/>
     <mesh name="right_tire"  file="right_tire.stl" scale="0.001 0.001 0.001"/>
     <mesh name="lds"         file="lds.stl"        scale="0.001 0.001 0.001"/>
-    <mesh name="bumper"      file="TurtleBot3 Burger Bumper.STL" scale="0.001 0.001 0.001"/>
+    <mesh name="bumper"      file="Bumper_triangular.STL" scale="0.001 0.001 0.001"/>
   </asset>
 
   <visual>
