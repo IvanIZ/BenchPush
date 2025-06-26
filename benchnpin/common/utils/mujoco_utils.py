@@ -277,3 +277,14 @@ def wall_collision(data, model):
                 print("wall collide!!")
                 return True
     return False
+
+
+def zero_body_velocity(model, data, body_name):
+    """
+    Set the velocity of body with the given body_name to zero
+    """
+    body_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, body_name)
+    dof_start = model.body_dofadr[body_id]
+    dof_count = model.body_dofnum[body_id]
+    data.qvel[dof_start : dof_start + dof_count] = 0
+    data.qacc[dof_start : dof_start + dof_count] = 0
