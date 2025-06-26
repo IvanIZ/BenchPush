@@ -92,28 +92,29 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
 
         # Receptacle position and size
         self.receptacle_position= self.cfg.env.receptacle_position
-        self.receptacle_size= self.cfg.env.receptacle_size
+        self.receptacle_half= self.cfg.env.receptacle_half
 
         # Pillar position and size
         self.num_pillars = None
         self.pillar_half = None
         self.pillar_type = None
-        self.adjust_no_pillars = False
+        self.adjust_num_pillars = False
         if env_size.strip()=="small_columns":
             self.num_pillars = self.cfg.small_pillars.num_pillars
             self.pillar_half = self.cfg.small_pillars.pillar_half
-            self.adjust_no_pillars= self.cfg.small_pillars.adjust_no_pillars
+            self.adjust_num_pillars= self.cfg.small_pillars.adjust_num_pillars
         elif env_size.strip()=="large_columns":
             self.num_pillars = self.cfg.large_pillars.num_pillars
             self.pillar_half = self.cfg.large_pillars.pillar_half
-            self.adjust_no_pillars= self.cfg.large_pillars.adjust_no_pillars
+            self.adjust_num_pillars= self.cfg.large_pillars.adjust_num_pillars
 
         # generate random environmnt
+        # TODO can robot_radius be used instead of robot_clear?
         xml_file = os.path.join(self.current_dir, 'turtlebot3_burger_updated.xml')
-        _, self.initialization_keepouts, self.clearance_poly = generate_boxDelivery_xml (N=self.cfg.boxes.num_boxes, env_type=self.cfg.env.obstacle_config, file_name=xml_file,
-                        ROBOT_clear=self.cfg.agent.robot_clear, CLEAR=self.cfg.boxes.clearance, goal_half= self.receptacle_size, goal_center= self.receptacle_position, Z_CUBE=0.02, ARENA_X=(0.0, self.room_width), 
-                        ARENA_Y=(0.0, self.room_length), cube_half_size=0.04, num_pillars=self.num_pillars, pillar_half=self.pillar_half, adjust_no_pillars=self.adjust_no_pillars)
-        
+        # _, self.initialization_keepouts, self.clearance_poly = generate_boxDelivery_xml (N=self.cfg.boxes.num_boxes, env_type=self.cfg.env.obstacle_config, file_name=xml_file,
+        #                 ROBOT_clear=self.cfg.agent.robot_clear, CLEAR=self.cfg.boxes.clearance, goal_half= self.receptacle_half, goal_center= self.receptacle_position, Z_BOX=0.02, ARENA_X=(0.0, self.room_width), 
+        #                 ARENA_Y=(0.0, self.room_length), box_half_size=0.04, num_pillars=self.num_pillars, pillar_half=self.pillar_half, adjust_num_pillars=self.adjust_num_pillars)
+        #
         utils.EzPickle.__init__(
             self,
             xml_file,
@@ -193,13 +194,13 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
         self.qpos_index_base = self.model.jnt_qposadr[joint_adr]
         self.base_joint_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_JOINT, "base_joint")
 
-        # Cube joint addresses
+        # Box joint addresses
         joint_id_boxes=[]
         for i in range (self.cfg.boxes.num_boxes):
-            joint_id=mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_JOINT, f"cube{i}_joint")
+            joint_id=mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_JOINT, f"box{i}_joint")
             joint_id_boxes.append(joint_id)
         self.joint_id_boxes = joint_id_boxes
-        self.no_completed_boxes=0
+        self.num_completed_boxes=0
 
         # rewards
         if self.cfg.train.job_type == 'sam':
@@ -331,7 +332,7 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
             return None
         
         # Getting the robot and boxes vertices
-        Robot_properties, Boxes_vertices=dynamic_vertices(self.model,self.data, self.qpos_index_base,self.joint_id_boxes)
+        robot_properties, boxes_vertices=dynamic_vertices(self.model,self.data, self.qpos_index_base,self.joint_id_boxes)
 
         # Initialize the global overhead map if not already done
         if not self.observation_init:
@@ -344,18 +345,18 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
             self.observation_init = True
 
         # Update the global overhead map with the current robot and boundaries
-        self.update_global_overhead_map(Robot_properties, Boxes_vertices)
+        self.update_global_overhead_map(robot_properties[1], boxes_vertices)
 
-        Robot_postition= Robot_properties[3]
-        Robot_angle = Robot_properties[2]
+        robot_postition= robot_properties[3]
+        robot_angle = robot_properties[2]
 
         # Create the robot state channel
         channels = []
         
-        channels.append(self.get_local_map(self.global_overhead_map, Robot_postition, Robot_angle))
+        channels.append(self.get_local_map(self.global_overhead_map, robot_postition, robot_angle))
         channels.append(self.robot_state_channel)
-        channels.append(self.get_local_distance_map(self.create_global_shortest_path_to_receptacle_map(self.receptacle_position), Robot_postition, Robot_angle))
-        channels.append(self.get_local_distance_map(self.create_global_shortest_path_map(Robot_postition), Robot_postition, Robot_angle))
+        channels.append(self.get_local_distance_map(self.create_global_shortest_path_to_receptacle_map(self.receptacle_position), robot_postition, robot_angle))
+        channels.append(self.get_local_distance_map(self.create_global_shortest_path_map(robot_postition), robot_postition, robot_angle))
         observation = np.stack(channels, axis=2)
         observation = (observation * 255).astype(np.uint8)
         return observation
@@ -495,7 +496,7 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
         # Converting the value as in 1 for obstacle and 0 for free space
         self.small_obstacle_map = 1 - small_obstacle_map
 
-    def update_global_overhead_map(self,Robot_vertices, Boxes_vertices):
+    def update_global_overhead_map(self, robot_vertices, boxes_vertices):
         """Updates the global overhead map with the current robot and boundaries."""
 
         # Makes a copy of immovable obstacles
@@ -518,15 +519,16 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
             fillPoly(small_overhead_map, [vertices_px], color=seg_index/MAX_SEG_INDEX)
         
         # Draw the robot
-        robot_vertices= Robot_vertices[1]
+        # robot_vertices= robot_vertices[1]
+        # print(robot_vertices)
         draw_object(robot_vertices, ROBOT_SEG_INDEX)
         
         # Draw the boxes
-        for box_vertices in Boxes_vertices:
-            draw_object(box_vertices[0], CUBE_SEG_INDEX)
+        for box_vertices in boxes_vertices:
+            draw_object(box_vertices[0], BOX_SEG_INDEX)
         
         # Draw the receptacle
-        receptacle_vertice=receptacle_vertices(self.receptacle_position, self.receptacle_size)
+        receptacle_vertice=receptacle_vertices(self.receptacle_position, self.receptacle_half)
         draw_object(receptacle_vertice, RECEPTACLE_SEG_INDEX)
 
         start_i, start_j = int(self.global_overhead_map.shape[0] / 2 - small_overhead_map.shape[0] / 2), int(self.global_overhead_map.shape[1] / 2 - small_overhead_map.shape[1] / 2)
@@ -536,7 +538,7 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
 
         if configuration_space is None:
             configuration_space = self.configuration_space
-
+            
         # convert positions to pixel indices
         source_i, source_j = self.position_to_pixel_indices(source_position[0], source_position[1], configuration_space.shape)
         target_i, target_j = self.position_to_pixel_indices(target_position[0], target_position[1], configuration_space.shape)
@@ -640,18 +642,18 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
         robot_reward = 0
         non_movement_penalty=False
 
-        # partial reward for moving cubes towards receptacle
-        cubes_distance = 0
+        # partial reward for moving boxes towards receptacle
+        boxes_distance = 0
 
-        self.motion_dict, cubes_total_distance= self.update_motion_dict(self.motion_dict)
+        self.motion_dict, boxes_total_distance= self.update_motion_dict(self.motion_dict)
 
-        if cubes_total_distance<-0.01 or 0.01<cubes_total_distance:
-            robot_reward+=self.partial_rewards_scale * cubes_total_distance
+        if boxes_total_distance<-0.01 or 0.01<boxes_total_distance:
+            robot_reward+=self.partial_rewards_scale * boxes_total_distance
 
-        # reward for cubes in receptacle
-        if self.no_completed_boxes!=0:
-            robot_reward += self.goal_reward
-            self.inactivity_counter=0
+        # reward for boxes in receptacle
+        if self.num_completed_boxes_new != 0:
+            self.inactivity_counter = 0
+        robot_reward += self.goal_reward * self.num_completed_boxes_new
         
         # penalty for hitting obstacles
         if self.collision:
@@ -670,11 +672,11 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
 
         """
         # work
-        updated_cubes = CostMap.get_obs_from_poly(self.boxes)
-        work = total_work_done(self.prev_cubes, updated_cubes)
+        updated_boxes = CostMap.get_obs_from_poly(self.boxes)
+        work = total_work_done(self.prev_boxes, updated_boxes)
         self.total_work[0] += work
         self.total_work[1].append(work)
-        self.prev_cubes = updated_cubes"""
+        self.prev_boxes = updated_boxes"""
         return robot_reward
 
     def _sample_pillar_centres(self):
@@ -700,7 +702,7 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
 
         rng = np.random.default_rng()
 
-        if self.adjust_no_pillars: 
+        if self.adjust_num_pillars: 
 
             # decide how many pillars are in play this episode
             n_active = rng.integers(1, self.num_pillars + 1)
@@ -752,7 +754,7 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
         cx, cy = self.data.xpos[self.base_body_id][:2]
         track[self.base_body_id] = [0.0, np.array([cx, cy], dtype=float), float(m_robot)]
 
-        # cubes
+        # boxes
         for jid in self.joint_id_boxes:
             bid = self.model.jnt_bodyid[jid]
             adr = self.model.jnt_qposadr[jid]
@@ -765,7 +767,7 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
     def update_motion_dict(self, motion_dict):
         """
         In-place update of motion_dict.
-        Skips cubes that have already been teleported away (their body_id is gone).
+        Skips boxes that have already been teleported away (their body_id is gone).
         """
         goal_xy = np.array([
         self.receptacle_position[0] + 0.5 * self.room_width,
@@ -778,9 +780,9 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
         motion_dict[self.base_body_id][0] += dist
         motion_dict[self.base_body_id][1][:] = (cx, cy)
 
-        # cubes still present
+        # boxes still present
         live_bodies = {self.model.jnt_bodyid[jid] for jid in self.joint_id_boxes}
-        cubes_total_distance=0
+        boxes_total_distance=0
 
         for body_id in live_bodies:
 
@@ -788,18 +790,21 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
 
             adr  = self.model.body_jntadr[body_id]
             jpos = self.model.jnt_qposadr[adr]
-            cur_xy = self.data.qpos[jpos : jpos+2]
+            curr_xy = self.data.qpos[jpos : jpos+2]
 
             # progress *before* we mutate last_xy
-            prev_d = np.linalg.norm(last_xy - goal_xy)
-            curr_d = np.linalg.norm(cur_xy  - goal_xy)
-            cubes_total_distance += prev_d - curr_d
+            # prev_d = np.linalg.norm(last_xy - goal_xy)
+            # curr_d = np.linalg.norm(curr_xy  - goal_xy)
+            prev_d = self.shortest_path_distance(last_xy, goal_xy)
+            curr_d = self.shortest_path_distance(curr_xy, goal_xy)
+            boxes_total_distance += prev_d - curr_d
 
             # book-keeping for next step
-            motion_dict[body_id][0] += np.linalg.norm(cur_xy - last_xy)
-            motion_dict[body_id][1][:] = cur_xy
+            # motion_dict[body_id][0] += np.linalg.norm(curr_xy - last_xy)
+            motion_dict[body_id][0] += self.shortest_path_distance(curr_xy, last_xy)
+            motion_dict[body_id][1][:] = curr_xy
 
-        return motion_dict, cubes_total_distance
+        return motion_dict, boxes_total_distance
 
     # contacts
     def robot_hits_static(self) -> bool:
@@ -828,7 +833,7 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
                 return True
         return False
 
-    def reset_model(self):
+    def reset_model(self): # TODO find out if this is used
         """
         Randomly sample non-overlapping (x, y, theta) for robot and boxes.
         Teleport them in simulation using sim.data.qpos.
@@ -896,6 +901,7 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
         self.data.qvel[base_qpos_addr:base_qpos_addr+6] = 0
 
         # Assume box is square with radius from center to corner (diagonal/2)
+        # TODO why is this hard-coded?
         box_r = np.sqrt(0.04 ** 2 + 0.04 ** 2)
 
         for i in range(self.num_boxes):
@@ -919,7 +925,7 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
 
         observation=self.generate_observation()
 
-        self.save_local_map(observation, "snapshots/step_023.png")
+        # self.save_local_map(observation, "snapshots/step_023.png")
 
         return observation
 
