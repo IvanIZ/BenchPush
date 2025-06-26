@@ -39,7 +39,7 @@ a_star:
   weight: 1        # static weighting for weighed A* f(n) = g(n) + w * h(n) where weight > 1
 #  h_baseline: True  # if true, then heuristic is simply euclidean distance to goal
 costmap:
-  m: 1000       # height of ice channel in metres, can set to large number for 'infinite' ice channel
+  m: 2000       # height of ice channel in metres, can set to large number for 'infinite' ice channel
   n: 200       # width of ice channel in metres
   scale: 3    # this gives a resolution of 1/scale x 1/scale metres
   alpha: 10000   # collision cost multiplier

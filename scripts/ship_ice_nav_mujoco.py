@@ -78,7 +78,6 @@ for eps_idx in range(total_episodes):
                             conc=env.cfg.concentration, 
                             action_scale=env.max_yaw_rate_step)
         omega = omega * env.max_yaw_rate_step           # unnormalize to real-world scale
-        print(policy.path.shape)
         env.update_path(policy.path)
 
         # call RL policy
@@ -91,7 +90,7 @@ for eps_idx in range(total_episodes):
         # forward_force = 40050000.0      # 15N forward force
 
         action = [v, omega]
-        print(action)
+        # print(action)
         
         observation, reward, terminated, truncated, info = env.step(action)
         obstacles = info['obs']
