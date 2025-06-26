@@ -1,3 +1,7 @@
+render:
+  show: true
+  show_obs: true
+
 boxes:
   num_boxes: 10
   clearance: 0.2
@@ -24,7 +28,6 @@ train:
   use_correct_direction_reward: true
   verbose: 2
   weight_decay: 0.0001
-  inactivity_cutoff: 1000
   tries_before_inactive: 3000
 
   
@@ -32,36 +35,46 @@ train:
 env:
   obstacle_config: small_columns # options are small_empty, small_columns, large_columns, large_divider
   room_length: 2.845
-  room_width_small: 1.575
+  # room_width_small: 1.575
+  room_width_small: 1.4225
   room_width_large: 2.5
   shortest_path_channel_scale: 0.25
-  local_map_pixel_width: 1000
-  local_map_pixel_width_sam: 1000
-  wall_thickness: 8.0 # Really high wall thickness to ensure nothing in vicinity of local maps
+  local_map_pixel_width: 224
+  local_map_pixel_width_sam: 96
+  wall_thickness: 24.0 # Really high wall thickness to ensure nothing in vicinity of local maps
   invert_receptacle_map: false
-  receptacle_position: [-0.6375, 1.2725]
-  receptacle_size: 0.15
+  # receptacle_position: [-0.6375, 1.2725]
+  receptacle_position: [-0.56125, 1.2725]
+  receptacle_half: 0.15
 
 small_pillars:
   num_pillars: 2
-  adjust_no_pillars: True # if true, number of pillars would be randomized after each reset to be between 1 and num_pillars
-  pillar_half: [0.02, 0.02, 0.20]
+  adjust_num_pillars: True # if true, number of pillars would be randomized after each reset to be between 1 and num_pillars
+  pillar_half: [0.14225, 0.14225, 0.20]
 
 large_pillars:
-  num_pillars: 4
-  adjust_no_pillars: True
-  pillar_half: [0.16, 0.16, 0.10]
+  num_pillars: 8
+  adjust_num_pillars: True
+  # pillar_half: [0.16, 0.16, 0.10]
+  pillar_half: [0.14225, 0.14225, 0.20]
 
 # NOT WORKING YET
 large_divider:
   divider_half: 0
   divider_height: 0
 
+misc:
+  ministep_size: 2.5
+  inactivity_cutoff_sam: 100
+  inactivity_cutoff: 200
+  random_seed: 42
+
 agent:
   action_type: 'position' # options are velocity, heading, position
-  length: 0.08 
-  width: 0.09
+  length: 0.138
+  width: 0.183
   robot_clear: 0.15
+  mass: 1 # TODO find actual mass
 
 rewards_sam:
   partial_rewards_scale: 0.2

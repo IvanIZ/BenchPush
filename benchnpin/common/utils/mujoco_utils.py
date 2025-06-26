@@ -42,24 +42,26 @@ def vw_to_wheels(v, w):
     return np.clip(v_l, -MAX_WSPD, MAX_WSPD), np.clip(v_r, -MAX_WSPD, MAX_WSPD)
 
 
-def make_controller(model, data, qpos_index, goal_xy):
+# def make_controller(model, data, qpos_index, goal_xy):
+def make_controller(curr_pos, curr_yaw, goal_pos):
     """Simple proportional controller instead of PI controller due to ease of
     computation and faster training. Chosen Kp to be sufficiently large so that
     the steady state error for step input is sufficiently low"""
 
     # Current position and angle of robot  
-    pos = data.qpos[qpos_index : qpos_index + 2]
-    qw, qx, qy, qz = data.qpos[qpos_index + 3 : qpos_index + 7]
-    yaw = np.arctan2(2*(qw*qz + qx*qy), 1 - 2*(qy*qy + qz*qz))
+    # pos = data.qpos[qpos_index : qpos_index + 2]
+    # qw, qx, qy, qz = data.qpos[qpos_index + 3 : qpos_index + 7]
+    # yaw = np.arctan2(2*(qw*qz + qx*qy), 1 - 2*(qy*qy + qz*qz))
     
     #The distance to the set goal
-    vec  = goal_xy - pos
+    # vec  = goal_xy - pos
+    vec = goal_pos - curr_pos
     dist = np.linalg.norm(vec)
     
     
     #Angle computations
     goal_head = np.arctan2(vec[1], vec[0])
-    err_yaw   = np.arctan2(np.sin(goal_head - yaw), np.cos(goal_head - yaw))
+    err_yaw   = np.arctan2(np.sin(goal_head - curr_yaw), np.cos(goal_head - curr_yaw))
 
     #Controller characteristics (APPROX CAN BE UPDATED LATER)
     k_v, k_w = 4.0,4.0
@@ -70,7 +72,8 @@ def make_controller(model, data, qpos_index, goal_xy):
 
     #Moving to required position
     else:
-        return k_v * dist, 0.0, dist
+        # return k_v * dist, 0.0, dist
+        return k_v * dist, k_w * err_yaw, dist
 
 
 def pushing(model, data, joint_id_boxes, threshold=1e-1):
