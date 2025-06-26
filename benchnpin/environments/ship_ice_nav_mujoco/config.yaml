@@ -37,6 +37,7 @@ ship:
 
 sim:
   timestep_sim: 0.005   # s
+  stablizing_steps: 8000      # number of steps to stablize the sim before starting a trial
 
 log_obs: false      # whether to log observations for debugging purpose
 render_snapshot: false
@@ -60,7 +61,7 @@ environment:
 output_dir: "logs/"
 egocentric_obs: true  # true for RL baselines, false for predictive planner
 concentration: 0.3    # options are 0.1, 0.2, 0.3, 0.4, 0.5
-goal_y: 800
+goal_y: 1200
 render_scale: 40      # scale renderer window to fit screen size
 
 train:

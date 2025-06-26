@@ -16,7 +16,7 @@ except ImportError as e:
         'MuJoCo is not installed, run `pip install "gymnasium[mujoco]"`'
     ) from e
 
-from benchnpin.common.utils.mujoco_utils import get_body_pose_2d, get_box_2d_vertices, corners_xy
+from benchnpin.common.utils.mujoco_utils import get_body_pose_2d, get_box_2d_vertices, corners_xy, zero_body_velocity
 from benchnpin.common.utils.utils import DotDict
 from benchnpin.environments.ship_ice_nav_mujoco.ship_ice_utils import generate_shipice_xml, apply_fluid_forces_to_body, load_ice_field
 
@@ -67,14 +67,14 @@ class ShipIceMujoco(MujocoEnv, utils.EzPickle):
         xml_file = os.path.join(self.current_dir, 'asv_ice_planar_random.xml')
 
         # build xml file
-        # self.num_floes, self.ice_dict = generate_shipice_xml(self.cfg.concentration, xml_file, self.cfg.sim.timestep_sim, 
+        self.num_floes, self.ice_dict = generate_shipice_xml(self.cfg.concentration, xml_file, self.cfg.sim.timestep_sim, 
+            self.cfg.environment.channel_len, self.cfg.environment.channel_wid, 
+            self.cfg.environment.icefield_len, self.cfg.environment.icefield_wid, 
+            load_cached=False, trial_idx=0)
+        # self.num_floes, self.ice_dict = load_ice_field(self.cfg.concentration, xml_file, self.cfg.sim.timestep_sim, 
         #     self.cfg.environment.channel_len, self.cfg.environment.channel_wid, 
         #     self.cfg.environment.icefield_len, self.cfg.environment.icefield_wid, 
         #     load_cached=True, trial_idx=0)
-        self.num_floes, self.ice_dict = load_ice_field(self.cfg.concentration, xml_file, self.cfg.sim.timestep_sim, 
-            self.cfg.environment.channel_len, self.cfg.environment.channel_wid, 
-            self.cfg.environment.icefield_len, self.cfg.environment.icefield_wid, 
-            load_cached=True, trial_idx=0)
 
         self.phase = 0.0
 
@@ -162,6 +162,35 @@ class ShipIceMujoco(MujocoEnv, utils.EzPickle):
         mujoco.mju_zero(self.data.qfrc_applied)
 
 
+    def stablize_ice_floes(self):
+        ice_vel_zero_list = np.ones(self.num_floes, dtype=bool)
+        stablized = True
+        
+        # find all ice pieces that are in contact
+        for i in range(self.data.ncon):
+            c = self.data.contact[i]
+            g1, g2 = c.geom1, c.geom2
+            name1 = self.model.geom(g1).name
+            name2 = self.model.geom(g2).name
+
+            if name1.startswith("ice") and name2.startswith("ice"):
+
+                ice1_idx = int(name1.split("_")[1])
+                ice2_idx = int(name2.split("_")[1])
+                ice_vel_zero_list[ice1_idx] = False
+                ice_vel_zero_list[ice2_idx] = False
+
+                # if any pair of ice floes are still in contact, ice field not yet stablized
+                stablized = False
+
+        # stablize ice floes that are not in contact
+        for i in range(len(ice_vel_zero_list)):
+            if ice_vel_zero_list[i]:
+                name = f"ice_{i}"
+                zero_body_velocity(self.model, self.data, name)
+        
+        return stablized
+
 
     def do_simulation(self, ctrl, n_frames) -> None:
         """
@@ -218,6 +247,12 @@ class ShipIceMujoco(MujocoEnv, utils.EzPickle):
 
     def reset_model(self):
         self.set_state(self.init_qpos, self.init_qvel)
+
+        # stablize the environment
+        for _ in range(self.cfg.sim.stablizing_steps):
+            stablized = self.stablize_ice_floes()
+            mujoco.mj_step(self.model, self.data)
+            if stablized: break
 
         observation = self._get_obs()
         return observation

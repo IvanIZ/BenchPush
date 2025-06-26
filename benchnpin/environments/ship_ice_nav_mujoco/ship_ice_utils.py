@@ -40,7 +40,7 @@ ICE_CLEAR_Y = 45.0
 
 
 # parameters for ice field generation
-OBS_MIN_Y = 200
+OBS_MIN_Y = 300
 OBSTACLE = {
     'min_r': 6,                           # min and max radius of obstacles
     'max_r': 25,
@@ -81,8 +81,8 @@ def header_block(hfield, stl_model_path, sim_timestep, channel_len, channel_wid,
     #DAMPING FOR YAW ANGLE HAS TO BE CHANGED
     header= dedent(f"""\
         <mujoco model="asv_with_ice_random">
-          <compiler angle="degree" meshdir="{stl_model_path}" />
-          <option timestep="{sim_timestep}" gravity="0 0 -9.81" viscosity="1.5" wind="5 5 0"/>
+          <compiler angle="degree" meshdir="{stl_model_path}" inertiafromgeom="true"/>
+          <option timestep="{sim_timestep}" gravity="0 0 -9.81" viscosity="1.5"/>
 
           <!-- Global material presets -->
           <asset>
@@ -121,10 +121,10 @@ def header_block(hfield, stl_model_path, sim_timestep, channel_len, channel_wid,
           <worldbody>
 
             <light directional="true" ambient="0.2 0.2 0.2" diffuse="0.8 0.8 0.8" specular="0.3 0.3 0.3" castshadow="false" pos="0 0 4" dir="0 0 -1" name="light0"/>
-            <geom type="plane" size="100000 100000 0.1" rgba="0 0.47 0.74 1" contype="0" conaffinity="0"/>
+            <geom name="sea_surface" type="plane" size="100000 100000 0.1" rgba="0 0.47 0.74 1" contype="0" conaffinity="0"/>
             <!-- visual water surface (uses the height-field) -->
-            <geom type="hfield" hfield="wave_field" pos="0 0 0" size="1 1 2" rgba="0 0.48 0.9 1" contype="0" conaffinity="0" />
-            <geom type="plane" size="100000 100000 0.1" pos="0 0 -1" material="water_" contype="0" conaffinity="0"/>
+            <geom name="hfield" type="hfield" hfield="wave_field" pos="0 0 0" size="1 1 2" rgba="0 0.48 0.9 1" contype="0" conaffinity="0" />
+            <geom name="sea_surface2" type="plane" size="100000 100000 0.1" pos="0 0 -1" material="water_" contype="0" conaffinity="0"/>
 
             <camera name="overview_cam" pos="50 -200 200" euler="60 0 0" fovy="60"/>
             
@@ -133,19 +133,19 @@ def header_block(hfield, stl_model_path, sim_timestep, channel_len, channel_wid,
               <joint name="asv_x"   type="slide" axis="1 0 0"/>
               <joint name="asv_y"   type="slide" axis="0 1 0"/>
               <joint name="asv_yaw" type="hinge" axis="0 0 1" damping="10.0"/>
-              <geom type="mesh" mesh="cs_long_bottom" mass="{ASV_MASS_TOTAL/2}" rgba="0.698 0.133 0.133 1" euler="0 0 -180"/>
-              <geom type="mesh" mesh="cs_long_top" mass="{ASV_MASS_TOTAL/2}" rgba="0.45 0.47 0.50 1" euler="0 0 -180"/>
-              <geom type="mesh" mesh="CONTAINER_Full" pos="{-1*STL_SCALE*10} {-4*STL_SCALE*10} {1*STL_SCALE*10}"  rgba="0.588 0.204 0.188 1" euler="0 0 -180"/>
-              <geom type="mesh" mesh="CONTAINER_Full" pos="{0.4*STL_SCALE*10} {-4*STL_SCALE*10} {1*STL_SCALE*10}" rgba="0.169 0.329 0.553 1" euler="0 0 -180"/>
-              <geom type="mesh" mesh="CONTAINER_Full" pos="{1.8*STL_SCALE*10} {-4*STL_SCALE*10} {1*STL_SCALE*10}" rgba="0.216 0.278 0.310 1" euler="0 0 -180"/>
-              <geom type="mesh" mesh="CONTAINER_Full" pos="{3.2*STL_SCALE*10} {-4*STL_SCALE*10} {1*STL_SCALE*10}" rgba="0.439 0.502 0.565 1" euler="0 0 -180"/>
-              <geom type="mesh" mesh="CONTAINER_Full" pos="{4.6*STL_SCALE*10} {-4*STL_SCALE*10} {1*STL_SCALE*10}" rgba="0.588 0.204 0.188 1" euler="0 0 -180"/>
-              <geom type="mesh" mesh="CONTAINER_Full" pos="{6.0*STL_SCALE*10} {-4*STL_SCALE*10} {1*STL_SCALE*10}"  rgba="0.588 0.204 0.188 1" euler="0 0 -180"/>/>
-              <geom type="mesh" mesh="CONTAINER_Full" pos="{7.4*STL_SCALE*10} {-4*STL_SCALE*10} {1*STL_SCALE*10}"  rgba="0.588 0.204 0.188 1" euler="0 0 -180"/>/>
-              <geom type="mesh" mesh="CONTAINER_Full" pos="{8.8*STL_SCALE*10} {-4*STL_SCALE*10} {1*STL_SCALE*10}" rgba="0.216 0.278 0.310 1" euler="0 0 -180"/>
-              <geom type="mesh" mesh="CONTAINER_Full" pos="{10.2*STL_SCALE*10} {-4*STL_SCALE*10} {1*STL_SCALE*10}" rgba="1.000 0.843 0.000 1" euler="0 0 -180"/>
-              <geom type="mesh" mesh="CONTAINER_Full" pos="{11.6*STL_SCALE*10} {-4*STL_SCALE*10} {1*STL_SCALE*10}" rgba="0.588 0.204 0.188 1" euler="0 0 -180"/>
-              <geom type="mesh" mesh="CONTAINER_Full" pos="{13.0*STL_SCALE*10} {-4*STL_SCALE*10} {1*STL_SCALE*10}" rgba="0.588 0.204 0.188 1" euler="0 0 -180"/>
+              <geom name="asv_cs_long_bottom" type="mesh" mesh="cs_long_bottom" mass="{ASV_MASS_TOTAL/2}" rgba="0.698 0.133 0.133 1" euler="0 0 -180"/>
+              <geom name="asv_cs_long_top" type="mesh" mesh="cs_long_top" mass="{ASV_MASS_TOTAL/2}" rgba="0.45 0.47 0.50 1" euler="0 0 -180"/>
+              <geom name="asv_CONTAINER_Full1" type="mesh" mesh="CONTAINER_Full" pos="{-1*STL_SCALE*10} {-4*STL_SCALE*10} {1*STL_SCALE*10}"  rgba="0.588 0.204 0.188 1" euler="0 0 -180"/>
+              <geom name="asv_CONTAINER_Full2" type="mesh" mesh="CONTAINER_Full" pos="{0.4*STL_SCALE*10} {-4*STL_SCALE*10} {1*STL_SCALE*10}" rgba="0.169 0.329 0.553 1" euler="0 0 -180"/>
+              <geom name="asv_CONTAINER_Full3" type="mesh" mesh="CONTAINER_Full" pos="{1.8*STL_SCALE*10} {-4*STL_SCALE*10} {1*STL_SCALE*10}" rgba="0.216 0.278 0.310 1" euler="0 0 -180"/>
+              <geom name="asv_CONTAINER_Full4" type="mesh" mesh="CONTAINER_Full" pos="{3.2*STL_SCALE*10} {-4*STL_SCALE*10} {1*STL_SCALE*10}" rgba="0.439 0.502 0.565 1" euler="0 0 -180"/>
+              <geom name="asv_CONTAINER_Full5" type="mesh" mesh="CONTAINER_Full" pos="{4.6*STL_SCALE*10} {-4*STL_SCALE*10} {1*STL_SCALE*10}" rgba="0.588 0.204 0.188 1" euler="0 0 -180"/>
+              <geom name="asv_CONTAINER_Full6" type="mesh" mesh="CONTAINER_Full" pos="{6.0*STL_SCALE*10} {-4*STL_SCALE*10} {1*STL_SCALE*10}"  rgba="0.588 0.204 0.188 1" euler="0 0 -180"/>/>
+              <geom name="asv_CONTAINER_Full7" type="mesh" mesh="CONTAINER_Full" pos="{7.4*STL_SCALE*10} {-4*STL_SCALE*10} {1*STL_SCALE*10}"  rgba="0.588 0.204 0.188 1" euler="0 0 -180"/>/>
+              <geom name="asv_CONTAINER_Full8" type="mesh" mesh="CONTAINER_Full" pos="{8.8*STL_SCALE*10} {-4*STL_SCALE*10} {1*STL_SCALE*10}" rgba="0.216 0.278 0.310 1" euler="0 0 -180"/>
+              <geom name="asv_CONTAINER_Full9" type="mesh" mesh="CONTAINER_Full" pos="{10.2*STL_SCALE*10} {-4*STL_SCALE*10} {1*STL_SCALE*10}" rgba="1.000 0.843 0.000 1" euler="0 0 -180"/>
+              <geom name="asv_CONTAINER_Full10" type="mesh" mesh="CONTAINER_Full" pos="{11.6*STL_SCALE*10} {-4*STL_SCALE*10} {1*STL_SCALE*10}" rgba="0.588 0.204 0.188 1" euler="0 0 -180"/>
+              <geom name="asv_CONTAINER_Full11" type="mesh" mesh="CONTAINER_Full" pos="{13.0*STL_SCALE*10} {-4*STL_SCALE*10} {1*STL_SCALE*10}" rgba="0.588 0.204 0.188 1" euler="0 0 -180"/>
 
 
 
@@ -161,8 +161,8 @@ ICE_MESH_BODY_TEMPLATE1 = """
     <body name="ice_{n}" pos="{x:.2f} {y:.2f} 0">
         <joint name="ice_{n}_x"   type="slide" axis="1 0 0"/>
         <joint name="ice_{n}_y"   type="slide" axis="0 1 0"/>
-        <joint name="ice_{n}_yaw" type="hinge" axis="0 0 1" damping="75.0"/>
-        <geom class="ice_floe" type="mesh" mesh="ice_{n}_mesh" material="ice_mat"/>
+        <joint name="ice_{n}_yaw" type="hinge" axis="0 0 1" damping="750.0"/>
+        <geom name="ice_{n}" class="ice_floe" type="mesh" mesh="ice_{n}_mesh" material="ice_mat"/>
     </body>
 """
 
@@ -322,7 +322,7 @@ def generate_shipice_xml(concentration, xml_file, sim_timestep, channel_len, cha
             data = pickle.load(f)
 
     else:
-        data = generate_rand_exp(conc=concentration, map_shape=map_shape, ship_state=ship_state, goal=goal, max_trials=10, filename=polygon_file)
+        data = generate_rand_exp(conc=concentration, map_shape=map_shape, ship_state=ship_state, goal=goal, max_trials=1, filename=polygon_file)
 
     trial_data = data['exp'][trial_idx]
     num_stl_floes = len(trial_data['obstacles'])
@@ -343,7 +343,7 @@ def generate_shipice_xml(concentration, xml_file, sim_timestep, channel_len, cha
         polygon = polygon_from_vertices(transformed_vertices)
 
         area_2d = polygon.area        # Shapely gives signed area directly
-        ice_area_dict[f'ice_{i}'] = area_2d        # NEW
+        ice_area_dict[f'ice_{i}'] = {'area': area_2d, 'vertices': vertices}
 
         out_file = os.path.join(directory, 'ice_' + str(i) + '.stl')
         extrude_and_export(polygon, h_min=0.4, h_max=1.0, filename=out_file)
@@ -402,7 +402,7 @@ def load_ice_field(concentration, xml_file, sim_timestep, channel_len, channel_w
         polygon = polygon_from_vertices(vertices)
 
         area_2d = polygon.area        # Shapely gives signed area directly
-        ice_dict[f'ice_{ice_idx}'] = {'area': area_2d, 'vertices': vertices}
+        ice_dict[f'ice_{ice_idx}'] = {'area': area_2d, 'vertices': vertices, 'vel': 0.0}
 
         out_file = os.path.join(directory, 'ice_' + str(ice_idx) + '.stl')
         extrude_and_export(polygon, h_min=0.4, h_max=1.0, filename=out_file)
