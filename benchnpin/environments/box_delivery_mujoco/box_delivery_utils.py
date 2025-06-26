@@ -381,23 +381,27 @@ def build_xml(robot_qpos, boxes, stl_model_path,extra_xml,Z_BOX, box_size, ARENA
     <geom name="Wall_X1" type="box"
       pos="-0.01 {ARENA_Y1/2} 0.15"
       size="0.01 {ARENA_Y1/2} 0.15"
-      rgba="1 1 1 0.1" contype="1" conaffinity="1"/>
+      rgba="1 1 1 0.1" contype="1" conaffinity="1"
+      friction="0.45 0.01 0.003"/>
 
     <geom name="Wall_X2" type="box"
       pos="{ARENA_X1+0.01} {ARENA_Y1/2} 0.15"
       size="0.01 {ARENA_Y1/2} 0.15"
-      rgba="1 1 1 0.1" contype="1" conaffinity="1"/>
+      rgba="1 1 1 0.1" contype="1" conaffinity="1"
+      friction="0.45 0.01 0.003"/>
 
     <!-- Y-walls: bottom and top -->
     <geom name="Wall_Y1" type="box"
       pos="{ARENA_X1/2} -0.01 0.15"
       size="{ARENA_X1/2} 0.01 0.15"
-      rgba="1 1 1 0.1" contype="1" conaffinity="1"/>
+      rgba="1 1 1 0.1" contype="1" conaffinity="1"
+      friction="0.45 0.01 0.003"/>
 
     <geom name="Wall_Y2" type="box"
       pos="{ARENA_X1/2} {ARENA_Y1+0.01} 0.15"
       size="{ARENA_X1/2} 0.01 0.15"
-      rgba="1 1 1 0.1" contype="1" conaffinity="1"/>
+      rgba="1 1 1 0.1" contype="1" conaffinity="1"
+      friction="0.45 0.01 0.003"/>
     
      <!-- robot -->
     <body name="base" pos="{robot_qpos}" euler="0 0 3.141592653589793">
@@ -436,7 +440,7 @@ def build_xml(robot_qpos, boxes, stl_model_path,extra_xml,Z_BOX, box_size, ARENA
     <body name="box{i}" pos="{x:.4f} {y:.4f} {Z_BOX:.3f}">
       <joint name="box{i}_joint" type="free" />
       <geom type="box" size="{box_size}" material="blue_mat" mass="0.05"
-            quat="{qw:.6f} {qx:.6f} {qy:.6f} {qz:.6f}" friction="0.01 0.05 0.0001" contype="1" conaffinity="1"/>
+            quat="{qw:.6f} {qx:.6f} {qy:.6f} {qz:.6f}" friction="0.4 0.015 0.002" contype="1" conaffinity="1"/>
     </body>"""
 
         
