@@ -1,19 +1,22 @@
+from gymnasium import utils
+from gymnasium.envs.mujoco import MujocoEnv
+from gymnasium.spaces import Box
+from gymnasium import error, spaces
+import matplotlib.pyplot as plt
+from pathlib import Path
 from typing import Dict, Union
-
 import numpy as np
 from numpy.typing import NDArray
+import os
+
+# Bench-NPIN imports
+from benchnpin.common.controller.position_controller import PositionController
 from benchnpin.common.utils.utils import DotDict
+# from benchnpin.environments.area_clearing.area_clearing import MOVE_STEP_SIZE, STEP_LIMIT, TURN_STEP_SIZE, WAYPOINT_MOVING_THRESHOLD, WAYPOINT_TURNING_THRESHOLD
 from benchnpin.environments.box_delivery_mujoco.box_delivery_utils import generate_boxDelivery_xml, transporting, precompute_static_vertices, dynamic_vertices, receptacle_vertices, intersects_keepout
 from benchnpin.common.utils.mujoco_utils import vw_to_wheels, make_controller, quat_z, inside_poly, quat_z_yaw, corners_xy
 from benchnpin.common.utils.sim_utils import get_color
 
-from gymnasium import utils
-from gymnasium.envs.mujoco import MujocoEnv
-from gymnasium.spaces import Box
-import os
-from gymnasium import error, spaces
-import matplotlib.pyplot as plt
-from pathlib import Path
 
 # SAM imports
 from scipy.ndimage import distance_transform_edt, rotate as rotate_image
@@ -39,9 +42,20 @@ DEFAULT_CAMERA_CONFIG = {
 OBSTACLE_SEG_INDEX = 0
 FLOOR_SEG_INDEX = 1
 RECEPTACLE_SEG_INDEX = 3
-CUBE_SEG_INDEX = 4
+BOX_SEG_INDEX = 4
 ROBOT_SEG_INDEX = 5
 MAX_SEG_INDEX = 8
+
+MOVE_STEP_SIZE = 0.05
+TURN_STEP_SIZE = np.radians(15)
+
+WAYPOINT_MOVING_THRESHOLD = 0.6
+WAYPOINT_TURNING_THRESHOLD = np.radians(10)
+NOT_MOVING_THRESHOLD = 0.005
+NOT_TURNING_THRESHOLD = np.radians(0.05)
+NONMOVEMENT_DIST_THRESHOLD = 0.05
+NONMOVEMENT_TURN_THRESHOLD = np.radians(0.05)
+STEP_LIMIT = 5000
 
 
 class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
@@ -92,28 +106,29 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
 
         # Receptacle position and size
         self.receptacle_position= self.cfg.env.receptacle_position
-        self.receptacle_size= self.cfg.env.receptacle_size
+        self.receptacle_half= self.cfg.env.receptacle_half
 
         # Pillar position and size
         self.num_pillars = None
         self.pillar_half = None
         self.pillar_type = None
-        self.adjust_no_pillars = False
+        self.adjust_num_pillars = False
         if env_size.strip()=="small_columns":
             self.num_pillars = self.cfg.small_pillars.num_pillars
             self.pillar_half = self.cfg.small_pillars.pillar_half
-            self.adjust_no_pillars= self.cfg.small_pillars.adjust_no_pillars
+            self.adjust_num_pillars= self.cfg.small_pillars.adjust_num_pillars
         elif env_size.strip()=="large_columns":
             self.num_pillars = self.cfg.large_pillars.num_pillars
             self.pillar_half = self.cfg.large_pillars.pillar_half
-            self.adjust_no_pillars= self.cfg.large_pillars.adjust_no_pillars
+            self.adjust_num_pillars= self.cfg.large_pillars.adjust_num_pillars
 
         # generate random environmnt
+        # TODO can robot_radius be used instead of robot_clear?
         xml_file = os.path.join(self.current_dir, 'turtlebot3_burger_updated.xml')
-        _, self.initialization_keepouts, self.clearance_poly = generate_boxDelivery_xml (N=self.cfg.boxes.num_boxes, env_type=self.cfg.env.obstacle_config, file_name=xml_file,
-                        ROBOT_clear=self.cfg.agent.robot_clear, CLEAR=self.cfg.boxes.clearance, goal_half= self.receptacle_size, goal_center= self.receptacle_position, Z_CUBE=0.02, ARENA_X=(0.0, self.room_width), 
-                        ARENA_Y=(0.0, self.room_length), cube_half_size=0.04, num_pillars=self.num_pillars, pillar_half=self.pillar_half, adjust_no_pillars=self.adjust_no_pillars)
-        
+        # _, self.initialization_keepouts, self.clearance_poly = generate_boxDelivery_xml (N=self.cfg.boxes.num_boxes, env_type=self.cfg.env.obstacle_config, file_name=xml_file,
+        #                 ROBOT_clear=self.cfg.agent.robot_clear, CLEAR=self.cfg.boxes.clearance, goal_half= self.receptacle_half, goal_center= self.receptacle_position, Z_BOX=0.02, ARENA_X=(0.0, self.room_width), 
+        #                 ARENA_Y=(0.0, self.room_length), box_half_size=0.04, num_pillars=self.num_pillars, pillar_half=self.pillar_half, adjust_num_pillars=self.adjust_num_pillars)
+        #
         utils.EzPickle.__init__(
             self,
             xml_file,
@@ -158,6 +173,12 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
         self.configuration_space_thin = None
         self.closest_cspace_indices = None
         self.observation_init= False
+        
+        # stats
+        self.inactivity_counter = None
+        self.robot_cumulative_distance = None
+        self.robot_cumulative_boxes = None
+        self.robot_cumulative_reward = None
 
         # robot
         self.robot_hit_obstacle = False
@@ -193,13 +214,13 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
         self.qpos_index_base = self.model.jnt_qposadr[joint_adr]
         self.base_joint_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_JOINT, "base_joint")
 
-        # Cube joint addresses
+        # Box joint addresses
         joint_id_boxes=[]
         for i in range (self.cfg.boxes.num_boxes):
-            joint_id=mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_JOINT, f"cube{i}_joint")
+            joint_id=mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_JOINT, f"box{i}_joint")
             joint_id_boxes.append(joint_id)
         self.joint_id_boxes = joint_id_boxes
-        self.no_completed_boxes=0
+        self.num_completed_boxes=0
 
         # rewards
         if self.cfg.train.job_type == 'sam':
@@ -210,11 +231,45 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
         self.goal_reward = rewards.goal_reward
         self.collision_penalty = rewards.collision_penalty
         self.non_movement_penalty = rewards.non_movement_penalty
-        self.inactivity_cutoff = self.cfg.train.inactivity_cutoff
-        self.robot_cumulative_reward=0
-        self.inactivity_counter=0
-        self.collision= True
+
+        # misc
+        self.ministep_size = self.cfg.misc.ministep_size
+        self.inactivity_cutoff = self.cfg.misc.inactivity_cutoff if self.cfg.train.job_type != 'sam' else self.cfg.misc.inactivity_cutoff_sam
+        self.random_seed = self.cfg.misc.random_seed
+        # TODO implement random_state
+        self.random_state = np.random.RandomState(self.random_seed)
+
+        self.episode_idx = None
+
+        self.path = None
+
         self.tries_before_inactive= self.cfg.train.tries_before_inactive
+        
+        if self.cfg.render.show_obs or self.cfg.render.show:
+            # show state
+            num_plots = self.num_channels
+            self.state_plot = plt
+            self.state_fig, self.state_ax = self.state_plot.subplots(1, num_plots, figsize=(4 * num_plots, 6))
+            self.colorbars = [None] * num_plots
+            if self.cfg.render.show_obs:
+                self.state_plot.ion()  # Interactive mode on        
+
+
+    def init_box_delivery_env(self):
+        # generate random environmnt
+        # TODO can robot_radius be used instead of robot_clear?
+        xml_file = os.path.join(self.current_dir, 'turtlebot3_burger_updated.xml')
+        _, self.initialization_keepouts, self.clearance_poly = generate_boxDelivery_xml (N=self.cfg.boxes.num_boxes, env_type=self.cfg.env.obstacle_config, file_name=xml_file,
+                        ROBOT_clear=self.cfg.agent.robot_clear, CLEAR=self.cfg.boxes.clearance, goal_half= self.receptacle_half, goal_center= self.receptacle_position, Z_BOX=0.02, ARENA_X=(0.0, self.room_width), 
+                        ARENA_Y=(0.0, self.room_length), box_half_size=0.04, num_pillars=self.num_pillars, pillar_half=self.pillar_half, adjust_num_pillars=self.adjust_num_pillars)
+        
+        # Initialize configuration space (only need to compute once)
+        self.update_configuration_space()
+
+        self.position_controller = PositionController(self.cfg, self.robot_radius, self.room_width, self.room_length, 
+                                                      self.configuration_space, self.configuration_space_thin, self.closest_cspace_indices, 
+                                                      self.local_map_pixel_width, self.local_map_width, self.local_map_pixels_per_meter,
+                                                      TURN_STEP_SIZE, MOVE_STEP_SIZE, WAYPOINT_MOVING_THRESHOLD, WAYPOINT_TURNING_THRESHOLD)
 
 
     def save_local_map(self, obs_uint8, out_path) -> None:
@@ -242,28 +297,205 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
         fig.savefig(out_path, dpi=150, bbox_inches="tight")
         plt.close(fig)
 
-    def step(self, action):
+    def render_env(self, mode='human', close=False):
+        """Renders the environment."""
+        self.render()
+
+        if self.cfg.render.show_obs and self.show_observation and self.observation is not None:# and self.t % self.cfg.render.frequency == 1:
+            self.show_observation = False
+            for ax, i in zip(self.state_ax, range(self.num_channels)):
+                ax.clear()
+                ax.set_title(f'Channel {i}')
+                ax.set_xticks([])
+                ax.set_yticks([])
+                im = ax.imshow(self.observation[:,:,i], cmap='hot', interpolation='nearest')
+                # if self.colorbars[i] is not None:
+                #     self.colorbars[i].update_normal(im)
+                # else:
+                #     self.colorbars[i] = self.state_fig.colorbar(im, ax=ax)
+            
+            self.state_plot.draw()
+            # self.state_plot.pause(0.001)
+            self.state_plot.pause(0.1)
+
+    def reset(self):
+        """Resets the environment to the initial state and returns the initial observation."""
+
+        if self.episode_idx is None:
+            self.episode_idx = 0
+        else:
+            self.episode_idx += 1
+
+        # self.init_box_delivery_sim()
+        self.init_box_delivery_env()
         
-        goal = action
-        self.no_completed_boxes=0
-        truncated = False
-        terminated = False
-        self.collision= False
-        tries=0
+        # get the robot and boxes vertices
+        robot_properties, boxes_vertices=dynamic_vertices(self.model,self.data, self.qpos_index_base,self.joint_id_boxes)
 
+        # reset map
+        self.global_overhead_map = self.create_padded_room_zeros()
+        self.update_global_overhead_map(robot_properties[1], boxes_vertices)
+
+        self.motion_dict = self.init_motion_dict()
+
+        # reset stats
+        self.inactivity_counter = 0
+        self.robot_cumulative_distance = 0
+        self.robot_cumulative_boxes = 0
+        self.robot_cumulative_reward = 0
+
+        self.observation = self.generate_observation()
+
+        if self.cfg.render.show:
+            self.show_observation = True
+            self.render()
+
+        info = {}
+
+        return self.observation, info
+        
+    def step(self, action):
+
+        self.robot_hit_obstacle = False
+        robot_boxes = 0
+        robot_reward = 0
+
+        robot_initial_position = self.data.xpos[self.base_body_id][:2].copy()
+        robot_initial_heading = quat_z_yaw(*self.data.qpos[self.qpos_index_base+3:self.qpos_index_base+7])
+
+        # TODO check if move_sign is necessary
+        self.path, robot_move_sign = self.position_controller.get_waypoints_to_spatial_action(robot_initial_position, robot_initial_heading, action)
+
+        # if self.cfg.render.show:
+        #     self.renderer.update_path(self.path)
+
+        robot_distance, robot_turn_angle = self.execute_robot_path(robot_initial_position, robot_initial_heading, robot_move_sign)
+        # goal = action
+        # self.num_completed_boxes=0
+        # self.collision= False
+        # tries=0
+        #
         # navigate to the desired goal
-        step_count = 0
+        # step_count = 0
+        # while True:
+        #     step_count += 1
+        #
+        #     v, w, dist = make_controller(self.model, self.data, self.qpos_index_base, goal)
+        #
+        #     if dist < 0.02:
+        #
+        #         # Arrived at location
+        #         self.data.ctrl[:] = 0.0
+        #         print(f"Reached goal {goal}")
+        #         break
+        #
+        #     # otherwise drive as normal
+        #     v_l, v_r = vw_to_wheels(v, w)
+        #
+        #     # apply the control 'frame_skip' steps
+        #     self.do_simulation([v_l, v_r], self.frame_skip)
+        #
+        #     # teleporting boxes inside the receptacle
+        #     self.joint_id_boxes, self.num_completed_boxes_new = transporting(self.model, self.data, self.joint_id_boxes, self.room_width, 
+        #                 self.room_length,goal_half= self.receptacle_half, goal_center= self.receptacle_position, box_half_size=0.04)
+        #
+        #     if self.num_completed_boxes_new > self.num_completed_boxes:
+        #         self.num_completed_boxes=self.num_completed_boxes_new
+        #
+        #     # if self.render_mode == "human" and step_count % 10 == 0:
+        #     if self.cfg.render.show and step_count % 10 == 0:
+        #         self.render_env()
+        #
+        #     collision_occurance=self.robot_hits_static()
+        #     if collision_occurance:
+        #         self.collision= True
+        #
+        #     tries+=1
+        #
+        #     if tries>self.tries_before_inactive:
+        #         print("break here")
+        #         break
+
+        # curr_xy   = self.data.xpos[self.base_body_id][:2].copy()
+        # curr_head = quat_z_yaw(*self.data.qpos[self.qpos_index_base+3:self.qpos_index_base+7])
+        # self._step_dx   = np.linalg.norm(curr_xy - self._prev_robot_xy)
+        # self._step_dyaw = abs(self.heading_difference(curr_head,self._prev_robot_heading))
+        # self._prev_robot_xy[:]      = curr_xy
+        # self._prev_robot_heading    = curr_head
+        self._step_dx = robot_distance
+        self._step_dyaw = robot_turn_angle
+
+        # check if episode is done
+        terminated = False
+        if len(self.joint_id_boxes) == 0:
+            terminated = True
+        
+        self.inactivity_counter += 1
+        truncated = False
+        if self.inactivity_counter >= self.inactivity_cutoff:
+            # print('inactive')
+            terminated = True
+            truncated = True
+
+        # get observation
+        self.observation=self.generate_observation(done=terminated)
+        reward= self._get_rew()
+        info = {}
+
+        # print("Robot reward",reward)
+        # self.save_local_map(self.observation, "snapshots/step_023.png")
+       
+        # render environment
+        if self.cfg.render.show:
+            self.show_observation = True
+            self.render()
+
+        return self.observation, reward, terminated, truncated, info
+    
+    def execute_robot_path(self, robot_initial_position, robot_initial_heading, robot_move_sign):
+        robot_position = robot_initial_position.copy()
+        robot_heading = robot_initial_heading
+        robot_is_moving = True
+        robot_distance = 0
+
+        robot_waypoint_index = 1
+        robot_waypoint_positions = [(waypoint[0], waypoint[1]) for waypoint in self.path]
+        robot_waypoint_headings = [waypoint[2] for waypoint in self.path]
+
+        robot_prev_waypoint_position = robot_waypoint_positions[robot_waypoint_index - 1]
+        robot_waypoint_position = robot_waypoint_positions[robot_waypoint_index]
+        robot_waypoint_heading = robot_waypoint_headings[robot_waypoint_index]
+        
+        sim_steps = 0
+        done_turning = False
+        prev_heading_diff = 0
+
         while True:
-            step_count += 1
-
-            v, w, dist = make_controller(self.model, self.data, self.qpos_index_base, goal)
-
-            if dist < 0.02:
-                    
-                # Arrived at location
-                self.data.ctrl[:] = 0.0
-                print(f"Reached goal {goal}")
+            if not robot_is_moving:
                 break
+
+            # store pose to determine distance moved during simulation step
+            robot_prev_position = robot_position.copy()
+            robot_prev_heading = robot_heading
+
+            # compute robot pose for new constraint
+            robot_new_position = robot_position.copy()
+            robot_new_heading = robot_heading
+            heading_diff = self.heading_difference(robot_heading, robot_waypoint_heading)
+            if np.abs(heading_diff) > TURN_STEP_SIZE and np.abs(heading_diff - prev_heading_diff) > 0.001:
+                pass
+            else:
+                done_turning = True
+                if self.distance(robot_position, robot_waypoint_position) < MOVE_STEP_SIZE:
+                    robot_new_position = robot_waypoint_position
+
+            # change robot pose (use controller)
+            v, w, dist = make_controller(robot_prev_position, robot_prev_heading, robot_waypoint_position)
+
+            # if dist < 0.02:
+            #     # arrived at location
+            #     self.data.ctrl[:] = 0.0
+            #     break
 
             # otherwise drive as normal
             v_l, v_r = vw_to_wheels(v, w)
@@ -271,56 +503,58 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
             # apply the control 'frame_skip' steps
             self.do_simulation([v_l, v_r], self.frame_skip)
 
-            # teleporting boxes inside the receptacle
-            self.joint_id_boxes, self.no_completed_boxes_new = transporting(self.model, self.data, self.joint_id_boxes, self.room_width, 
-                        self.room_length,goal_half= self.receptacle_size, goal_center= self.receptacle_position, cube_half_size=0.04)
-
-            if self.no_completed_boxes_new > self.no_completed_boxes:
-                self.no_completed_boxes=self.no_completed_boxes_new
-
-            if self.render_mode == "human" and step_count % 10 == 0:
-                self.render()
+            # get new robot pose
+            robot_position = self.data.xpos[self.base_body_id][:2].copy()
+            # robot_position = list(robot_position)
+            robot_heading = quat_z_yaw(*self.data.qpos[self.qpos_index_base+3:self.qpos_index_base+7])
+            prev_heading_diff = heading_diff
             
-            collision_occurance=self.robot_hits_static()
-            if collision_occurance:
-                self.collision= True
-            
-            tries+=1
+            # stop moving if robot collided with obstacle
+            self.robot_hit_obstacle = self.robot_hits_static()
+            if self.distance(robot_prev_waypoint_position, robot_position) > MOVE_STEP_SIZE:
+                if self.robot_hit_obstacle:
+                    robot_is_moving = False
+                    break   # Note: self.robot_distance does not get updated
 
-            if tries>self.tries_before_inactive:
+            # stop if robot reached waypoint
+            if (self.distance(robot_position, robot_waypoint_positions[robot_waypoint_index]) < WAYPOINT_MOVING_THRESHOLD
+                    and np.abs(robot_heading - robot_waypoint_headings[robot_waypoint_index]) < WAYPOINT_TURNING_THRESHOLD):
 
-                truncated= True
+                # update distance moved
+                robot_distance += self.distance(robot_prev_waypoint_position, robot_position)
+
+                # increment waypoint index or stop moving if done
+                if robot_waypoint_index == len(robot_waypoint_positions) - 1:
+                    robot_is_moving = False
+                else:
+                    robot_waypoint_index += 1
+                    robot_prev_waypoint_position = robot_waypoint_positions[robot_waypoint_index - 1]
+                    robot_waypoint_position = robot_waypoint_positions[robot_waypoint_index]
+                    robot_waypoint_heading = robot_waypoint_headings[robot_waypoint_index]
+                    done_turning = False
+                    self.path = self.path[1:]
+
+
+            # teleport boxes in the receptacle
+            self.joint_id_boxes, self.num_completed_boxes_new = transporting(self.model, self.data, self.joint_id_boxes, self.room_width,
+                                                                             self.room_length,goal_half= self.receptacle_half, goal_center= self.receptacle_position, box_half_size=0.04)
+
+            self.num_completed_boxes += self.num_completed_boxes_new
+        
+
+
+            sim_steps += 1
+            if sim_steps % 10 == 0 and self.cfg.render.show:
+                self.render_env()
+
+            # break if robot is stuck
+            if sim_steps > STEP_LIMIT:
                 break
 
-        curr_xy   = self.data.xpos[self.base_body_id][:2].copy()
-        curr_head = quat_z_yaw(*self.data.qpos[self.qpos_index_base+3:self.qpos_index_base+7])
-        self._step_dx   = np.linalg.norm(curr_xy - self._prev_robot_xy)
-        self._step_dyaw = abs(self.heading_difference(curr_head,self._prev_robot_heading))
-        self._prev_robot_xy[:]      = curr_xy
-        self._prev_robot_heading    = curr_head
-
-        # get observation
-        observation=self.generate_observation()
-        reward= self._get_rew()
-        info = {}
-
-        print("Robot reward",reward)
-        self.save_local_map(observation, "snapshots/step_023.png")
-
-
-        # check if episode is done
-        if len(self.joint_id_boxes) == 0:
-
-            terminated = True
-        
-        self.inactivity_counter += 1
-
-        if self.inactivity_counter >= self.inactivity_cutoff:
-
-            truncated = True
-
-        return observation, reward, terminated, truncated, info
-    
+        robot_angle = quat_z_yaw(*self.data.qpos[self.qpos_index_base+3:self.qpos_index_base+7])
+        robot_heading = self.restrict_heading_range(robot_angle)
+        robot_turn_angle = self.heading_difference(robot_initial_heading, robot_heading)
+        return robot_distance, robot_turn_angle
 
     # Observation generation functions
 
@@ -331,31 +565,31 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
             return None
         
         # Getting the robot and boxes vertices
-        Robot_properties, Boxes_vertices=dynamic_vertices(self.model,self.data, self.qpos_index_base,self.joint_id_boxes)
+        robot_properties, boxes_vertices=dynamic_vertices(self.model,self.data, self.qpos_index_base,self.joint_id_boxes)
 
         # Initialize the global overhead map if not already done
-        if not self.observation_init:
-
-            self.update_configuration_space()
-            self.global_overhead_map = self.create_padded_room_zeros()
-            
-            
-            self.motion_dict = self.init_motion_dict()
-            self.observation_init = True
+        # if not self.observation_init:
+        #
+        #     self.update_configuration_space()
+        #     self.global_overhead_map = self.create_padded_room_zeros()
+        #
+        #
+        #     self.motion_dict = self.init_motion_dict()
+        #     self.observation_init = True
 
         # Update the global overhead map with the current robot and boundaries
-        self.update_global_overhead_map(Robot_properties, Boxes_vertices)
+        self.update_global_overhead_map(robot_properties[1], boxes_vertices)
 
-        Robot_postition= Robot_properties[3]
-        Robot_angle = Robot_properties[2]
+        robot_postition= robot_properties[3]
+        robot_angle = robot_properties[2]
 
         # Create the robot state channel
         channels = []
         
-        channels.append(self.get_local_map(self.global_overhead_map, Robot_postition, Robot_angle))
+        channels.append(self.get_local_map(self.global_overhead_map, robot_postition, robot_angle))
         channels.append(self.robot_state_channel)
-        channels.append(self.get_local_distance_map(self.create_global_shortest_path_to_receptacle_map(self.receptacle_position), Robot_postition, Robot_angle))
-        channels.append(self.get_local_distance_map(self.create_global_shortest_path_map(Robot_postition), Robot_postition, Robot_angle))
+        channels.append(self.get_local_distance_map(self.create_global_shortest_path_to_receptacle_map(self.receptacle_position), robot_postition, robot_angle))
+        channels.append(self.get_local_distance_map(self.create_global_shortest_path_map(robot_postition), robot_postition, robot_angle))
         observation = np.stack(channels, axis=2)
         observation = (observation * 255).astype(np.uint8)
         return observation
@@ -495,7 +729,7 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
         # Converting the value as in 1 for obstacle and 0 for free space
         self.small_obstacle_map = 1 - small_obstacle_map
 
-    def update_global_overhead_map(self,Robot_vertices, Boxes_vertices):
+    def update_global_overhead_map(self, robot_vertices, boxes_vertices):
         """Updates the global overhead map with the current robot and boundaries."""
 
         # Makes a copy of immovable obstacles
@@ -518,15 +752,16 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
             fillPoly(small_overhead_map, [vertices_px], color=seg_index/MAX_SEG_INDEX)
         
         # Draw the robot
-        robot_vertices= Robot_vertices[1]
+        # robot_vertices= robot_vertices[1]
+        # print(robot_vertices)
         draw_object(robot_vertices, ROBOT_SEG_INDEX)
         
         # Draw the boxes
-        for box_vertices in Boxes_vertices:
-            draw_object(box_vertices[0], CUBE_SEG_INDEX)
+        for box_vertices in boxes_vertices:
+            draw_object(box_vertices[0], BOX_SEG_INDEX)
         
         # Draw the receptacle
-        receptacle_vertice=receptacle_vertices(self.receptacle_position, self.receptacle_size)
+        receptacle_vertice=receptacle_vertices(self.receptacle_position, self.receptacle_half)
         draw_object(receptacle_vertice, RECEPTACLE_SEG_INDEX)
 
         start_i, start_j = int(self.global_overhead_map.shape[0] / 2 - small_overhead_map.shape[0] / 2), int(self.global_overhead_map.shape[1] / 2 - small_overhead_map.shape[1] / 2)
@@ -536,7 +771,7 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
 
         if configuration_space is None:
             configuration_space = self.configuration_space
-
+            
         # convert positions to pixel indices
         source_i, source_j = self.position_to_pixel_indices(source_position[0], source_position[1], configuration_space.shape)
         target_i, target_j = self.position_to_pixel_indices(target_position[0], target_position[1], configuration_space.shape)
@@ -634,27 +869,27 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
 
     def _get_rew(self):
         
-        NONMOVEMENT_DIST_THRESHOLD = 0.05
-        NONMOVEMENT_TURN_THRESHOLD = np.radians(0.05)
+        # NONMOVEMENT_DIST_THRESHOLD = 0.05
+        # NONMOVEMENT_TURN_THRESHOLD = np.radians(0.05)
 
         robot_reward = 0
         non_movement_penalty=False
 
-        # partial reward for moving cubes towards receptacle
-        cubes_distance = 0
+        # partial reward for moving boxes towards receptacle
+        boxes_distance = 0
 
-        self.motion_dict, cubes_total_distance= self.update_motion_dict(self.motion_dict)
+        self.motion_dict, boxes_total_distance= self.update_motion_dict(self.motion_dict)
 
-        if cubes_total_distance<-0.01 or 0.01<cubes_total_distance:
-            robot_reward+=self.partial_rewards_scale * cubes_total_distance
+        if boxes_total_distance<-0.01 or 0.01<boxes_total_distance:
+            robot_reward+=self.partial_rewards_scale * boxes_total_distance
 
-        # reward for cubes in receptacle
-        if self.no_completed_boxes!=0:
-            robot_reward += self.goal_reward
-            self.inactivity_counter=0
+        # reward for boxes in receptacle
+        if self.num_completed_boxes_new != 0:
+            self.inactivity_counter = 0
+        robot_reward += self.goal_reward * self.num_completed_boxes_new
         
         # penalty for hitting obstacles
-        if self.collision:
+        if self.robot_hit_obstacle:
             
             robot_reward -= self.collision_penalty
             
@@ -670,11 +905,11 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
 
         """
         # work
-        updated_cubes = CostMap.get_obs_from_poly(self.boxes)
-        work = total_work_done(self.prev_cubes, updated_cubes)
+        updated_boxes = CostMap.get_obs_from_poly(self.boxes)
+        work = total_work_done(self.prev_boxes, updated_boxes)
         self.total_work[0] += work
         self.total_work[1].append(work)
-        self.prev_cubes = updated_cubes"""
+        self.prev_boxes = updated_boxes"""
         return robot_reward
 
     def _sample_pillar_centres(self):
@@ -700,7 +935,7 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
 
         rng = np.random.default_rng()
 
-        if self.adjust_no_pillars: 
+        if self.adjust_num_pillars: 
 
             # decide how many pillars are in play this episode
             n_active = rng.integers(1, self.num_pillars + 1)
@@ -752,7 +987,7 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
         cx, cy = self.data.xpos[self.base_body_id][:2]
         track[self.base_body_id] = [0.0, np.array([cx, cy], dtype=float), float(m_robot)]
 
-        # cubes
+        # boxes
         for jid in self.joint_id_boxes:
             bid = self.model.jnt_bodyid[jid]
             adr = self.model.jnt_qposadr[jid]
@@ -765,7 +1000,7 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
     def update_motion_dict(self, motion_dict):
         """
         In-place update of motion_dict.
-        Skips cubes that have already been teleported away (their body_id is gone).
+        Skips boxes that have already been teleported away (their body_id is gone).
         """
         goal_xy = np.array([
         self.receptacle_position[0] + 0.5 * self.room_width,
@@ -778,9 +1013,9 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
         motion_dict[self.base_body_id][0] += dist
         motion_dict[self.base_body_id][1][:] = (cx, cy)
 
-        # cubes still present
+        # boxes still present
         live_bodies = {self.model.jnt_bodyid[jid] for jid in self.joint_id_boxes}
-        cubes_total_distance=0
+        boxes_total_distance=0
 
         for body_id in live_bodies:
 
@@ -788,18 +1023,21 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
 
             adr  = self.model.body_jntadr[body_id]
             jpos = self.model.jnt_qposadr[adr]
-            cur_xy = self.data.qpos[jpos : jpos+2]
+            curr_xy = self.data.qpos[jpos : jpos+2]
 
             # progress *before* we mutate last_xy
-            prev_d = np.linalg.norm(last_xy - goal_xy)
-            curr_d = np.linalg.norm(cur_xy  - goal_xy)
-            cubes_total_distance += prev_d - curr_d
+            # prev_d = np.linalg.norm(last_xy - goal_xy)
+            # curr_d = np.linalg.norm(curr_xy  - goal_xy)
+            prev_d = self.shortest_path_distance(last_xy, goal_xy)
+            curr_d = self.shortest_path_distance(curr_xy, goal_xy)
+            boxes_total_distance += prev_d - curr_d
 
             # book-keeping for next step
-            motion_dict[body_id][0] += np.linalg.norm(cur_xy - last_xy)
-            motion_dict[body_id][1][:] = cur_xy
+            # motion_dict[body_id][0] += np.linalg.norm(curr_xy - last_xy)
+            motion_dict[body_id][0] += self.shortest_path_distance(curr_xy, last_xy)
+            motion_dict[body_id][1][:] = curr_xy
 
-        return motion_dict, cubes_total_distance
+        return motion_dict, boxes_total_distance
 
     # contacts
     def robot_hits_static(self) -> bool:
@@ -828,7 +1066,7 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
                 return True
         return False
 
-    def reset_model(self):
+    def reset_model(self): # TODO find out if this is used
         """
         Randomly sample non-overlapping (x, y, theta) for robot and boxes.
         Teleport them in simulation using sim.data.qpos.
@@ -896,6 +1134,7 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
         self.data.qvel[base_qpos_addr:base_qpos_addr+6] = 0
 
         # Assume box is square with radius from center to corner (diagonal/2)
+        # TODO why is this hard-coded?
         box_r = np.sqrt(0.04 ** 2 + 0.04 ** 2)
 
         for i in range(self.num_boxes):
@@ -919,7 +1158,7 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
 
         observation=self.generate_observation()
 
-        self.save_local_map(observation, "snapshots/step_023.png")
+        # self.save_local_map(observation, "snapshots/step_023.png")
 
         return observation
 

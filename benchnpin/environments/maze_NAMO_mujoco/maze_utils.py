@@ -146,7 +146,7 @@ def build_xml(robot_qpos, cubes, stl_model_path,extra_xml,Z_CUBE, cube_size, maz
     <mesh name="left_tire"   file="left_tire.stl"  scale="0.001 0.001 0.001"/>
     <mesh name="right_tire"  file="right_tire.stl" scale="0.001 0.001 0.001"/>
     <mesh name="lds"         file="lds.stl"        scale="0.001 0.001 0.001"/>
-    <mesh name="bumper"      file="TurtleBot3 Burger Bumper.STL" scale="0.001 0.001 0.001"/>
+    <mesh name="bumper"      file="Bumper_triangular.STL" scale="0.001 0.001 0.001"/>
   </asset>
 
   <visual>
@@ -177,23 +177,27 @@ def build_xml(robot_qpos, cubes, stl_model_path,extra_xml,Z_CUBE, cube_size, maz
     <geom name="wall_left" type="box"
       pos="0 {maze_len/2} 0.15"
       size="0.01 {maze_len/2} 0.15"
-      rgba="1 1 1 0.1"/>
+      rgba="1 1 1 0.1"
+      friction="0.45 0.01 0.003"/>
 
     <geom name="wall_right" type="box"
       pos="{maze_width} {maze_len/2} 0.15"
       size="0.01 {maze_len/2} 0.15"
-      rgba="1 1 1 0.1"/>
+      rgba="1 1 1 0.1"
+      friction="0.45 0.01 0.003"/>
 
     <!-- Y-walls: bottom and top -->
     <geom name="wall_bottom" type="box"
       pos="{maze_width/2} 0 0.15"
       size="{maze_width/2} 0.01 0.15"
-      rgba="1 1 1 0.1"/>
+      rgba="1 1 1 0.1"
+      friction="0.45 0.01 0.003"/>
 
     <geom name="wall_top" type="box"
       pos="{maze_width/2} {maze_len} 0.15"
       size="{maze_width/2} 0.01 0.15"
-      rgba="1 1 1 0.1"/>
+      rgba="1 1 1 0.1"
+      friction="0.45 0.01 0.003"/>
     
     <!-- robot -->
     <body name="base" pos="{robot_qpos}" euler="0 0 3.141592653589793">
@@ -232,7 +236,7 @@ def build_xml(robot_qpos, cubes, stl_model_path,extra_xml,Z_CUBE, cube_size, maz
     <body name="cube{i}" pos="{x:.4f} {y:.4f} {Z_CUBE:.3f}">
       <joint name="cube{i}_joint" type="free" />
       <geom type="box" size="{cube_size}" material="blue_mat" mass="0.05"
-            quat="{qw:.6f} {qx:.6f} {qy:.6f} {qz:.6f}" friction="0.01 0.05 0.0001"/>
+            quat="{qw:.6f} {qx:.6f} {qy:.6f} {qz:.6f}" friction="0.4 0.015 0.002"/>
     </body>"""
 
         

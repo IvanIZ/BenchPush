@@ -1,7 +1,7 @@
 """
 Creates a fresh MJCF file with:
 - TurtleBot3 Burger (random start pose)
-- N blue cubes (N from user, 10-20) with random yaw
+- N blue boxes (N from user, 10-20) with random yaw
 - Randomly create enviornment type
 """
 
@@ -77,8 +77,8 @@ def dynamic_vertices(model,
                      data,
                      qpos_idx_robot: int,
                      joint_ids_boxes: list[int],
-                     robot_half   =(0.07, 0.09),
-                     cube_half    =0.04):
+                     robot_half   =(0.069, 0.0915),
+                     box_half    =0.04):
     """
     Returns the vertices of the robot and boxes in the world frame.
     """
@@ -96,11 +96,11 @@ def dynamic_vertices(model,
     Robot_vertices = ["robot",
                       corners_xy(np.array([cx, cy]), yaw, local_robot).tolist(),yaw,(cx, cy)]
 
-    # cubes vertices
-    local_cube = np.array([[-cube_half, -cube_half],
-                           [ cube_half, -cube_half],
-                           [ cube_half,  cube_half],
-                           [-cube_half,  cube_half]])
+    # boxes vertices
+    local_box = np.array([[-box_half, -box_half],
+                           [ box_half, -box_half],
+                           [ box_half,  box_half],
+                           [-box_half,  box_half]])
 
     Boxes_vertices = []
     for jid in joint_ids_boxes:
@@ -109,7 +109,7 @@ def dynamic_vertices(model,
         bx, by = bx-0.7875, by-1.4225
         qw, qx, qy, qz = data.qpos[adr+3:adr+7]
         yaw  = quat_z_yaw(qw, qx, qy, qz)
-        verts = corners_xy(np.array([bx, by]), yaw, local_cube).tolist()
+        verts = corners_xy(np.array([bx, by]), yaw, local_box).tolist()
         Boxes_vertices.append([verts])
 
     return Robot_vertices, Boxes_vertices
@@ -241,8 +241,8 @@ def intersects_keepout(x, y, keep_out):
     return any(inside_poly(x, y, poly) for poly in keep_out)
   
 
-def sample_scene(n_cubes, keep_out,ROBOT_R,CLEAR,ARENA_X,ARENA_Y, clearance_poly):
-    """returns robot pose + list of cube poses (x,y,theta)"""
+def sample_scene(n_boxes, keep_out,ROBOT_R,CLEAR,ARENA_X,ARENA_Y, clearance_poly):
+    """returns robot pose + list of box poses (x,y,theta)"""
     
     # Robot iteration for its placement
     for _ in range(2000):
@@ -253,10 +253,10 @@ def sample_scene(n_cubes, keep_out,ROBOT_R,CLEAR,ARENA_X,ARENA_Y, clearance_poly
     robot_qpos = f"{rx:.4f} {ry:.4f} 0.01"
     
 
-    # Cubes iteration for its placement
-    cubes = []
+    # Boxes iteration for its placement
+    boxes = []
     tries = 0
-    while len(cubes) < n_cubes and tries < 10000:
+    while len(boxes) < n_boxes and tries < 10000:
         tries += 1
         x = np.random.uniform(*ARENA_X)
         y = np.random.uniform(*ARENA_Y)
@@ -266,21 +266,21 @@ def sample_scene(n_cubes, keep_out,ROBOT_R,CLEAR,ARENA_X,ARENA_Y, clearance_poly
             continue        
         if np.hypot(x - rx, y - ry) < ROBOT_R:
             continue
-        if any(np.hypot(x - cx, y - cy) < CLEAR for cx, cy, _ in cubes):
+        if any(np.hypot(x - cx, y - cy) < CLEAR for cx, cy, _ in boxes):
             continue
         theta = np.random.uniform(0, 2*np.pi)
-        cubes.append((x, y, theta))
-    if len(cubes) < n_cubes:
-        print("Could only place", len(cubes), "cubes")
+        boxes.append((x, y, theta))
+    if len(boxes) < n_boxes:
+        print("Could only place", len(boxes), "boxes")
 
-    return robot_qpos, cubes
+    return robot_qpos, boxes
 
 
-def build_xml(robot_qpos, cubes, stl_model_path,extra_xml,Z_CUBE, cube_size, ARENA_X1, ARENA_Y1, goal_half, goal_center, adjust_no_pillars, robot_rgb):
+def build_xml(robot_qpos, boxes, stl_model_path,extra_xml,Z_BOX, box_size, ARENA_X1, ARENA_Y1, goal_half, goal_center, adjust_num_pillars, robot_rgb):
     """Building data for a different file"""
     goal_center=[(ARENA_X1/2)+goal_center[0], (ARENA_Y1/2)+ goal_center[1]]
 
-    if adjust_no_pillars is True: 
+    if adjust_num_pillars is True: 
       adjust_pillar_plane= f"""
     <!-- Pillar plane -->
     <body pos="-0.4 {ARENA_Y1/2} 0">
@@ -381,23 +381,27 @@ def build_xml(robot_qpos, cubes, stl_model_path,extra_xml,Z_CUBE, cube_size, ARE
     <geom name="Wall_X1" type="box"
       pos="-0.01 {ARENA_Y1/2} 0.15"
       size="0.01 {ARENA_Y1/2} 0.15"
-      rgba="1 1 1 0.1" contype="1" conaffinity="1"/>
+      rgba="1 1 1 0.1" contype="1" conaffinity="1"
+      friction="0.45 0.01 0.003"/>
 
     <geom name="Wall_X2" type="box"
       pos="{ARENA_X1+0.01} {ARENA_Y1/2} 0.15"
       size="0.01 {ARENA_Y1/2} 0.15"
-      rgba="1 1 1 0.1" contype="1" conaffinity="1"/>
+      rgba="1 1 1 0.1" contype="1" conaffinity="1"
+      friction="0.45 0.01 0.003"/>
 
     <!-- Y-walls: bottom and top -->
     <geom name="Wall_Y1" type="box"
       pos="{ARENA_X1/2} -0.01 0.15"
       size="{ARENA_X1/2} 0.01 0.15"
-      rgba="1 1 1 0.1" contype="1" conaffinity="1"/>
+      rgba="1 1 1 0.1" contype="1" conaffinity="1"
+      friction="0.45 0.01 0.003"/>
 
     <geom name="Wall_Y2" type="box"
       pos="{ARENA_X1/2} {ARENA_Y1+0.01} 0.15"
       size="{ARENA_X1/2} 0.01 0.15"
-      rgba="1 1 1 0.1" contype="1" conaffinity="1"/>
+      rgba="1 1 1 0.1" contype="1" conaffinity="1"
+      friction="0.45 0.01 0.003"/>
     
      <!-- robot -->
     <body name="base" pos="{robot_qpos}" euler="0 0 3.141592653589793">
@@ -428,15 +432,15 @@ def build_xml(robot_qpos, cubes, stl_model_path,extra_xml,Z_CUBE, cube_size, ARE
       
 """
     
-    #Data to be written for cubes
-    cube_xml = ""
-    for i, (x, y, th) in enumerate(cubes):
+    #Data to be written for boxes
+    box_xml = ""
+    for i, (x, y, th) in enumerate(boxes):
         qw, qx, qy, qz = quat_z(th)
-        cube_xml += f"""
-    <body name="cube{i}" pos="{x:.4f} {y:.4f} {Z_CUBE:.3f}">
-      <joint name="cube{i}_joint" type="free" />
-      <geom type="box" size="{cube_size}" material="blue_mat" mass="0.05"
-            quat="{qw:.6f} {qx:.6f} {qy:.6f} {qz:.6f}" friction="0.01 0.05 0.0001" contype="1" conaffinity="1"/>
+        box_xml += f"""
+    <body name="box{i}" pos="{x:.4f} {y:.4f} {Z_BOX:.3f}">
+      <joint name="box{i}_joint" type="free" />
+      <geom type="box" size="{box_size}" material="blue_mat" mass="0.05"
+            quat="{qw:.6f} {qx:.6f} {qy:.6f} {qz:.6f}" friction="0.4 0.015 0.002" contype="1" conaffinity="1"/>
     </body>"""
 
         
@@ -451,7 +455,7 @@ def build_xml(robot_qpos, cubes, stl_model_path,extra_xml,Z_CUBE, cube_size, ARE
   </actuator>
 </mujoco>
 """
-    return header + cube_xml + extra_xml +adjust_pillar_plane+ footer
+    return header + box_xml + extra_xml +adjust_pillar_plane+ footer
 
 def clearance_poly_generator(ARENA_X, ARENA_Y):
     """ Returns a polygon within which all items must be placed, with a clearance"""
@@ -463,36 +467,36 @@ def clearance_poly_generator(ARENA_X, ARENA_Y):
             (0.615, ARENA_Y[1]-0.3), (0.615, ARENA_Y[1]-0.6), (0.300, ARENA_Y[1]-0.6)
         ]
 
-def generate_boxDelivery_xml(N,env_type,file_name,ROBOT_clear,CLEAR,Z_CUBE,ARENA_X,ARENA_Y,
-                  cube_half_size, goal_half, goal_center,num_pillars, pillar_half, adjust_no_pillars):
+def generate_boxDelivery_xml(N,env_type,file_name,ROBOT_clear,CLEAR,Z_BOX,ARENA_X,ARENA_Y,
+                  box_half_size, goal_half, goal_center,num_pillars, pillar_half, adjust_num_pillars):
     
     # Name of input and output file otherwise set to default
     XML_OUT = Path(file_name)
     stl_model_path = os.path.join(os.path.dirname(__file__), 'models/')
     
-    # Clearnaces and cube sizes
+    # Clearnaces and box sizes
     clearance_poly= clearance_poly_generator(ARENA_X, ARENA_Y)
-    cube_size = f"{cube_half_size} {cube_half_size} {cube_half_size}"
+    box_size = f"{box_half_size} {box_half_size} {box_half_size}"
     
     # Changing based on configration type
     extra_xml, keep_out = changing_per_configuration(env_type,clearance_poly, ARENA_X,ARENA_Y, num_pillars, pillar_half)
     
-    # Finding the robot's q_pos and cubes's randomized data
-    robot_qpos, cubes = sample_scene(N,keep_out,ROBOT_clear,CLEAR,ARENA_X,ARENA_Y, clearance_poly)
+    # Finding the robot's q_pos and boxes's randomized data
+    robot_qpos, boxes = sample_scene(N,keep_out,ROBOT_clear,CLEAR,ARENA_X,ARENA_Y, clearance_poly)
   
     # Building new environemnt and writing it down
-    xml_string = build_xml(robot_qpos, cubes,stl_model_path,extra_xml,Z_CUBE, cube_size,ARENA_X[1],ARENA_Y[1], goal_half, goal_center, adjust_no_pillars, robot_rgb=(0.1, 0.1, 0.1))
+    xml_string = build_xml(robot_qpos, boxes,stl_model_path,extra_xml,Z_BOX, box_size,ARENA_X[1],ARENA_Y[1], goal_half, goal_center, adjust_num_pillars, robot_rgb=(0.1, 0.1, 0.1))
     XML_OUT.write_text(xml_string)
     
     return XML_OUT, keep_out, clearance_poly
 
 
-def transporting(model, data, joint_id_boxes, ARENA_X1, ARENA_Y1, goal_half, goal_center, cube_half_size):
-    """Teleport a cube only if all its vertices are inside the goal box."""
+def transporting(model, data, joint_id_boxes, ARENA_X1, ARENA_Y1, goal_half, goal_center, box_half_size):
+    """Teleport a box only if all its vertices are inside the goal box."""
     
     initial_len = len(joint_id_boxes)
-    # half-edge of cube
-    HSIZE = cube_half_size
+    # half-edge of box
+    HSIZE = box_half_size
     # local corner coordinates
     corners_local_coordinates = np.array([
         [-HSIZE, -HSIZE],
