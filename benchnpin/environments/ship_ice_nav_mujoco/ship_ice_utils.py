@@ -23,7 +23,7 @@ ASV_MASS_TOTAL = 6000000.0     # kg
 ICE_DENSITY    = 9000.0        # kg m⁻³ (Since ice is shown as an extermely thin plate for stimulation purposes)
 RHO_WATER      = 1025.0        # kg m⁻³
 CD_SHIP             = 0.5      # assuming like an airfoil
-CD_ICE              = 1.1   # assuming like an airfoil
+CD_ICE              = 1.1      # assuming like an airfoil
 Cd_yaw_ship         = 10.0    
 Cd_yaw_ice          = 2.0
 DAMP_BETA_SHIP      = 1.0
@@ -489,7 +489,6 @@ def apply_fluid_forces_to_body(model, data, body_name, joint_prefix, phase, ice_
     x, y = pos[0], pos[1]
     
     # Randomly generating kx and ky but not showing it in simulation due to not increasing time
-    # gradients of sin(kx x + ky y + phase)
     dhdx = wave_amp * kx * np.cos(kx*x + ky*y + phase)
     dhdy = wave_amp * ky * np.cos(kx*x + ky*y + phase)
     Vdisp = area * thickness
