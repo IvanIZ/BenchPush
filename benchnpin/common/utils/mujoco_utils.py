@@ -127,6 +127,21 @@ def get_body_pose_2d(model, data, body_name):
     return np.array([pos[0], pos[1], theta])
 
 
+def get_body_vel(model, data, body_name):
+    """
+    Get the 6 Dof velocity of a given mujoco body
+    """
+    body_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, body_name)
+
+    # Get the 6D velocity: first 3 = angular, last 3 = linear
+    body_velocity = data.cvel[body_id]
+
+    angular_velocity = body_velocity[:3]
+    linear_velocity = body_velocity[3:]
+
+    return linear_velocity, angular_velocity
+
+
 def get_box_2d_vertices(model, data, body_name):
         """
         Get the vertices and position in world coordinate of a box geometry

@@ -16,7 +16,7 @@ except ImportError as e:
         'MuJoCo is not installed, run `pip install "gymnasium[mujoco]"`'
     ) from e
 
-from benchnpin.common.utils.mujoco_utils import get_body_pose_2d, get_box_2d_vertices, corners_xy, zero_body_velocity
+from benchnpin.common.utils.mujoco_utils import get_body_pose_2d, get_box_2d_vertices, corners_xy, zero_body_velocity, get_body_vel
 from benchnpin.common.utils.utils import DotDict
 from benchnpin.environments.ship_ice_nav_mujoco.ship_ice_utils import generate_shipice_xml, apply_fluid_forces_to_body, load_ice_field
 
@@ -124,13 +124,16 @@ class ShipIceMujoco(MujocoEnv, utils.EzPickle):
 
         # get ship state
         state = get_body_pose_2d(self.model, self.data, body_name='asv')
+        linear_velocity, angular_velocity = get_body_vel(self.model, self.data, body_name='asv')
 
         # get vertices of all floes
         obs = self.get_floe_vertices()
 
         info = {
             'obs': obs, 
-            'state': state
+            'state': state,
+            'ship_linear_vel': linear_velocity, 
+            'ship_angular_vel': angular_velocity
         }
 
         return observation, reward, False, False, info
@@ -261,13 +264,16 @@ class ShipIceMujoco(MujocoEnv, utils.EzPickle):
 
         # get ship state
         state = get_body_pose_2d(self.model, self.data, body_name='asv')
+        linear_velocity, angular_velocity = get_body_vel(self.model, self.data, body_name='asv')
 
         # get vertices of all floes
         obs = self.get_floe_vertices()
 
         info = {
             'obs': obs, 
-            'state': state
+            'state': state,
+            'ship_linear_vel': linear_velocity, 
+            'ship_angular_vel': angular_velocity
         }
 
         return info
