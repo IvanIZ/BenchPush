@@ -29,7 +29,7 @@ Cd_yaw_ice          = 2.0
 DAMP_BETA_SHIP      = 1.0
 ANG_DAMP_BETA_SHIP  = 1.0      # torque coefficient
 DAMP_BETA_ICE       = 1.50
-ANG_DAMP_BETA_ICE   = 1.50      # torque coefficient
+ANG_DAMP_BETA_ICE   = 1.50     # torque coefficient
 STL_SCALE           = 0.4
 
 # Random position of asv
