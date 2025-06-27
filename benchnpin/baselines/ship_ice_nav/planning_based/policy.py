@@ -47,6 +47,7 @@ class PlanningBasedPolicy(BasePolicy):
         goal = kwargs.get('goal', None)
         conc = kwargs.get('conc', None)
         action_scale = kwargs.get('action_scale', None)
+        cur_speed = kwargs.get('speed', None)
         
         # plan a path
         if self.path is None:
@@ -61,10 +62,17 @@ class PlanningBasedPolicy(BasePolicy):
             self.dp_state = self.dp.state
         
         # call ideal controller to get angular velocity control
-        omega, v = self.dp.ideal_control(ship_pos[0], ship_pos[1], ship_pos[2])
+        # omega, v = self.dp.ideal_control(ship_pos[0], ship_pos[1], ship_pos[2])
+
+        self.dp(ship_pos[0], ship_pos[1], ship_pos[2])
+        omega = self.dp.state.r * np.pi / 180
+        v = np.linalg.norm(self.dp.state.get_global_velocity())
 
         # update setpoint
-        x_s, y_s, h_s = self.dp.get_setpoint()
+        x_s, y_s, h_s = self.dp.get_setpoint(cur_speed)
+        print("set point: ", x_s, y_s, h_s)
+        print("ship pose: ", ship_pos)
+
         self.dp.setpoint = np.asarray([x_s, y_s, np.unwrap([self.dp_state.yaw, h_s])[1]])
 
         return omega / action_scale, self.lattice_planner.cfg.controller.target_speed

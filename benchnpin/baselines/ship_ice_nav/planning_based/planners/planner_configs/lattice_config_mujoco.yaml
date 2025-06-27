@@ -107,7 +107,7 @@ controller:
   # Input limits
   # To calculate yaw rate given min turn radius r and surge velocity v
   # 360 / ((2 pi r) / v)
-  input_lims: [8.6, 0.5, 0.05]
+  input_lims: [8.6, 30, 30]
   # look ahead distance
   Lfc: 0.5
   # target speed

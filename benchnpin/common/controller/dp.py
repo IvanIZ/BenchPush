@@ -174,11 +174,15 @@ class DP:
                    PID(*PID_gains[1]),
                    PID(*PID_gains[2])]
 
-    def get_setpoint(self):
+    def get_setpoint(self, cur_speed=None):
         # the switch from one index to the next causes a spike
         # in the derivative term in the pid controller
         
-        return self.target_course.advance(self.target_speed, self.dt)[0]
+        if cur_speed is None:
+            return self.target_course.advance(self.target_speed, self.dt)[0]
+        else:
+            return self.target_course.advance(cur_speed, self.dt)[0]
+
         # return self.target_course.search_target_index(self.state.x, self.state.y)[0]
 
 
@@ -192,6 +196,8 @@ class DP:
         assert len(pose) == 3
         # unpack input
         x, y, yaw = pose
+
+        self.state.update_pose(x, y, yaw)
 
         # get global error in heading, x, and y position
         self.setpoint[2] = np.unwrap([yaw, self.setpoint[2]])[1]
