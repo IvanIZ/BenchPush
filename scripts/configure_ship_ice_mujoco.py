@@ -27,10 +27,10 @@ while True:
     # rudder_control = 0.5     # no turning
     # action = [forward_force, rudder_control]
 
-    forward_speed = 80.0      # 2 m/s
+    forward_speed = 20.0      # 2 m/s
     angular_speed = 0.0     # no turning
     action = [forward_speed, angular_speed]
 
     observation, reward, terminated, truncated, info = env.step(action)
-    if step_idx%5==0:
+    if step_idx%15==0:
         env.render()
