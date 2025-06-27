@@ -22,12 +22,18 @@ from benchnpin.common.utils.mujoco_utils import polygon_from_vertices, extrude_a
 ASV_MASS_TOTAL = 6000000.0     # kg
 ICE_DENSITY    = 9000.0        # kg m⁻³
 RHO_WATER      = 1025.0        # kg m⁻³
-CD             = 1.0
-DAMP_BETA_SHIP      = 50.0
-ANG_DAMP_BETA_SHIP  = 100.0       # torque coefficient
-DAMP_BETA_ICE       = 1050.0
-ANG_DAMP_BETA_ICE   = 1050.0     # torque coefficient
-STL_SCALE      = 0.4
+CD_SHIP             = 0.5      # assuming like an airfoil
+CD_ICE              = 0.02   # assuming like an airfoil
+Cd_yaw_ship         = 10.0    
+Cd_yaw_ice          = 2.0
+DAMP_BETA_SHIP      = 1.0
+ANG_DAMP_BETA_SHIP  = 1.0      # torque coefficient
+DAMP_BETA_ICE       = 5.0
+ANG_DAMP_BETA_ICE   = 5.0      # torque coefficient
+STL_SCALE           = 0.4
+# Added quadratic drag cutoff to save computational power and enhance numerical stability
+# below that just linear drag
+velocity_cutoff_quad= 1.5
 
 # Random position of asv
 ASV_Y0 = 100
@@ -112,7 +118,6 @@ def header_block(hfield, stl_model_path, sim_timestep, channel_len, channel_wid,
 
              <default class="ice_floe">
                 <geom density="{ICE_DENSITY}" friction="0.35 0.35 0.0001"/>
-                <joint damping="5"/>
              </default>
           
           </default>
@@ -429,21 +434,27 @@ def load_ice_field(concentration, xml_file, sim_timestep, channel_len, channel_w
 
 # Part 2- Performing operations in the file
 
-def apply_fluid_forces_to_body(model, data, body_name, joint_prefix, phase, ice_area_dict,angular_beta_ship=ANG_DAMP_BETA_SHIP, beta_ship=DAMP_BETA_SHIP, angular_beta_ice=ANG_DAMP_BETA_ICE, beta_ice=DAMP_BETA_ICE, Cd=CD, wave_amp=0.2, g=9.81, thickness=0.6, kx=2*np.pi/200, ky=2*np.pi/80, max_omega=5):
+def apply_fluid_forces_to_body(model, data, body_name, joint_prefix, phase, ice_area_dict,angular_beta_ship=ANG_DAMP_BETA_SHIP, beta_ship=DAMP_BETA_SHIP, angular_beta_ice=ANG_DAMP_BETA_ICE, beta_ice=DAMP_BETA_ICE, wave_amp=0.2, g=9.81, kx=2*np.pi/200, ky=2*np.pi/80, max_omega=0.5):
     """Drag force and wave force in two dimensions"""
 
     if body_name=="asv":
-        area=30
+        area=8
         beta = beta_ship
         angular_beta = angular_beta_ship
+        thickness= 2.0
+        Cd= CD_SHIP
+        r_mean= np.sqrt(area)/2
+        Cd_yaw= Cd_yaw_ship
+        F_max = 10000000 # Added just for numerical stability
     else:
-        # This is for the ice pieces area of the floating thing based on the body_name
         area = ice_area_dict.get(body_name)['area']
         beta = beta_ice
         angular_beta = angular_beta_ice
-    
-    # clear out last frame’s forces only
-    mujoco.mju_zero(data.qfrc_applied)        
+        thickness= 0.6
+        Cd= CD_ICE
+        Cd_yaw = Cd_yaw_ice
+        r_mean= np.sqrt(area/np.pi)
+        F_max = 50000 # Added just for numerical stability
     
     body_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, body_name)
 
@@ -459,16 +470,19 @@ def apply_fluid_forces_to_body(model, data, body_name, joint_prefix, phase, ice_
     vy = data.qvel[dof_y]
     v = np.array([vx, vy])
     v_mag = np.linalg.norm(v)
-    v_dir = v / v_mag if v_mag > 1e-3 else np.zeros(2)
+    v_dir = v / v_mag if v_mag > 0.01 else np.zeros(2)
 
     F_linear = -beta * v
-    F_quad = -0.5 * RHO_WATER * Cd * area * v_mag**2 * v_dir
+    if v_mag > velocity_cutoff_quad:
+        F_quad = -0.5 * RHO_WATER * Cd * area * (v_mag**2) * v_dir
+        F_quad = np.clip(F_quad, -F_max, +F_max)
+    else:
+        F_quad = 0
     Fxy_drag = F_linear + F_quad
-    
-    
+
     omega_z = data.qvel[dof_yaw]
     yaw_drag_linear = -angular_beta * omega_z
-    yaw_drag_quad   = -0.5 * RHO_WATER * area * omega_z * abs(omega_z) * 0.1  # 0.1 is arbitrary moment-arm^2
+    yaw_drag_quad   = -0.5 * RHO_WATER * area * omega_z * abs(omega_z) * (r_mean**2) * Cd_yaw
 
     torque_z = yaw_drag_linear + yaw_drag_quad
     total_torque = np.array([0.0, 0.0, torque_z])
@@ -493,7 +507,7 @@ def apply_fluid_forces_to_body(model, data, body_name, joint_prefix, phase, ice_
     Fxy_wave = -RHO_WATER * g * Vdisp * np.array([dhdx, dhdy])
     
     # Net computation
-    total_Fxy = Fxy_drag + Fxy_wave
+    total_Fxy = Fxy_wave +Fxy_drag
     # Only taking in two dimensions for now
     Fz_wave = 0
     

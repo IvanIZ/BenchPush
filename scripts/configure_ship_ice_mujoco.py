@@ -18,9 +18,11 @@ cfg = {
 
 env = gym.make('ship-ice-mujoco-v0', render_mode = "human", cfg=cfg)
 env.reset()
+step_idx=0
 
 terminated = truncated = False
 while True:
+    step_idx+=1
     # forward_force = 40050000.0      # 15N forward force
     # rudder_control = 0.5     # no turning
     # action = [forward_force, rudder_control]
@@ -30,4 +32,5 @@ while True:
     action = [forward_speed, angular_speed]
 
     observation, reward, terminated, truncated, info = env.step(action)
-    env.render()
+    if step_idx%5==0:
+        env.render()
