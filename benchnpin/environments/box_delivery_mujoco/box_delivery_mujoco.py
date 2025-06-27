@@ -122,41 +122,6 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
             self.pillar_half = self.cfg.large_pillars.pillar_half
             self.adjust_num_pillars= self.cfg.large_pillars.adjust_num_pillars
 
-        # generate random environmnt
-        # TODO can robot_radius be used instead of robot_clear?
-        xml_file = os.path.join(self.current_dir, 'turtlebot3_burger_updated.xml')
-        # _, self.initialization_keepouts, self.clearance_poly = generate_boxDelivery_xml (N=self.cfg.boxes.num_boxes, env_type=self.cfg.env.obstacle_config, file_name=xml_file,
-        #                 ROBOT_clear=self.cfg.agent.robot_clear, CLEAR=self.cfg.boxes.clearance, goal_half= self.receptacle_half, goal_center= self.receptacle_position, Z_BOX=0.02, ARENA_X=(0.0, self.room_width), 
-        #                 ARENA_Y=(0.0, self.room_length), box_half_size=0.04, num_pillars=self.num_pillars, pillar_half=self.pillar_half, adjust_num_pillars=self.adjust_num_pillars)
-        #
-        utils.EzPickle.__init__(
-            self,
-            xml_file,
-            frame_skip,
-            default_camera_config,
-            **kwargs,
-        )
-
-
-        MujocoEnv.__init__(
-            self,
-            xml_file,
-            frame_skip,
-            observation_space=None,
-            default_camera_config=default_camera_config,
-            **kwargs,
-        )
-
-        self.metadata = {
-            "render_modes": [
-                "human",
-                "rgb_array",
-                "depth_array",
-                "rgbd_tuple",
-            ],
-            "render_fps": int(np.round(1.0 / self.dt)),
-        }
-
         # environment
         self.local_map_pixel_width = self.cfg.env.local_map_pixel_width if self.cfg.train.job_type != 'sam' else self.cfg.env.local_map_pixel_width_sam
         self.local_map_width = max(self.room_length, self.room_width)
@@ -194,6 +159,40 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
                 # Circular robot mask
                 if (((i + 0.5) - self.local_map_pixel_width / 2)**2 + ((j + 0.5) - self.local_map_pixel_width / 2)**2)**0.5 < robot_pixel_width / 2:
                     self.robot_state_channel[i, j] = 1
+
+        # generate random environmnt
+        # TODO can robot_radius be used instead of robot_clear?
+        xml_file = os.path.join(self.current_dir, 'turtlebot3_burger_updated.xml')
+        _, self.initialization_keepouts, self.clearance_poly = generate_boxDelivery_xml(N=self.cfg.boxes.num_boxes, env_type=self.cfg.env.obstacle_config, file_name=xml_file,
+                        ROBOT_clear=self.cfg.agent.robot_clear, CLEAR=self.cfg.boxes.clearance, goal_half= self.receptacle_half, goal_center= self.receptacle_position, Z_BOX=self.cfg.boxes.box_half_size, ARENA_X=(0.0, self.room_width), 
+                        ARENA_Y=(0.0, self.room_length), box_half_size=self.cfg.boxes.box_half_size, num_pillars=self.num_pillars, pillar_half=self.pillar_half, adjust_num_pillars=self.adjust_num_pillars)
+
+        utils.EzPickle.__init__(
+            self,
+            xml_file,
+            frame_skip,
+            default_camera_config,
+            **kwargs,
+        )
+
+        MujocoEnv.__init__(
+            self,
+            xml_file,
+            frame_skip,
+            observation_space=None,
+            default_camera_config=default_camera_config,
+            **kwargs,
+        )
+
+        self.metadata = {
+            "render_modes": [
+                "human",
+                "rgb_array",
+                "depth_array",
+                "rgbd_tuple",
+            ],
+            "render_fps": int(np.round(1.0 / self.dt)),
+        }
 
         # OBSERVATION SPACES
         self.show_observation = False
@@ -252,24 +251,7 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
             self.state_fig, self.state_ax = self.state_plot.subplots(1, num_plots, figsize=(4 * num_plots, 6))
             self.colorbars = [None] * num_plots
             if self.cfg.render.show_obs:
-                self.state_plot.ion()  # Interactive mode on        
-
-
-    def init_box_delivery_env(self):
-        # generate random environmnt
-        # TODO can robot_radius be used instead of robot_clear?
-        xml_file = os.path.join(self.current_dir, 'turtlebot3_burger_updated.xml')
-        _, self.initialization_keepouts, self.clearance_poly = generate_boxDelivery_xml (N=self.cfg.boxes.num_boxes, env_type=self.cfg.env.obstacle_config, file_name=xml_file,
-                        ROBOT_clear=self.cfg.agent.robot_clear, CLEAR=self.cfg.boxes.clearance, goal_half= self.receptacle_half, goal_center= self.receptacle_position, Z_BOX=0.02, ARENA_X=(0.0, self.room_width), 
-                        ARENA_Y=(0.0, self.room_length), box_half_size=0.04, num_pillars=self.num_pillars, pillar_half=self.pillar_half, adjust_num_pillars=self.adjust_num_pillars)
-        
-        # Initialize configuration space (only need to compute once)
-        self.update_configuration_space()
-
-        self.position_controller = PositionController(self.cfg, self.robot_radius, self.room_width, self.room_length, 
-                                                      self.configuration_space, self.configuration_space_thin, self.closest_cspace_indices, 
-                                                      self.local_map_pixel_width, self.local_map_width, self.local_map_pixels_per_meter,
-                                                      TURN_STEP_SIZE, MOVE_STEP_SIZE, WAYPOINT_MOVING_THRESHOLD, WAYPOINT_TURNING_THRESHOLD)
+                self.state_plot.ion()  # Interactive mode on      
 
 
     def save_local_map(self, obs_uint8, out_path) -> None:
@@ -318,41 +300,17 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
             # self.state_plot.pause(0.001)
             self.state_plot.pause(0.1)
 
-    def reset(self):
-        """Resets the environment to the initial state and returns the initial observation."""
 
-        if self.episode_idx is None:
-            self.episode_idx = 0
-        else:
-            self.episode_idx += 1
+    def update_path(self, waypoints):
+        for i, point in enumerate(waypoints):
+            self.model.site(f"wp{i}").pos[:2] = point[:2]           # set visualization point (x, y)
+            self.model.site(f"wp{i}").pos[2] = 0.3                  # set visualization point z-axis
 
-        # self.init_box_delivery_sim()
-        self.init_box_delivery_env()
-        
-        # get the robot and boxes vertices
-        robot_properties, boxes_vertices=dynamic_vertices(self.model,self.data, self.qpos_index_base,self.joint_id_boxes)
+        # Move the rest out of view
+        for i in range(len(waypoints), 50):
+            site_id = self.model.site(f"wp{i}").id
+            self.data.site_xpos[site_id] = np.array([1000, 1000, 1000])
 
-        # reset map
-        self.global_overhead_map = self.create_padded_room_zeros()
-        self.update_global_overhead_map(robot_properties[1], boxes_vertices)
-
-        self.motion_dict = self.init_motion_dict()
-
-        # reset stats
-        self.inactivity_counter = 0
-        self.robot_cumulative_distance = 0
-        self.robot_cumulative_boxes = 0
-        self.robot_cumulative_reward = 0
-
-        self.observation = self.generate_observation()
-
-        if self.cfg.render.show:
-            self.show_observation = True
-            self.render()
-
-        info = {}
-
-        return self.observation, info
         
     def step(self, action):
 
@@ -368,6 +326,7 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
 
         # if self.cfg.render.show:
         #     self.renderer.update_path(self.path)
+        self.update_path(self.path)
 
         robot_distance, robot_turn_angle = self.execute_robot_path(robot_initial_position, robot_initial_heading, robot_move_sign)
         # goal = action
@@ -1135,7 +1094,7 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
 
         # Assume box is square with radius from center to corner (diagonal/2)
         # TODO why is this hard-coded?
-        box_r = np.sqrt(0.04 ** 2 + 0.04 ** 2)
+        box_r = np.sqrt(self.cfg.boxes.box_half_size ** 2 + self.cfg.boxes.box_half_size ** 2)
 
         for i in range(self.num_boxes):
             while True:
@@ -1156,7 +1115,31 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
         self._prev_robot_xy      = np.array(self.data.xpos[self.base_body_id][:2])
         self._prev_robot_heading = quat_z_yaw(*self.data.qpos[self.qpos_index_base+3:self.qpos_index_base+7])
 
+
+        # get the robot and boxes vertices
+        robot_properties, boxes_vertices=dynamic_vertices(self.model,self.data, self.qpos_index_base,self.joint_id_boxes)
+
+        self.motion_dict = self.init_motion_dict()
+
+        # reset stats
+        self.inactivity_counter = 0
+        self.robot_cumulative_distance = 0
+        self.robot_cumulative_boxes = 0
+        self.robot_cumulative_reward = 0
+
+        self.update_configuration_space()
+
+        # reset map
+        self.global_overhead_map = self.create_padded_room_zeros()
+        self.update_global_overhead_map(robot_properties[1], boxes_vertices)
+
         observation=self.generate_observation()
+
+
+        self.position_controller = PositionController(self.cfg, self.robot_radius, self.room_width, self.room_length, 
+                                                      self.configuration_space, self.configuration_space_thin, self.closest_cspace_indices, 
+                                                      self.local_map_pixel_width, self.local_map_width, self.local_map_pixels_per_meter,
+                                                      TURN_STEP_SIZE, MOVE_STEP_SIZE, WAYPOINT_MOVING_THRESHOLD, WAYPOINT_TURNING_THRESHOLD)
 
         # self.save_local_map(observation, "snapshots/step_023.png")
 

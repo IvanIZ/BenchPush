@@ -32,7 +32,7 @@ for i in range(num_epochs):
         x = random.uniform(0.5, 1.0)
         y = random.uniform(0.5, 2.3)
 
-        goal_pos = [x, y]
+        goal_pos = [0]
         action = goal_pos
 
         observation, reward, terminated, truncated, info = env.step(action)

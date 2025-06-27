@@ -429,6 +429,8 @@ def build_xml(robot_qpos, boxes, stl_model_path,extra_xml,Z_BOX, box_size, ARENA
         <geom quat="0.707388 0.706825 0 0" type="mesh" rgba="{robot_rgb[0]+0.1} {robot_rgb[1]+0.1} {robot_rgb[2]+0.1} 1" mesh="right_tire" friction="1.2 0.01 0.001"/>
       </body>
     </body>
+
+    {generate_waypoint_sites(50)}
       
 """
     
@@ -489,6 +491,13 @@ def generate_boxDelivery_xml(N,env_type,file_name,ROBOT_clear,CLEAR,Z_BOX,ARENA_
     XML_OUT.write_text(xml_string)
     
     return XML_OUT, keep_out, clearance_poly
+
+
+def generate_waypoint_sites(num_sites=50):
+    site_template = (
+        '<site name="wp{0}" pos="0 0 5" size="0.02" rgba="0 1 0 1" type="sphere"/>'
+    )
+    return "\n".join([site_template.format(i) for i in range(num_sites)])
 
 
 def transporting(model, data, joint_id_boxes, ARENA_X1, ARENA_Y1, goal_half, goal_center, box_half_size):

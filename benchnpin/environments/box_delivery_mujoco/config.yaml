@@ -5,6 +5,7 @@ render:
 boxes:
   num_boxes: 10
   clearance: 0.2
+  box_half_size: 0.04
 
 train:
   train_mode: false
