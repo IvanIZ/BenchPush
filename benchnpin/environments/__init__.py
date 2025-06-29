@@ -39,6 +39,12 @@ register(
 
 
 register(
+     id="area-clearing-mujoco-v0",
+     entry_point="benchnpin.environments.area_clearing_mujoco:AreaClearingMujoco",
+     max_episode_steps=30000,
+)
+
+register(
      id="area-clearing-v0",
      entry_point="benchnpin.environments.area_clearing:AreaClearingEnv",
      max_episode_steps=30000,

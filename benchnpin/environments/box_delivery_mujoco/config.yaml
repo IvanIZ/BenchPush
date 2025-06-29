@@ -36,7 +36,6 @@ train:
 env:
   obstacle_config: small_columns # options are small_empty, small_columns, large_columns, large_divider
   room_length: 2.845
-  # room_width_small: 1.575
   room_width_small: 1.4225
   room_width_large: 2.5
   shortest_path_channel_scale: 0.25
@@ -44,7 +43,6 @@ env:
   local_map_pixel_width_sam: 96
   wall_thickness: 24.0 # Really high wall thickness to ensure nothing in vicinity of local maps
   invert_receptacle_map: false
-  # receptacle_position: [-0.6375, 1.2725]
   receptacle_position: [-0.56125, 1.2725]
   receptacle_half: 0.15
 
@@ -75,7 +73,6 @@ agent:
   length: 0.138
   width: 0.183
   robot_clear: 0.15
-  mass: 1 # TODO find actual mass
 
 rewards_sam:
   partial_rewards_scale: 0.2
