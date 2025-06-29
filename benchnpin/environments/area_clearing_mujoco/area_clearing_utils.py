@@ -133,7 +133,7 @@ def receptacle_vertices(receptacle_half, receptacle_local_dimension):
 
     return Receptacle_vertices
 
-def changing_per_configuration(env_type: str, clearance_poly, 
+def changing_per_configuration(env_type: str, 
                                ARENA_X, ARENA_Y, n_pillars, pillar_half, internal_clearance_length):
     """ 
     Based on the configration, it would create code for pillars along with
@@ -166,7 +166,7 @@ def changing_per_configuration(env_type: str, clearance_poly,
       cx = ARENA_X[1] / 2.0
 
       # lower and upper Y bounds
-      y_min = internal_clearance_length + half[1] / 2.0
+      y_min = internal_clearance_length + pillar_half[1] / 2.0
       y_max = ARENA_Y[1] - half[1] / 2.0 - internal_clearance_length
 
       # evenly space n_pillars points between y_min and y_max
@@ -221,8 +221,8 @@ def sample_scene(n_boxes, keep_out, ROBOT_R, BOXES_clear, ARENA_X, ARENA_Y, inte
     tries = 0
     while len(boxes) < n_boxes and tries < 10000:
         tries += 1
-        x = np.random.uniform(xmin, xmax)     # ← changed
-        y = np.random.uniform(ymin, ymax)     # ← changed
+        x = np.random.uniform(xmin, xmax)
+        y = np.random.uniform(ymin, ymax)
         if intersects_keepout(x, y, keep_out):
             continue
         if np.hypot(x - rx, y - ry) < ROBOT_R:
@@ -298,7 +298,7 @@ def build_xml(robot_qpos, boxes, stl_model_path,extra_xml,Z_BOX, box_size, ARENA
   
     <!-- Floor -->
     <body pos="{ARENA_X1/2} {ARENA_Y1/2} 0">
-      <geom name="floor" type="box" size="{ARENA_X1/2+wall_clearence_outer+0.5} {ARENA_Y1/2+wall_clearence_outer+0.5} 0.01" friction="0.5 0.05 0.0001" contype="1" conaffinity="1"/>
+      <geom name="floor" type="box" size="{ARENA_X1/2+wall_clearence_outer+0.25} {ARENA_Y1/2+wall_clearence_outer+0.25} 0.01" friction="0.5 0.05 0.0001" contype="1" conaffinity="1"/>
     </body>
     
     <!-- Marked area -->
@@ -312,19 +312,19 @@ def build_xml(robot_qpos, boxes, stl_model_path,extra_xml,Z_BOX, box_size, ARENA
     <site name="clearance_outline_2" 
       pos="{ARENA_X1/2} {ARENA_Y1/2} 0.001" 
       type="box"
-      size="{ARENA_X1/2-0.02} {ARENA_Y1/2-0.02} 0.01" 
+      size="{ARENA_X1/2-0.02} {ARENA_Y1/2-0.02} 0.012" 
       rgba="1 1 1 1"/>
       
     <!-- X-walls: left and right sides -->
     <geom name="Wall_X1" type="box"
       pos="{-wall_clearence_outer-0.125} {ARENA_Y1/2} 0.15"
-      size="0.125 {ARENA_Y1/2+wall_clearence_outer+0.125} 0.15"
+      size="0.125 {ARENA_Y1/2+wall_clearence_outer+0.25} 0.15"
       rgba="0.2 0.2 0.2 1" contype="1" conaffinity="1"
       friction="0.45 0.01 0.003"/>
 
     <geom name="Wall_X2" type="box"
       pos="{ARENA_X1+wall_clearence_outer+0.125} {ARENA_Y1/2} 0.15"
-      size="0.125 {ARENA_Y1/2+wall_clearence_outer+0.125} 0.15"
+      size="0.125 {ARENA_Y1/2+wall_clearence_outer+0.25} 0.15"
       rgba="0.2 0.2 0.2 1" contype="1" conaffinity="1"
       friction="0.45 0.01 0.003"/>
 
@@ -404,8 +404,8 @@ def generate_boxDelivery_xml(N,env_type,file_name,ROBOT_clear,BOXES_clear,Z_BOX,
     stl_model_path = os.path.join(os.path.dirname(__file__), 'models/')
     
     # Changing based on configration type
-    extra_xml, keep_out = changing_per_configuration(env_type, ARENA_X,ARENA_Y, num_pillars, pillar_half, wall_clearence_outer, internal_clearance_length)
-    
+    extra_xml, keep_out = changing_per_configuration(env_type, ARENA_X,ARENA_Y, num_pillars, pillar_half, internal_clearance_length)
+
     # Finding the robot's q_pos and boxes's randomized data
     robot_qpos, boxes = sample_scene(N,keep_out,ROBOT_clear,BOXES_clear,ARENA_X,ARENA_Y, internal_clearance_length)
   

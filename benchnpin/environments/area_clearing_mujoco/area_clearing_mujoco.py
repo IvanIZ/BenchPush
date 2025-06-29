@@ -12,7 +12,7 @@ import os
 # Bench-NPIN imports
 from benchnpin.common.controller.position_controller import PositionController
 from benchnpin.common.utils.utils import DotDict
-from benchnpin.environments.area_clearing_mujoco.area_clearing_utils import generate_boxDelivery_xml, precompute_static_vertices, dynamic_vertices, receptacle_vertices, intersects_keepout
+from benchnpin.environments.area_clearing_mujoco.area_clearing_utils import generate_boxDelivery_xml, precompute_static_vertices, dynamic_vertices, intersects_keepout, receptacle_vertices
 from benchnpin.common.utils.mujoco_utils import vw_to_wheels, make_controller, quat_z, inside_poly, quat_z_yaw, corners_xy
 from benchnpin.common.utils.sim_utils import get_color
 
@@ -97,7 +97,7 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
 
         # Setting up the environment parameters
         self.room_length = self.cfg.env.room_length
-        self.room_width = self.cfg.env.room_length
+        self.room_width = self.cfg.env.room_width
 
         # Pillar position and size
         self.num_pillars = self.cfg.small_pillars.num_pillars
@@ -110,6 +110,8 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
         self.wall_thickness = self.cfg.env.wall_thickness
         self.num_boxes = self.cfg.boxes.num_boxes
         self.internal_clearance_length=self.cfg.env.internal_clearance_length
+        self.receptacle_position=[self.room_width/2,self.room_length/2]
+        self.receptacle_half=self.room_width/2
 
         # state
         self.num_channels = 4
@@ -234,32 +236,6 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
             if self.cfg.render.show_obs:
                 self.state_plot.ion()  # Interactive mode on      
 
-
-    def save_local_map(self, obs_uint8, out_path) -> None:
-        """
-        Saves the local map observation as a 2x2 figure with each channel in a separate subplot.
-        LATER REMOVING THIS FUCNTION AND USING RENDERING INSTEAD"""
-    
-        if obs_uint8.ndim != 3 or obs_uint8.shape[2] != 4:
-            raise ValueError("Expected observation of shape (W, W, 4)")
-
-        # 2×2 figure
-        fig, ax = plt.subplots(2, 2, figsize=(4, 4))
-        titles = ["Static", "Movable", "Goal DT", "Ergocenttric DT"]
-
-        for k in range(4):
-            i, j   = divmod(k, 2)
-            ax_ij  = ax[i, j]
-            ax_ij.imshow(obs_uint8[:, :, k], cmap="hot", vmin=0, vmax=255)
-            ax_ij.set_xticks([]); ax_ij.set_yticks([])
-            ax_ij.set_title(titles[k], fontsize=6, pad=2)
-
-        plt.tight_layout()
-        out_path = Path(out_path)
-        out_path.parent.mkdir(parents=True, exist_ok=True)
-        fig.savefig(out_path, dpi=150, bbox_inches="tight")
-        plt.close(fig)
-
     def render_env(self, mode='human', close=False):
         """Renders the environment."""
         self.render()
@@ -303,13 +279,13 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
         robot_initial_heading = quat_z_yaw(*self.data.qpos[self.qpos_index_base+3:self.qpos_index_base+7])
 
         # TODO check if move_sign is necessary
-        #self.path, robot_move_sign = self.position_controller.get_waypoints_to_spatial_action(robot_initial_position, robot_initial_heading, action)
+        self.path, robot_move_sign = self.position_controller.get_waypoints_to_spatial_action(robot_initial_position, robot_initial_heading, action)
 
         # if self.cfg.render.show:
         #     self.renderer.update_path(self.path)
         self.update_path(self.path)
 
-        robot_distance, robot_turn_angle = self.execute_robot_path(robot_initial_position, robot_initial_heading, robot_move_sign)
+        robot_distance, robot_turn_angle = self.execute_robot_path(robot_initial_position, robot_initial_heading)
         # goal = action
         # self.num_completed_boxes=0
         # self.collision= False
@@ -378,12 +354,10 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
             truncated = True
 
         # get observation
-        #self.observation=self.generate_observation(done=terminated)
-        self.observation=0.0
+        self.observation=self.generate_observation(done=terminated)
         reward= self._get_rew()
         info = {}
 
-        # print("Robot reward",reward)
         # self.save_local_map(self.observation, "snapshots/step_023.png")
        
         # render environment
@@ -393,7 +367,7 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
 
         return self.observation, reward, terminated, truncated, info
     
-    def execute_robot_path(self, robot_initial_position, robot_initial_heading, robot_move_sign):
+    def execute_robot_path(self, robot_initial_position, robot_initial_heading):
         robot_position = robot_initial_position.copy()
         robot_heading = robot_initial_heading
         robot_is_moving = True
@@ -433,11 +407,6 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
             # change robot pose (use controller)
             v, w, dist = make_controller(robot_prev_position, robot_prev_heading, robot_waypoint_position)
 
-            # if dist < 0.02:
-            #     # arrived at location
-            #     self.data.ctrl[:] = 0.0
-            #     break
-
             # otherwise drive as normal
             v_l, v_r = vw_to_wheels(v, w)
 
@@ -475,15 +444,8 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
                     done_turning = False
                     self.path = self.path[1:]
 
-
-            # teleport boxes in the receptacle
-            self.joint_id_boxes, self.num_completed_boxes_new = transporting(self.model, self.data, self.joint_id_boxes, self.room_width,
-                                                                             self.room_length,goal_half= self.receptacle_half, goal_center= self.receptacle_position, box_half_size=0.04)
-
             self.num_completed_boxes += self.num_completed_boxes_new
         
-
-
             sim_steps += 1
             if sim_steps % 10 == 0 and self.cfg.render.show:
                 self.render_env()
@@ -693,8 +655,6 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
             fillPoly(small_overhead_map, [vertices_px], color=seg_index/MAX_SEG_INDEX)
         
         # Draw the robot
-        # robot_vertices= robot_vertices[1]
-        # print(robot_vertices)
         draw_object(robot_vertices, ROBOT_SEG_INDEX)
         
         # Draw the boxes
@@ -969,9 +929,9 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
             return True
 
         # Define bounds of the placement area (slightly inside the walls)
-        x_min = self.room_width + self.internal_clearance_length
+        x_min = self.internal_clearance_length
         x_max = self.room_width - self.internal_clearance_length
-        y_min = self.room_length + self.internal_clearance_length
+        y_min = self.internal_clearance_length
         y_max = self.room_length - self.internal_clearance_length
 
         # Sample robot pose
@@ -1028,16 +988,13 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
         self.global_overhead_map = self.create_padded_room_zeros()
         self.update_global_overhead_map(robot_properties[1], boxes_vertices)
 
-        #observation=self.generate_observation()
-        observation=0.0
+        observation=self.generate_observation()
 
 
         self.position_controller = PositionController(self.cfg, self.robot_radius, self.room_width, self.room_length, 
                                                       self.configuration_space, self.configuration_space_thin, self.closest_cspace_indices, 
                                                       self.local_map_pixel_width, self.local_map_width, self.local_map_pixels_per_meter,
                                                       TURN_STEP_SIZE, MOVE_STEP_SIZE, WAYPOINT_MOVING_THRESHOLD, WAYPOINT_TURNING_THRESHOLD)
-
-        # self.save_local_map(observation, "snapshots/step_023.png")
 
         return observation
 
