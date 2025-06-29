@@ -308,31 +308,37 @@ def build_xml(robot_qpos, boxes, stl_model_path,extra_xml,Z_BOX, box_size, ARENA
       type="box"
       size="{ARENA_X1/2} {ARENA_Y1/2} 0.01" 
       rgba="0 1 0 1"/>
+
+    <site name="clearance_outline_2" 
+      pos="{ARENA_X1/2} {ARENA_Y1/2} 0.001" 
+      type="box"
+      size="{ARENA_X1/2-0.02} {ARENA_Y1/2-0.02} 0.01" 
+      rgba="1 1 1 1"/>
       
     <!-- X-walls: left and right sides -->
     <geom name="Wall_X1" type="box"
-      pos="{-wall_clearence_outer-0.25} {ARENA_Y1/2} 0.15"
-      size="0.25 {ARENA_Y1/2+wall_clearence_outer+0.25} 0.15"
-      rgba="0.5 0.5 0.5 1" contype="1" conaffinity="1"
+      pos="{-wall_clearence_outer-0.125} {ARENA_Y1/2} 0.15"
+      size="0.125 {ARENA_Y1/2+wall_clearence_outer+0.125} 0.15"
+      rgba="0.2 0.2 0.2 1" contype="1" conaffinity="1"
       friction="0.45 0.01 0.003"/>
 
     <geom name="Wall_X2" type="box"
-      pos="{ARENA_X1+wall_clearence_outer+0.25} {ARENA_Y1/2} 0.15"
-      size="0.25 {ARENA_Y1/2+wall_clearence_outer+0.25} 0.15"
-      rgba="0.5 0.5 0.5 1" contype="1" conaffinity="1"
+      pos="{ARENA_X1+wall_clearence_outer+0.125} {ARENA_Y1/2} 0.15"
+      size="0.125 {ARENA_Y1/2+wall_clearence_outer+0.125} 0.15"
+      rgba="0.2 0.2 0.2 1" contype="1" conaffinity="1"
       friction="0.45 0.01 0.003"/>
 
     <!-- Y-walls: bottom and top -->
     <geom name="Wall_Y1" type="box"
-      pos="{ARENA_X1/2} {-wall_clearence_outer-0.25} 0.15"
-      size="{ARENA_X1/2+wall_clearence_outer+0.25} 0.25 0.15"
-      rgba="0.5 0.5 0.5 1" contype="1" conaffinity="1"
+      pos="{ARENA_X1/2} {-wall_clearence_outer-0.125} 0.15"
+      size="{ARENA_X1/2+wall_clearence_outer+0.125} 0.125 0.15"
+      rgba="0.2 0.2 0.2 1" contype="1" conaffinity="1"
       friction="0.45 0.01 0.003"/>
 
     <geom name="Wall_Y2" type="box"
-      pos="{ARENA_X1/2} {ARENA_Y1+wall_clearence_outer+0.25} 0.15"
-      size="{ARENA_X1/2+wall_clearence_outer+0.25} 0.25 0.15"
-      rgba="0.5 0.5 0.5 1" contype="1" conaffinity="1"
+      pos="{ARENA_X1/2} {ARENA_Y1+wall_clearence_outer+0.125} 0.15"
+      size="{ARENA_X1/2+wall_clearence_outer+0.125} 0.125 0.15"
+      rgba="0.2 0.2 0.2 1" contype="1" conaffinity="1"
       friction="0.45 0.01 0.003"/>
     
      <!-- robot -->
@@ -390,23 +396,6 @@ def build_xml(robot_qpos, boxes, stl_model_path,extra_xml,Z_BOX, box_size, ARENA
     return header + box_xml + extra_xml + side_walls_code+ footer
 
 
-def compute_inner_square(ARENA_X, ARENA_Y, internal_clearance_length):
-  """
-  Returns the four (x,y) corner points of the arena inset by `internal_clearance_length` on all sides.
-  Points are ordered (bottom-left, bottom-right, top-right, top-left).
-  """
-  xmin = ARENA_X[0] + internal_clearance_length
-  xmax = ARENA_X[1] - internal_clearance_length
-  ymin = ARENA_Y[0] + internal_clearance_length
-  ymax = ARENA_Y[1] - internal_clearance_length
-
-  return [
-      (xmin, ymin),
-      (xmax, ymin),
-      (xmax, ymax),
-      (xmin, ymax)
-    ]
-
 def generate_boxDelivery_xml(N,env_type,file_name,ROBOT_clear,BOXES_clear,Z_BOX,ARENA_X,ARENA_Y,
                   box_half_size,num_pillars, pillar_half, wall_clearence_outer, wall_clearence_inner, internal_clearance_length):
     
@@ -415,7 +404,6 @@ def generate_boxDelivery_xml(N,env_type,file_name,ROBOT_clear,BOXES_clear,Z_BOX,
     stl_model_path = os.path.join(os.path.dirname(__file__), 'models/')
     
     # Changing based on configration type
-    clearance_poly=compute_inner_square(ARENA_X, ARENA_Y, internal_clearance_length)
     extra_xml, keep_out = changing_per_configuration(env_type, ARENA_X,ARENA_Y, num_pillars, pillar_half, wall_clearence_outer, internal_clearance_length)
     
     # Finding the robot's q_pos and boxes's randomized data
@@ -425,4 +413,4 @@ def generate_boxDelivery_xml(N,env_type,file_name,ROBOT_clear,BOXES_clear,Z_BOX,
     xml_string = build_xml(robot_qpos, boxes,stl_model_path,extra_xml,Z_BOX,box_half_size,ARENA_X[1],ARENA_Y[1],env_type, wall_clearence_outer, wall_clearence_inner, robot_rgb=(0.1, 0.1, 0.1))
     XML_OUT.write_text(xml_string)
     
-    return XML_OUT, keep_out , clearance_poly
+    return XML_OUT, keep_out

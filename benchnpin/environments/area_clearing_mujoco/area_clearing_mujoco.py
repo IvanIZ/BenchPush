@@ -109,6 +109,7 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
         self.local_map_pixels_per_meter = self.local_map_pixel_width / self.local_map_width
         self.wall_thickness = self.cfg.env.wall_thickness
         self.num_boxes = self.cfg.boxes.num_boxes
+        self.internal_clearance_length=self.cfg.env.internal_clearance_length
 
         # state
         self.num_channels = 4
@@ -143,7 +144,7 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
 
         # generate random environment
         xml_file = os.path.join(self.current_dir, 'turtlebot3_burger_updated.xml')
-        _, self.initialization_keepouts, self.clearance_poly = generate_boxDelivery_xml(N=self.cfg.boxes.num_boxes, env_type=self.cfg.env.area_clearing_version, file_name=xml_file,
+        _, self.initialization_keepouts = generate_boxDelivery_xml(N=self.cfg.boxes.num_boxes, env_type=self.cfg.env.area_clearing_version, file_name=xml_file,
                         ROBOT_clear=self.cfg.agent.robot_clear, BOXES_clear=self.cfg.boxes.clearance, Z_BOX=self.cfg.boxes.box_half_size, ARENA_X=(0.0, self.room_width), 
                         ARENA_Y=(0.0, self.room_length), box_half_size=self.cfg.boxes.box_half_size, num_pillars=self.cfg.small_pillars.num_pillars, pillar_half=self.cfg.small_pillars.pillar_half,
                         wall_clearence_outer=self.cfg.env.wall_clearence_outer,wall_clearence_inner=self.cfg.env.wall_clearence_inner,internal_clearance_length=self.cfg.env.internal_clearance_length)
@@ -216,7 +217,6 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
         self.ministep_size = self.cfg.misc.ministep_size
         self.inactivity_cutoff = self.cfg.misc.inactivity_cutoff if self.cfg.train.job_type != 'sam' else self.cfg.misc.inactivity_cutoff_sam
         self.random_seed = self.cfg.misc.random_seed
-        # TODO implement random_state
         self.random_state = np.random.RandomState(self.random_seed)
 
         self.episode_idx = None
@@ -303,7 +303,7 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
         robot_initial_heading = quat_z_yaw(*self.data.qpos[self.qpos_index_base+3:self.qpos_index_base+7])
 
         # TODO check if move_sign is necessary
-        self.path, robot_move_sign = self.position_controller.get_waypoints_to_spatial_action(robot_initial_position, robot_initial_heading, action)
+        #self.path, robot_move_sign = self.position_controller.get_waypoints_to_spatial_action(robot_initial_position, robot_initial_heading, action)
 
         # if self.cfg.render.show:
         #     self.renderer.update_path(self.path)
@@ -378,7 +378,8 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
             truncated = True
 
         # get observation
-        self.observation=self.generate_observation(done=terminated)
+        #self.observation=self.generate_observation(done=terminated)
+        self.observation=0.0
         reward= self._get_rew()
         info = {}
 
@@ -852,68 +853,6 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
         self.prev_boxes = updated_boxes"""
         return robot_reward
 
-    def _sample_pillar_centres(self):
-        """
-        Sample non-overlapping (cx, cy) pairs for every pillar and the matching keep-outs.
-        """
-
-        if self.pillar_half:
-            # matches the XML “pillar plane”
-            STANDBY_X      = -0.40
-            # same height as normal pillars
-            STANDBY_Z      = self.pillar_half[2]
-            HX, HY, _      = self.pillar_half
-            # extra clearance between parked pillars
-            STANDBY_GAP    = 0.20
-            # centre-to-centre spacing
-            STANDBY_STEP   = 2*HX + STANDBY_GAP
-            Y_little_extra = 0.20
-
-        # “small_empty” scene
-        if self.num_pillars is None or self.pillar_half is None:
-            return [], [], []
-
-        rng = np.random.default_rng()
-
-        if self.adjust_num_pillars: 
-
-            # decide how many pillars are in play this episode
-            n_active = rng.integers(1, self.num_pillars + 1)
-        else:
-            n_active = self.num_pillars
-
-        active_centres = []
-        tries = 0
-        while len(active_centres) < n_active and tries < 50_000:
-            tries += 1
-            cx = rng.uniform(0.60, self.room_width  - 0.60)
-            cy = rng.uniform(0.60, self.room_length - 0.60)
-
-            # pillar corners for clearance checks
-            hx, hy, _ = self.pillar_half
-            corners = [(cx-hx, cy-hy), (cx+hx, cy-hy),
-                    (cx+hx, cy+hy), (cx-hx, cy+hy)]
-
-            if not all(inside_poly(x, y, self.clearance_poly) for x, y in corners):
-                continue
-            if any(np.hypot(cx-px, cy-py) < 2*hx + 0.30 for px, py in active_centres):
-                continue
-
-            active_centres.append((cx, cy))
-
-        # parked (inactive) pillars – laid out in a neat row on the stand-by plane
-        parked_centres = [
-            (STANDBY_X, Y_little_extra+ k * STANDBY_STEP)
-            for k in range(self.num_pillars - n_active)
-        ]
-
-        # keep-outs only for active pillars
-        keep_out_active = [[(cx-hx, cy-hy), (cx+hx, cy-hy),
-                            (cx+hx, cy+hy), (cx-hx, cy+hy)]
-                        for cx, cy in active_centres]
-
-        return active_centres, parked_centres, keep_out_active
-
     def init_motion_dict(self):
         """
         Returns {body_id: [length_travelled, last_position(x,y), mass]}
@@ -1006,32 +945,12 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
                 return True
         return False
 
-    def reset_model(self): # TODO find out if this is used
+    def reset_model(self):
         """
         Randomly sample non-overlapping (x, y, theta) for robot and boxes.
         Teleport them in simulation using sim.data.qpos.
         """
-        positions = []
-
-        # pillars
-        active, parked, keep_outs = self._sample_pillar_centres()
-        self.initialization_keepouts = keep_outs
-        self.observation_init= False
-        
-        # place every pillar (active + parked)
-        all_centres = active + parked
-        for k, (cx, cy) in enumerate(all_centres):
-            prefix = "small_col" if "small" in self.cfg.env.obstacle_config else "large_col"
-            name   = f"{prefix}{k}"
-
-            j_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_JOINT, f"{name}_joint")
-            if j_id == -1:
-                continue
-
-            adr = self.model.jnt_qposadr[j_id]
-            self.data.qpos[adr:adr+3]   = [cx, cy, self.pillar_half[2]]
-            self.data.qpos[adr+3:adr+7] = [1, 0, 0, 0]
-            self.data.qvel[adr:adr+6]   = 0
+        positions=[]
 
         def is_valid(pos, radius):
             # unpack immediately
@@ -1047,15 +966,13 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
             if intersects_keepout(x, y, self.initialization_keepouts):
                 return False
 
-            # finally check your overall clearance polygon
-            if not inside_poly(x, y, self.clearance_poly):
-                return False
-
             return True
 
         # Define bounds of the placement area (slightly inside the walls)
-        x_min, x_max = 0.2,self.room_width - 0.2
-        y_min, y_max = 0.2,self.room_length - 0.2
+        x_min = self.room_width + self.internal_clearance_length
+        x_max = self.room_width - self.internal_clearance_length
+        y_min = self.room_length + self.internal_clearance_length
+        y_max = self.room_length - self.internal_clearance_length
 
         # Sample robot pose
         while True:
@@ -1074,7 +991,6 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
         self.data.qvel[base_qpos_addr:base_qpos_addr+6] = 0
 
         # Assume box is square with radius from center to corner (diagonal/2)
-        # TODO why is this hard-coded?
         box_r = np.sqrt(self.cfg.boxes.box_half_size ** 2 + self.cfg.boxes.box_half_size ** 2)
 
         for i in range(self.num_boxes):
@@ -1090,8 +1006,6 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
             self.data.qpos[qadr:qadr+2] = np.array([x, y])
             self.data.qpos[qadr+3:qadr+7] = quat_z(theta)
             self.data.qvel[qadr:qadr+6] = 0
-
-        #self.motion_dict = init_motion_dict(self.model, self.data, self.base_body_id, self.joint_id_boxes)
 
         self._prev_robot_xy      = np.array(self.data.xpos[self.base_body_id][:2])
         self._prev_robot_heading = quat_z_yaw(*self.data.qpos[self.qpos_index_base+3:self.qpos_index_base+7])
@@ -1114,7 +1028,8 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
         self.global_overhead_map = self.create_padded_room_zeros()
         self.update_global_overhead_map(robot_properties[1], boxes_vertices)
 
-        observation=self.generate_observation()
+        #observation=self.generate_observation()
+        observation=0.0
 
 
         self.position_controller = PositionController(self.cfg, self.robot_radius, self.room_width, self.room_length, 

@@ -37,7 +37,7 @@ env:
   area_clearing_version: "Fully_open_area" # Choose from one of them: Fully_open_area ,Partially_closed_with_walls ,Partially_closed_with_static
   room_width: 1.4225
   room_length: 1.4225
-  wall_clearence_outer: 1.0 # Provides clearance from either of the room length and width
+  wall_clearence_outer: 0.2 # Provides clearance from either of the room length and width
   wall_clearence_inner: 0.1 
   internal_clearance_length: 0.1
   shortest_path_channel_scale: 0.25
