@@ -188,7 +188,7 @@ def changing_per_configuration(env_type: str, clearance_poly,
     else:
         raise ValueError("environment_type must be one of "
                          "'Fully_open_area', 'Partially_closed_with_walls', "
-                         "'Partially_closed_with_static')
+                         "'Partially_closed_with_static'")
       
     return extra_xml, keep_out  
 
@@ -238,7 +238,7 @@ def sample_scene(n_boxes, keep_out, ROBOT_R, BOXES_clear, ARENA_X, ARENA_Y, inte
     return robot_qpos, boxes
 
 
-def build_xml(robot_qpos, boxes, stl_model_path,extra_xml,Z_BOX, box_size, ARENA_X1, ARENA_Y1, goal_half, goal_center, adjust_num_pillars, env_type, wall_clearence_outer, wall_clearence_inner, robot_rgb):
+def build_xml(robot_qpos, boxes, stl_model_path,extra_xml,Z_BOX, box_size, ARENA_X1, ARENA_Y1, env_type, wall_clearence_outer, wall_clearence_inner, robot_rgb):
     """Building data for a different file"""
 
     if env_type == "Partially_closed_with_walls" or env_type == "Partially_closed_with_static": 
@@ -268,7 +268,7 @@ def build_xml(robot_qpos, boxes, stl_model_path,extra_xml,Z_BOX, box_size, ARENA
     
     header = f"""
 <mujoco model="box_delivery_structured_env">
-  <compiler angle="radian" autolimits="true" meshdir="{stl_model_path}" inertiafromgoem="True"/>
+  <compiler angle="radian" autolimits="true" meshdir="{stl_model_path}" inertiafromgeom="true"/>
 
   <option integrator="implicitfast" gravity="0 0 -9.81" timestep="0.002" iterations="50" viscosity="1.5"/>
 
@@ -303,14 +303,11 @@ def build_xml(robot_qpos, boxes, stl_model_path,extra_xml,Z_BOX, box_size, ARENA
     
     <!-- Marked area -->
 
-    <site 
-      name="clearance_outline" 
+    <site name="clearance_outline" 
       pos="{ARENA_X1/2} {ARENA_Y1/2} 0.001" 
       type="box"
       size="{ARENA_X1/2} {ARENA_Y1/2} 0.01" 
-      rgba="0 1 0 1" 
-      contype="0" 
-      conaffinity="0"/>
+      rgba="0 1 0 1"/>
       
     <!-- X-walls: left and right sides -->
     <geom name="Wall_X1" type="box"
@@ -374,7 +371,7 @@ def build_xml(robot_qpos, boxes, stl_model_path,extra_xml,Z_BOX, box_size, ARENA
         box_xml += f"""
     <body name="box{i}" pos="{x:.4f} {y:.4f} {Z_BOX:.3f}">
       <joint name="box{i}_joint" type="free" />
-      <geom type="box" size="{box_size}" material="blue_mat" mass="0.05"
+      <geom type="box" size="{box_size} {box_size} {box_size}" material="blue_mat" mass="0.05"
             quat="{qw:.6f} {qx:.6f} {qy:.6f} {qz:.6f}" friction="0.4 0.015 0.002" contype="1" conaffinity="1"/>
     </body>"""
 
@@ -392,6 +389,24 @@ def build_xml(robot_qpos, boxes, stl_model_path,extra_xml,Z_BOX, box_size, ARENA
 """
     return header + box_xml + extra_xml + side_walls_code+ footer
 
+
+def compute_inner_square(ARENA_X, ARENA_Y, internal_clearance_length):
+  """
+  Returns the four (x,y) corner points of the arena inset by `internal_clearance_length` on all sides.
+  Points are ordered (bottom-left, bottom-right, top-right, top-left).
+  """
+  xmin = ARENA_X[0] + internal_clearance_length
+  xmax = ARENA_X[1] - internal_clearance_length
+  ymin = ARENA_Y[0] + internal_clearance_length
+  ymax = ARENA_Y[1] - internal_clearance_length
+
+  return [
+      (xmin, ymin),
+      (xmax, ymin),
+      (xmax, ymax),
+      (xmin, ymax)
+    ]
+
 def generate_boxDelivery_xml(N,env_type,file_name,ROBOT_clear,BOXES_clear,Z_BOX,ARENA_X,ARENA_Y,
                   box_half_size,num_pillars, pillar_half, wall_clearence_outer, wall_clearence_inner, internal_clearance_length):
     
@@ -400,13 +415,14 @@ def generate_boxDelivery_xml(N,env_type,file_name,ROBOT_clear,BOXES_clear,Z_BOX,
     stl_model_path = os.path.join(os.path.dirname(__file__), 'models/')
     
     # Changing based on configration type
+    clearance_poly=compute_inner_square(ARENA_X, ARENA_Y, internal_clearance_length)
     extra_xml, keep_out = changing_per_configuration(env_type, ARENA_X,ARENA_Y, num_pillars, pillar_half, wall_clearence_outer, internal_clearance_length)
     
     # Finding the robot's q_pos and boxes's randomized data
     robot_qpos, boxes = sample_scene(N,keep_out,ROBOT_clear,BOXES_clear,ARENA_X,ARENA_Y, internal_clearance_length)
   
     # Building new environemnt and writing it down
-    xml_string = build_xml(robot_qpos, boxes,stl_model_path,extra_xml,Z_BOX,box_half_size,ARENA_X[1],ARENA_Y[1], goal_half, goal_center, adjust_num_pillars,env_type, wall_clearence_outer, wall_clearence_inner, robot_rgb=(0.1, 0.1, 0.1))
+    xml_string = build_xml(robot_qpos, boxes,stl_model_path,extra_xml,Z_BOX,box_half_size,ARENA_X[1],ARENA_Y[1],env_type, wall_clearence_outer, wall_clearence_inner, robot_rgb=(0.1, 0.1, 0.1))
     XML_OUT.write_text(xml_string)
     
-    return XML_OUT, keep_out
+    return XML_OUT, keep_out , clearance_poly

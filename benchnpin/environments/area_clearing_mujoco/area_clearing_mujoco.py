@@ -12,7 +12,7 @@ import os
 # Bench-NPIN imports
 from benchnpin.common.controller.position_controller import PositionController
 from benchnpin.common.utils.utils import DotDict
-from benchnpin.environments.area_clearing_mujoco.area_clearing_utils import generate_boxDelivery_xml, transporting, precompute_static_vertices, dynamic_vertices, receptacle_vertices, intersects_keepout
+from benchnpin.environments.area_clearing_mujoco.area_clearing_utils import generate_boxDelivery_xml, precompute_static_vertices, dynamic_vertices, receptacle_vertices, intersects_keepout
 from benchnpin.common.utils.mujoco_utils import vw_to_wheels, make_controller, quat_z, inside_poly, quat_z_yaw, corners_xy
 from benchnpin.common.utils.sim_utils import get_color
 
@@ -93,31 +93,15 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
                         self.cfg[cfg_type][param] = cfg[cfg_type][param]
                 else:
                     self.cfg[cfg_type] = cfg[cfg_type]
-        
+
 
         # Setting up the environment parameters
         self.room_length = self.cfg.env.room_length
-        env_size = self.cfg.env.obstacle_config.strip()
-        if 'small' in env_size:
-            self.room_width = self.cfg.env.room_width_small
-        else:
-            self.room_width = self.cfg.env.room_width_large
-
-        # Receptacle position and size
-        self.receptacle_position= self.cfg.env.receptacle_position
-        self.receptacle_half= self.cfg.env.receptacle_half
+        self.room_width = self.cfg.env.room_length
 
         # Pillar position and size
-        self.num_pillars = None
-        self.pillar_half = None
-        self.pillar_type = None
-        self.adjust_num_pillars = False
-        if env_size.strip()=="small_columns":
-            self.num_pillars = self.cfg.small_pillars.num_pillars
-            self.pillar_half = self.cfg.small_pillars.pillar_half
-        elif env_size.strip()=="large_columns":
-            self.num_pillars = self.cfg.large_pillars.num_pillars
-            self.pillar_half = self.cfg.large_pillars.pillar_half
+        self.num_pillars = self.cfg.small_pillars.num_pillars
+        self.pillar_half = self.cfg.small_pillars.pillar_half
 
         # environment
         self.local_map_pixel_width = self.cfg.env.local_map_pixel_width if self.cfg.train.job_type != 'sam' else self.cfg.env.local_map_pixel_width_sam
@@ -157,12 +141,12 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
                 if (((i + 0.5) - self.local_map_pixel_width / 2)**2 + ((j + 0.5) - self.local_map_pixel_width / 2)**2)**0.5 < robot_pixel_width / 2:
                     self.robot_state_channel[i, j] = 1
 
-        # generate random environmnt
-        # TODO can robot_radius be used instead of robot_clear?
+        # generate random environment
         xml_file = os.path.join(self.current_dir, 'turtlebot3_burger_updated.xml')
-        _, self.initialization_keepouts, self.clearance_poly = generate_boxDelivery_xml(N=self.cfg.boxes.num_boxes, env_type=self.cfg.env.obstacle_config, file_name=xml_file,
-                        ROBOT_clear=self.cfg.agent.robot_clear, BOXES_clear=self.cfg.boxes.clearance, goal_half= self.receptacle_half, goal_center= self.receptacle_position, Z_BOX=self.cfg.boxes.box_half_size, ARENA_X=(0.0, self.room_width), 
-                        ARENA_Y=(0.0, self.room_length), box_half_size=self.cfg.boxes.box_half_size, num_pillars=self.num_pillars, pillar_half=self.pillar_half, adjust_num_pillars=self.adjust_num_pillars)
+        _, self.initialization_keepouts, self.clearance_poly = generate_boxDelivery_xml(N=self.cfg.boxes.num_boxes, env_type=self.cfg.env.area_clearing_version, file_name=xml_file,
+                        ROBOT_clear=self.cfg.agent.robot_clear, BOXES_clear=self.cfg.boxes.clearance, Z_BOX=self.cfg.boxes.box_half_size, ARENA_X=(0.0, self.room_width), 
+                        ARENA_Y=(0.0, self.room_length), box_half_size=self.cfg.boxes.box_half_size, num_pillars=self.cfg.small_pillars.num_pillars, pillar_half=self.cfg.small_pillars.pillar_half,
+                        wall_clearence_outer=self.cfg.env.wall_clearence_outer,wall_clearence_inner=self.cfg.env.wall_clearence_inner,internal_clearance_length=self.cfg.env.internal_clearance_length)
 
         utils.EzPickle.__init__(
             self,
