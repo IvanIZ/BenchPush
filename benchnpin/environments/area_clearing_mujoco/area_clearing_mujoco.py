@@ -595,16 +595,16 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
 
             fillPoly(small_overhead_map, [vertices_px], color=seg_index/MAX_SEG_INDEX)
         
-        # Draw the robot
-        draw_object(robot_vertices, ROBOT_SEG_INDEX)
-        
-        # Draw the boxes
-        for box_vertices in boxes_vertices:
-            draw_object(box_vertices[0], BOX_SEG_INDEX)
-        
         # Draw the receptacle
         receptacle_vertice=receptacle_vertices(self.receptacle_position, self.receptacle_half)
         draw_object(receptacle_vertice, RECEPTACLE_SEG_INDEX)
+
+        # Draw the robot
+        draw_object(robot_vertices, ROBOT_SEG_INDEX)
+
+        # Draw the boxes
+        for box_vertices in boxes_vertices:
+            draw_object(box_vertices[0], BOX_SEG_INDEX)
 
         start_i, start_j = int(self.global_overhead_map.shape[0] / 2 - small_overhead_map.shape[0] / 2), int(self.global_overhead_map.shape[1] / 2 - small_overhead_map.shape[1] / 2)
         self.global_overhead_map[start_i:start_i + small_overhead_map.shape[0], start_j:start_j + small_overhead_map.shape[1]] = small_overhead_map
