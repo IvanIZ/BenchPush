@@ -12,8 +12,8 @@ import os
 # Bench-NPIN imports
 from benchnpin.common.controller.position_controller import PositionController
 from benchnpin.common.utils.utils import DotDict
-from benchnpin.environments.area_clearing_mujoco.area_clearing_utils import generate_boxDelivery_xml, precompute_static_vertices, dynamic_vertices, intersects_keepout, receptacle_vertices
-from benchnpin.common.utils.mujoco_utils import vw_to_wheels, make_controller, quat_z, inside_poly, quat_z_yaw, corners_xy
+from benchnpin.environments.area_clearing_mujoco.area_clearing_utils import generate_boxDelivery_xml, precompute_static_vertices, dynamic_vertices, intersects_keepout, receptacle_vertices, transporting
+from benchnpin.common.utils.mujoco_utils import vw_to_wheels, make_controller, quat_z, inside_poly, quat_z_yaw
 from benchnpin.common.utils.sim_utils import get_color
 
 
@@ -134,6 +134,7 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
         self.robot_info = self.cfg.agent
         self.robot_info['color'] = get_color('agent')
         self.robot_radius = ((self.robot_info.length**2 + self.robot_info.width**2)**0.5 / 2) * 1.2
+        self.robot_dimen= (self.robot_info.length, self.robot_info.width)
         self.robot_half_width = max(self.robot_info.length, self.robot_info.width) / 2
         robot_pixel_width = int(2 * self.robot_radius * self.local_map_pixels_per_meter)
         self.robot_state_channel = np.zeros((self.local_map_pixel_width, self.local_map_pixel_width), dtype=np.float32)
@@ -283,7 +284,7 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
 
         # if self.cfg.render.show:
         #     self.renderer.update_path(self.path)
-        self.update_path(self.path)
+        #self.update_path(self.path)
 
         robot_distance, robot_turn_angle = self.execute_robot_path(robot_initial_position, robot_initial_heading)
         # goal = action
@@ -444,6 +445,10 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
                     done_turning = False
                     self.path = self.path[1:]
 
+
+            self.joint_id_boxes, self.num_completed_boxes_new = transporting(self.model, self.data, self.joint_id_boxes, self.room_width,
+                                                                             self.room_length,goal_half= self.receptacle_half, goal_center= self.receptacle_position, box_half_size=self.cfg.boxes.box_half_size)
+
             self.num_completed_boxes += self.num_completed_boxes_new
         
             sim_steps += 1
@@ -468,7 +473,7 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
             return None
         
         # Getting the robot and boxes vertices
-        robot_properties, boxes_vertices=dynamic_vertices(self.model,self.data, self.qpos_index_base,self.joint_id_boxes)
+        robot_properties, boxes_vertices=dynamic_vertices(self.model,self.data, self.qpos_index_base,self.joint_id_boxes,self.robot_dimen, self.cfg.boxes.box_half_size, self.room_length, self.room_width)
 
         # Initialize the global overhead map if not already done
         # if not self.observation_init:
@@ -597,12 +602,10 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
         small_obstacle_map = np.zeros((self.local_map_pixel_width+20, self.local_map_pixel_width+20), dtype=np.float32)
         
         # Precompute static vertices for walls and columns
-        Wall_vertices, columns_from_keepout, corners=precompute_static_vertices(self.initialization_keepouts, self.room_width, self.room_length)
-
-        self.excluded_polygons= Wall_vertices+columns_from_keepout+ corners
+        Wall_vertices, columns_from_keepout, Side_vertices=precompute_static_vertices(self.initialization_keepouts, self.room_width, self.room_length,self.cfg.env.wall_clearence_outer, self.cfg.env.wall_clearence_inner, self.cfg.env.area_clearing_version )
 
         # Iterating through each wall vertice and keepout columns
-        for wall_vertices_each_wall in Wall_vertices+columns_from_keepout+corners:
+        for wall_vertices_each_wall in Wall_vertices+columns_from_keepout+Side_vertices:
 
             # get world coordinates of vertices
             vertices_np = np.array([[v[0], v[1]] for v in wall_vertices_each_wall[1]])
@@ -884,7 +887,7 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
         """
 
         ROBOT_PREFIX    = "base"
-        STATIC_PREFIXES = ("wall", "small_col", "large_col", "divider", "corner")
+        STATIC_PREFIXES = ("wall", "small_col")
 
         for k in range(self.data.ncon):
             c   = self.data.contact[k]
@@ -970,9 +973,8 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
         self._prev_robot_xy      = np.array(self.data.xpos[self.base_body_id][:2])
         self._prev_robot_heading = quat_z_yaw(*self.data.qpos[self.qpos_index_base+3:self.qpos_index_base+7])
 
-
         # get the robot and boxes vertices
-        robot_properties, boxes_vertices=dynamic_vertices(self.model,self.data, self.qpos_index_base,self.joint_id_boxes)
+        robot_properties, boxes_vertices=dynamic_vertices(self.model,self.data, self.qpos_index_base,self.joint_id_boxes, self.robot_dimen, self.cfg.boxes.box_half_size, self.room_length, self.room_width)
 
         self.motion_dict = self.init_motion_dict()
 

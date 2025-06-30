@@ -32,7 +32,7 @@ for i in range(num_epochs):
         v = 0.1
         w = 0
 
-        goal_pos = [v, w]
+        goal_pos = [w]
         action = goal_pos
 
         observation, reward, terminated, truncated, info = env.step(action)

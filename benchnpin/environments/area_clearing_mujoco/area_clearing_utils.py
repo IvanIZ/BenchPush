@@ -12,27 +12,54 @@ import random
 
 from benchnpin.common.utils.mujoco_utils import inside_poly, quat_z, quat_z_yaw, corners_xy
 
-def precompute_static_vertices(keep_out, room_width, room_length):
+def precompute_static_vertices(keep_out, room_width, room_length, wall_clearence_outer, wall_clearence_inner, env_type):
     """
     Gives list of static vertices that do not change during the simulation
     """
-    # Walls vertices computation
-    half_width, half_length= room_width/2, room_length/2
-    X0, X1 = -half_width, half_width
-    Y0, Y1 = -half_length, half_length
-    t      = 4.0
+    half_w, half_l = room_width / 2, room_length / 2
 
-    """Wall vertices are defined in the world frame, with a clearance"""
+    # OUTER WALLS  (thickness = 0.25, exactly what build_xml creates)
+    t = 0.25                   # wall thickness  (half-size in build_xml)
+    c = wall_clearence_outer   # clearance beyond arena edge
+
+    X0 = -half_w - c - t       # left   face x
+    X1 = +half_w + c + t       # right  face x
+    Y0 = -half_l - c - t       # bottom face y
+    Y1 = +half_l + c + t       # top    face y
+
     Wall_vertices = [
-        ["Wall_left",
-         [(X0-t, Y0-t), (X0, Y0-t), (X0, Y1+t), (X0-t, Y1+t)]],
-        ["Wall_right",
-         [(X1,   Y0-t), (X1+t, Y0-t), (X1+t, Y1+t), (X1, Y1+t)]],
-        ["Wall_bottom",
-         [(X0, Y0-t), (X1, Y0-t), (X1, Y0), (X0, Y0)]],
-        ["Wall_top",
-         [(X0, Y1), (X1, Y1), (X1, Y1+t), (X0, Y1+t)]],
+        ["Wall_left",   [(X0,     Y0), (X0+t,  Y0), (X0+t,  Y1), (X0,     Y1)]],
+        ["Wall_right",  [(X1-t,   Y0), (X1,    Y0), (X1,    Y1), (X1-t,   Y1)]],
+        ["Wall_bottom", [(-half_w-c, Y0), (+half_w+c, Y0), (+half_w+c, Y0+t), (-half_w-c, Y0+t)]],
+        ["Wall_top",    [(-half_w-c, Y1-t), (+half_w+c, Y1-t), (+half_w+c, Y1), (-half_w-c, Y1)]],
     ]
+
+    # THIN SIDE-WALLS (present only in partially-closed envs)
+    Side_vertices = []
+    if env_type in ("Partially_closed_with_walls", "Partially_closed_with_static"):
+        thickness = 0.01                   # half-size in build_xml
+        extra_len = 0.2 if env_type == "Partially_closed_with_walls" else 0.0
+        half_span = half_l + extra_len     # full half-length along Y
+
+        # left thin wall  (negative x)
+        cx = -wall_clearence_inner
+        Side_vertices.append(
+            ["Side_left",
+             [(cx-thickness, -half_span),
+              (cx+thickness, -half_span),
+              (cx+thickness,  half_span),
+              (cx-thickness,  half_span)]]
+        )
+        # right thin wall (positive x)
+        cx = room_width + wall_clearence_inner
+        Side_vertices.append(
+            ["Side_right",
+             [(cx-thickness, -half_span),
+              (cx+thickness, -half_span),
+              (cx+thickness,  half_span),
+              (cx-thickness,  half_span)]]
+        )
+
     # Columns and Dividers
     # File_updating.changing_per_configuration returns 'keep_out', a list
     # of pillar footprints (each already a list of (x,y) tuples).
@@ -43,49 +70,18 @@ def precompute_static_vertices(keep_out, room_width, room_length):
             shifted = [(x - half_width, y - half_length) for x, y in poly]
             out.append([f"Column_{k}", shifted])
         return out
-    
-    # Arena-shifted base polygon for corners
-    base = [
-        (0.0000, 0.0000),
-        (0.3150, 0.0000),
-        (0.1575, 0.0640),
-        (0.0640, 0.1575),
-        (0.0000, 0.3150)
-    ]
 
-    # helper to mirror and then arena-shift
-    def shift(poly, mirror_x: bool, mirror_y: bool, half_x=half_width, half_y=half_length):
-        out = []
-        for x, y in poly:
-            px = (2 * half_x - x) if mirror_x else x
-            py = (2 * half_y - y) if mirror_y else y
-            out.append((px - half_x, py - half_y))
-        return out
-
-    # three corners:  BL (0),  BR (mirror_x),  TL (mirror_y)
-    corners = [
-        ["Corner_BL", shift(base, False, False)],   # bottom-left (x=0, y=0)
-        ["Corner_BR", shift(base, True,  False)],   # bottom-right (x=2Hx, y=0)
-        ["Corner_TL", shift(base, True, True)],    # top-left   (x=0,  y=2Hy)
-    ]
+    return Wall_vertices, columns_from_keepout(keep_out), Side_vertices
 
 
-    return Wall_vertices, columns_from_keepout(keep_out), corners
-
-
-def dynamic_vertices(model,
-                     data,
-                     qpos_idx_robot: int,
-                     joint_ids_boxes: list[int],
-                     robot_half   =(0.069, 0.0915),
-                     box_half    =0.04):
+def dynamic_vertices(model, data, qpos_idx_robot: int, joint_ids_boxes: list[int], robot_half, box_half, room_length, room_width):
     """
     Returns the vertices of the robot and boxes in the world frame.
     """
 
     # robot vertices
     cx, cy = data.qpos[qpos_idx_robot:qpos_idx_robot+2]
-    cx, cy = cx-0.7875, cy-1.4225
+    cx, cy = cx-(room_width/2), cy-(room_length/2)
     qw, qx, qy, qz = data.qpos[qpos_idx_robot+3:qpos_idx_robot+7]
     yaw  = quat_z_yaw(qw, qx, qy, qz)
 
@@ -106,7 +102,7 @@ def dynamic_vertices(model,
     for jid in joint_ids_boxes:
         adr   = model.jnt_qposadr[jid]
         bx, by = data.qpos[adr:adr+2]
-        bx, by = bx-0.7875, by-1.4225
+        bx, by = bx-(room_width/2), by-(room_length/2)
         qw, qx, qy, qz = data.qpos[adr+3:adr+7]
         yaw  = quat_z_yaw(qw, qx, qy, qz)
         verts = corners_xy(np.array([bx, by]), yaw, local_box).tolist()
@@ -251,13 +247,13 @@ def build_xml(robot_qpos, boxes, stl_model_path,extra_xml,Z_BOX, box_size, ARENA
 
       side_walls_code= f"""
     <!-- X-walls: left and right sides -->
-    <geom name="Wall_X1" type="box"
+    <geom name="wall_X1" type="box"
       pos="{-wall_clearence_inner} {ARENA_Y1/2+extra/2} 0.15"
       size="0.01 {ARENA_Y1/2+extra} 0.15"
       rgba="1 1 1 0.1" contype="1" conaffinity="1"
       friction="0.45 0.01 0.003"/>
 
-    <geom name="Wall_X2" type="box"
+    <geom name="wall_X2" type="box"
       pos="{ARENA_X1+wall_clearence_inner} {ARENA_Y1/2+extra/2} 0.15"
       size="0.01 {ARENA_Y1/2+extra} 0.15"
       rgba="1 1 1 0.1" contype="1" conaffinity="1"
@@ -414,3 +410,51 @@ def generate_boxDelivery_xml(N,env_type,file_name,ROBOT_clear,BOXES_clear,Z_BOX,
     XML_OUT.write_text(xml_string)
     
     return XML_OUT, keep_out
+
+
+def transporting(model, data, joint_id_boxes, ARENA_X1, ARENA_Y1, goal_half, goal_center, box_half_size):
+    """Teleport a box only if all its vertices are inside the goal box."""
+    
+    initial_len = len(joint_id_boxes)
+    # half-edge of box
+    HSIZE = box_half_size
+    # local corner coordinates
+    corners_local_coordinates = np.array([
+        [-HSIZE, -HSIZE],
+        [ HSIZE, -HSIZE],
+        [ HSIZE,  HSIZE],
+        [-HSIZE,  HSIZE]
+    ])
+    
+    goal_center=[(ARENA_X1/2)+goal_center[0], (ARENA_Y1/2)+ goal_center[1]]
+
+    GOAL_HALF   = np.array([goal_half, goal_half])
+    
+    xmin, xmax = goal_center[0] - GOAL_HALF[0], goal_center[0] + GOAL_HALF[0]
+    ymin, ymax = goal_center[1] - GOAL_HALF[1], goal_center[1] + GOAL_HALF[1]
+
+    for jid in joint_id_boxes[:]:
+
+        qadr = model.jnt_qposadr[jid]
+
+        # joint centre (x,y) and quaternion
+        centre_xy = data.qpos[qadr : qadr+2]
+        qw, qx, qy, qz = data.qpos[qadr+3 : qadr+7]
+
+        # yaw from quaternion
+        yaw = quat_z_yaw(qw, qx, qy, qz)
+
+        # world vertices
+        verts = corners_xy(centre_xy, yaw,corners_local_coordinates)
+
+        # containment test – every vertex must satisfy the four inequalities
+        outside = not (np.all((xmin <= verts[:,0]) & (verts[:,0] <= xmax) &
+                        (ymin <= verts[:,1]) & (verts[:,1] <= ymax)))
+
+        if outside:
+            joint_id_boxes.remove(jid)
+
+    # number of boxes that are transported
+    no_boxes = initial_len - len(joint_id_boxes)
+    
+    return joint_id_boxes, no_boxes
