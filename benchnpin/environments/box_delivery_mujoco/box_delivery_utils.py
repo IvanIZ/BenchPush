@@ -73,7 +73,7 @@ def precompute_static_vertices(keep_out, room_width, room_length):
     return Wall_vertices, columns_from_keepout(keep_out), corners
 
 
-def dynamic_vertices(model, data, qpos_idx_robot: int, joint_ids_boxes: list[int], robot_half, box_half, room_length, room_width):
+def dynamic_vertices(model, data, qpos_idx_robot: int, joint_ids_boxes: list[int], robot_full, box_half, room_length, room_width):
     """
     Returns the vertices of the robot and boxes in the world frame.
     """
@@ -84,10 +84,10 @@ def dynamic_vertices(model, data, qpos_idx_robot: int, joint_ids_boxes: list[int
     qw, qx, qy, qz = data.qpos[qpos_idx_robot+3:qpos_idx_robot+7]
     yaw  = quat_z_yaw(qw, qx, qy, qz)
 
-    local_robot = np.array([[-robot_half[0], -robot_half[1]],
-                            [ robot_half[0], -robot_half[1]],
-                            [ robot_half[0],  robot_half[1]],
-                            [-robot_half[0],  robot_half[1]]])
+    local_robot = np.array([[-robot_full[0]/2, -robot_full[1]/2-0.03],
+                            [ robot_full[0]/2, -robot_full[1]/2-0.03],
+                            [ robot_full[0]/2,  robot_full[1]/2-0.03],
+                            [-robot_full[0]/2,  robot_full[1]/2-0.03]])
     Robot_vertices = ["robot",
                       corners_xy(np.array([cx, cy]), yaw, local_robot).tolist(),yaw,(cx, cy)]
 

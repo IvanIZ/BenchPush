@@ -287,58 +287,7 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
         #self.update_path(self.path)
 
         robot_distance, robot_turn_angle = self.execute_robot_path(robot_initial_position, robot_initial_heading)
-        # goal = action
-        # self.num_completed_boxes=0
-        # self.collision= False
-        # tries=0
-        #
-        # navigate to the desired goal
-        # step_count = 0
-        # while True:
-        #     step_count += 1
-        #
-        #     v, w, dist = make_controller(self.model, self.data, self.qpos_index_base, goal)
-        #
-        #     if dist < 0.02:
-        #
-        #         # Arrived at location
-        #         self.data.ctrl[:] = 0.0
-        #         print(f"Reached goal {goal}")
-        #         break
-        #
-        #     # otherwise drive as normal
-        #     v_l, v_r = vw_to_wheels(v, w)
-        #
-        #     # apply the control 'frame_skip' steps
-        #     self.do_simulation([v_l, v_r], self.frame_skip)
-        #
-        #     # teleporting boxes inside the receptacle
-        #     self.joint_id_boxes, self.num_completed_boxes_new = transporting(self.model, self.data, self.joint_id_boxes, self.room_width, 
-        #                 self.room_length,goal_half= self.receptacle_half, goal_center= self.receptacle_position, box_half_size=0.04)
-        #
-        #     if self.num_completed_boxes_new > self.num_completed_boxes:
-        #         self.num_completed_boxes=self.num_completed_boxes_new
-        #
-        #     # if self.render_mode == "human" and step_count % 10 == 0:
-        #     if self.cfg.render.show and step_count % 10 == 0:
-        #         self.render_env()
-        #
-        #     collision_occurance=self.robot_hits_static()
-        #     if collision_occurance:
-        #         self.collision= True
-        #
-        #     tries+=1
-        #
-        #     if tries>self.tries_before_inactive:
-        #         print("break here")
-        #         break
-
-        # curr_xy   = self.data.xpos[self.base_body_id][:2].copy()
-        # curr_head = quat_z_yaw(*self.data.qpos[self.qpos_index_base+3:self.qpos_index_base+7])
-        # self._step_dx   = np.linalg.norm(curr_xy - self._prev_robot_xy)
-        # self._step_dyaw = abs(self.heading_difference(curr_head,self._prev_robot_heading))
-        # self._prev_robot_xy[:]      = curr_xy
-        # self._prev_robot_heading    = curr_head
+        
         self._step_dx = robot_distance
         self._step_dyaw = robot_turn_angle
 
