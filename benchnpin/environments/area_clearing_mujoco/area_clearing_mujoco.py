@@ -105,12 +105,12 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
 
         # environment
         self.local_map_pixel_width = self.cfg.env.local_map_pixel_width if self.cfg.train.job_type != 'sam' else self.cfg.env.local_map_pixel_width_sam
-        self.local_map_width = max(self.room_length, self.room_width)
+        self.local_map_width = max(self.room_length+2*self.cfg.env.wall_clearence_outer, self.room_width+2*self.cfg.env.wall_clearence_outer)
         self.local_map_pixels_per_meter = self.local_map_pixel_width / self.local_map_width
         self.wall_thickness = self.cfg.env.wall_thickness
         self.num_boxes = self.cfg.boxes.num_boxes
         self.internal_clearance_length=self.cfg.env.internal_clearance_length
-        self.receptacle_position=[self.room_width/2,self.room_length/2]
+        self.receptacle_position=[0,0]
         self.receptacle_half=self.room_width/2
 
         # state
@@ -474,17 +474,6 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
         
         # Getting the robot and boxes vertices
         robot_properties, boxes_vertices=dynamic_vertices(self.model,self.data, self.qpos_index_base,self.joint_id_boxes,self.robot_dimen, self.cfg.boxes.box_half_size, self.room_length, self.room_width)
-
-        # Initialize the global overhead map if not already done
-        # if not self.observation_init:
-        #
-        #     self.update_configuration_space()
-        #     self.global_overhead_map = self.create_padded_room_zeros()
-        #
-        #
-        #     self.motion_dict = self.init_motion_dict()
-        #     self.observation_init = True
-
         # Update the global overhead map with the current robot and boundaries
         self.update_global_overhead_map(robot_properties[1], boxes_vertices)
 
