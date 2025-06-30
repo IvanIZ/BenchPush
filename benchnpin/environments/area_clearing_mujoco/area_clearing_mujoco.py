@@ -778,6 +778,23 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
 
         return track
 
+    def _distance_to_nearest_edge(self, xy):
+        """
+        Shortest-path distance from a point (x,y) to the closest of the
+        four room edges, measured in the current configuration space.
+        """
+        x, y = xy
+
+        # four “targets” lying on each wall at the same y or x
+        targets = [
+            (0.0,          y),               # left   edge   (x = 0)
+            (self.room_width,  y),           # right  edge   (x = W)
+            (x,           0.0),              # bottom edge   (y = 0)
+            (x,  self.room_length),          # top    edge   (y = L)
+        ]
+        # return the minimum SPFA distance
+        return min(self.shortest_path_distance(xy, t) for t in targets)
+
     def update_motion_dict(self, motion_dict):
         """
         In-place update of motion_dict.
@@ -795,7 +812,8 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
         motion_dict[self.base_body_id][1][:] = (cx, cy)
 
         # boxes still present
-        live_bodies = {self.model.jnt_bodyid[jid] for jid in self.joint_id_boxes}
+        live_bodies_joint_id = list(set(self.joint_id_boxes) - set(self.completed_boxes_id))
+        live_bodies = {self.model.jnt_bodyid[jid] for jid in live_bodies_joint_id}
         boxes_total_distance=0
 
         for body_id in live_bodies:
@@ -809,13 +827,13 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
             # progress *before* we mutate last_xy
             # prev_d = np.linalg.norm(last_xy - goal_xy)
             # curr_d = np.linalg.norm(curr_xy  - goal_xy)
-            prev_d = self.shortest_path_distance(last_xy, goal_xy)
-            curr_d = self.shortest_path_distance(curr_xy, goal_xy)
+            prev_d = self._distance_to_nearest_edge(last_xy)
+            curr_d = self._distance_to_nearest_edge(curr_xy)
             boxes_total_distance += prev_d - curr_d
 
             # book-keeping for next step
             # motion_dict[body_id][0] += np.linalg.norm(curr_xy - last_xy)
-            motion_dict[body_id][0] += self.shortest_path_distance(curr_xy, last_xy)
+            motion_dict[body_id][0] += np.linalg.norm(curr_xy - last_xy)
             motion_dict[body_id][1][:] = curr_xy
 
         return motion_dict, boxes_total_distance
