@@ -110,8 +110,8 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
         self.wall_thickness = self.cfg.env.wall_thickness
         self.num_boxes = self.cfg.boxes.num_boxes
         self.internal_clearance_length=self.cfg.env.internal_clearance_length
-        self.receptacle_position=[0,0]
-        self.receptacle_half=self.room_width/2
+        self.receptacle_position=[0,0] # The center of the plane is assumed to be 0,0
+        self.receptacle_half=[self.room_width/2, self.room_length/2]
 
         # state
         self.num_channels = 4

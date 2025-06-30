@@ -110,21 +110,24 @@ def dynamic_vertices(model, data, qpos_idx_robot: int, joint_ids_boxes: list[int
 
     return Robot_vertices, Boxes_vertices
 
-def receptacle_vertices(receptacle_half, receptacle_local_dimension):
+def receptacle_vertices(receptacle_position, receptacle_local_dimension):
     """
     Returns the vertices of the receptacle in the world frame.
     """
     # Receptacle vertices
-    x , y = receptacle_half
+    x , y = receptacle_position
 
-    d = receptacle_local_dimension
+        # half-width and half-height
+    hx, hy = receptacle_local_dimension
+
+    # local corners around (0,0)
     local = np.array([
-        [-d, -d],
-        [ d, -d],
-        [ d,  d],
-        [-d,  d]
+        [-hx, -hy],
+        [ hx, -hy],
+        [ hx,  hy],
+        [-hx,  hy],
     ])
-  
+
     Receptacle_vertices = corners_xy(np.array([x, y]), 0, local).tolist()
 
     return Receptacle_vertices
@@ -427,11 +430,9 @@ def transporting(model, data, joint_id_boxes, ARENA_X1, ARENA_Y1, goal_half, goa
     ])
     
     goal_center=[(ARENA_X1/2)+goal_center[0], (ARENA_Y1/2)+ goal_center[1]]
-
-    GOAL_HALF   = np.array([goal_half, goal_half])
     
-    xmin, xmax = goal_center[0] - GOAL_HALF[0], goal_center[0] + GOAL_HALF[0]
-    ymin, ymax = goal_center[1] - GOAL_HALF[1], goal_center[1] + GOAL_HALF[1]
+    xmin, xmax = goal_center[0] - goal_half[0], goal_center[0] + goal_half[0]
+    ymin, ymax = goal_center[1] - goal_half[1], goal_center[1] + goal_half[1]
 
     for jid in joint_id_boxes[:]:
 
