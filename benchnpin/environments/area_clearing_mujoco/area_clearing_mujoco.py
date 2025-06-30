@@ -204,7 +204,7 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
             joint_id=mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_JOINT, f"box{i}_joint")
             joint_id_boxes.append(joint_id)
         self.joint_id_boxes = joint_id_boxes
-        self.num_completed_boxes=0
+        self.completed_boxes_id=[]
 
         # rewards
         if self.cfg.train.job_type == 'sam':
@@ -243,9 +243,10 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
 
         if self.cfg.render.show_obs and self.show_observation and self.observation is not None:# and self.t % self.cfg.render.frequency == 1:
             self.show_observation = False
+            Channel_name=["Occupancy", "Footprint","Goal DT", "Egocentric DT"]
             for ax, i in zip(self.state_ax, range(self.num_channels)):
                 ax.clear()
-                ax.set_title(f'Channel {i}')
+                ax.set_title(Channel_name[i])
                 ax.set_xticks([])
                 ax.set_yticks([])
                 im = ax.imshow(self.observation[:,:,i], cmap='hot', interpolation='nearest')
@@ -395,10 +396,10 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
                     self.path = self.path[1:]
 
 
-            self.joint_id_boxes, self.num_completed_boxes_new = transporting(self.model, self.data, self.joint_id_boxes, self.room_width,
-                                                                             self.room_length,goal_half= self.receptacle_half, goal_center= self.receptacle_position, box_half_size=self.cfg.boxes.box_half_size)
+            self.completed_boxes_id, self.num_completed_boxes_new = transporting(self.model, self.data, self.joint_id_boxes, self.room_width,
+                                                                             self.room_length, self.completed_boxes_id, goal_half= self.receptacle_half, goal_center= self.receptacle_position, box_half_size=self.cfg.boxes.box_half_size)
 
-            self.num_completed_boxes += self.num_completed_boxes_new
+            #self.num_completed_boxes += self.num_completed_boxes_new
         
             sim_steps += 1
             if sim_steps % 10 == 0 and self.cfg.render.show:

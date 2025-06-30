@@ -415,10 +415,10 @@ def generate_boxDelivery_xml(N,env_type,file_name,ROBOT_clear,BOXES_clear,Z_BOX,
     return XML_OUT, keep_out
 
 
-def transporting(model, data, joint_id_boxes, ARENA_X1, ARENA_Y1, goal_half, goal_center, box_half_size):
+def transporting(model, data, joint_id_boxes, ARENA_X1, ARENA_Y1,completed_boxes_id, goal_half, goal_center, box_half_size):
     """Teleport a box only if all its vertices are inside the goal box."""
     
-    initial_len = len(joint_id_boxes)
+    completed_boxes_id_new=[]
     # half-edge of box
     HSIZE = box_half_size
     # local corner coordinates
@@ -453,9 +453,9 @@ def transporting(model, data, joint_id_boxes, ARENA_X1, ARENA_Y1, goal_half, goa
                         (ymin <= verts[:,1]) & (verts[:,1] <= ymax)))
 
         if outside:
-            joint_id_boxes.remove(jid)
+            completed_boxes_id_new.append(jid)
 
     # number of boxes that are transported
-    no_boxes = initial_len - len(joint_id_boxes)
+    num_boxes_transported_outside_receptacle=len(completed_boxes_id_new)-len(completed_boxes_id)
     
-    return joint_id_boxes, no_boxes
+    return completed_boxes_id_new, num_boxes_transported_outside_receptacle
