@@ -73,19 +73,14 @@ def precompute_static_vertices(keep_out, room_width, room_length):
     return Wall_vertices, columns_from_keepout(keep_out), corners
 
 
-def dynamic_vertices(model,
-                     data,
-                     qpos_idx_robot: int,
-                     joint_ids_boxes: list[int],
-                     robot_half   =(0.069, 0.0915),
-                     box_half    =0.04):
+def dynamic_vertices(model, data, qpos_idx_robot: int, joint_ids_boxes: list[int], robot_half, box_half, room_length, room_width):
     """
     Returns the vertices of the robot and boxes in the world frame.
     """
 
     # robot vertices
     cx, cy = data.qpos[qpos_idx_robot:qpos_idx_robot+2]
-    cx, cy = cx-0.7875, cy-1.4225
+    cx, cy = cx-(room_width/2), cy-(room_length/2)
     qw, qx, qy, qz = data.qpos[qpos_idx_robot+3:qpos_idx_robot+7]
     yaw  = quat_z_yaw(qw, qx, qy, qz)
 
@@ -106,7 +101,7 @@ def dynamic_vertices(model,
     for jid in joint_ids_boxes:
         adr   = model.jnt_qposadr[jid]
         bx, by = data.qpos[adr:adr+2]
-        bx, by = bx-0.7875, by-1.4225
+        bx, by = bx-(room_width/2), by-(room_length/2)
         qw, qx, qy, qz = data.qpos[adr+3:adr+7]
         yaw  = quat_z_yaw(qw, qx, qy, qz)
         verts = corners_xy(np.array([bx, by]), yaw, local_box).tolist()

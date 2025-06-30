@@ -150,6 +150,7 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
         self.robot_info = self.cfg.agent
         self.robot_info['color'] = get_color('agent')
         self.robot_radius = ((self.robot_info.length**2 + self.robot_info.width**2)**0.5 / 2) * 1.2
+        self.robot_dimen= (self.robot_info.length, self.robot_info.width)
         self.robot_half_width = max(self.robot_info.length, self.robot_info.width) / 2
         robot_pixel_width = int(2 * self.robot_radius * self.local_map_pixels_per_meter)
         self.robot_state_channel = np.zeros((self.local_map_pixel_width, self.local_map_pixel_width), dtype=np.float32)
@@ -524,7 +525,7 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
             return None
         
         # Getting the robot and boxes vertices
-        robot_properties, boxes_vertices=dynamic_vertices(self.model,self.data, self.qpos_index_base,self.joint_id_boxes)
+        robot_properties, boxes_vertices=dynamic_vertices(self.model,self.data, self.qpos_index_base,self.joint_id_boxes, self.robot_dimen, self.cfg.boxes.box_half_size, self.room_length, self.room_width)
 
         # Initialize the global overhead map if not already done
         # if not self.observation_init:
@@ -1117,7 +1118,7 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
 
 
         # get the robot and boxes vertices
-        robot_properties, boxes_vertices=dynamic_vertices(self.model,self.data, self.qpos_index_base,self.joint_id_boxes)
+        robot_properties, boxes_vertices=dynamic_vertices(self.model,self.data, self.qpos_index_base,self.joint_id_boxes, self.robot_dimen, self.cfg.boxes.box_half_size, self.room_length, self.room_width)
 
         self.motion_dict = self.init_motion_dict()
 
