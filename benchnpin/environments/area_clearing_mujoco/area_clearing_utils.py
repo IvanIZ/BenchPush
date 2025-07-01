@@ -16,6 +16,7 @@ def precompute_static_vertices(keep_out, room_width, room_length, wall_clearence
     """
     Gives list of static vertices that do not change during the simulation
     """
+    
     half_w, half_l = room_width / 2, room_length / 2
 
     # OUTER WALLS  (thickness = 0.25, exactly what build_xml creates)
@@ -38,7 +39,7 @@ def precompute_static_vertices(keep_out, room_width, room_length, wall_clearence
     Side_vertices = []
     if env_type in ("Partially_closed_with_walls", "Partially_closed_with_static"):
         thickness = 0.01                   # half-size in build_xml
-        extra_len = 0.2 if env_type == "Partially_closed_with_walls" else 0.0
+        extra_len = 0.1 if env_type == "Partially_closed_with_walls" else 0.0
         half_span = half_l + extra_len     # full half-length along Y
 
         # left thin wall  (negative x)
@@ -67,12 +68,11 @@ def precompute_static_vertices(keep_out, room_width, room_length, wall_clearence
     def columns_from_keepout(keep_out):
         out = []
         for k, poly in enumerate(keep_out):
-            shifted = [(x - half_width, y - half_length) for x, y in poly]
+            shifted = [(x - room_width/2, y - room_length/2) for x, y in poly]
             out.append([f"Column_{k}", shifted])
         return out
 
     return Wall_vertices, columns_from_keepout(keep_out), Side_vertices
-
 
 def dynamic_vertices(model, data, qpos_idx_robot: int, joint_ids_boxes: list[int], robot_full, box_half, room_length, room_width):
     """
@@ -166,7 +166,7 @@ def changing_per_configuration(env_type: str,
 
       # lower and upper Y bounds
       y_min = internal_clearance_length + pillar_half[1] / 2.0
-      y_max = ARENA_Y[1] - half[1] / 2.0 - internal_clearance_length
+      y_max = ARENA_Y[1] - pillar_half[1] / 2.0 - internal_clearance_length
 
       # evenly space n_pillars points between y_min and y_max
       if n_pillars == 1:
@@ -175,7 +175,7 @@ def changing_per_configuration(env_type: str,
       centers = [(cx, y_min + i * step) for i in range(n_pillars)]
 
       for k, (cx, cy) in enumerate(centers):
-        xml, poly = pillar(f"small_col{k}", cx, cy, half)
+        xml, poly = pillar(f"small_col{k}", cx, cy, pillar_half)
         extra_xml += xml
         keep_out.append(poly)
       
@@ -246,20 +246,20 @@ def build_xml(robot_qpos, boxes, stl_model_path,extra_xml,Z_BOX, box_size, ARENA
 
       if env_type == "Partially_closed_with_walls":
 
-        extra=0.2
+        extra=0.1
 
       side_walls_code= f"""
     <!-- X-walls: left and right sides -->
     <geom name="wall_X1" type="box"
-      pos="{-wall_clearence_inner} {ARENA_Y1/2+extra/2} 0.15"
-      size="0.01 {ARENA_Y1/2+extra} 0.15"
-      rgba="1 1 1 0.1" contype="1" conaffinity="1"
+      pos="{-wall_clearence_inner} {ARENA_Y1/2} 0.15"
+      size="0.01 {ARENA_Y1/2+extra/2} 0.15"
+      rgba="0 0 0 1.0" contype="1" conaffinity="1"
       friction="0.45 0.01 0.003"/>
 
     <geom name="wall_X2" type="box"
-      pos="{ARENA_X1+wall_clearence_inner} {ARENA_Y1/2+extra/2} 0.15"
-      size="0.01 {ARENA_Y1/2+extra} 0.15"
-      rgba="1 1 1 0.1" contype="1" conaffinity="1"
+      pos="{ARENA_X1+wall_clearence_inner} {ARENA_Y1/2+0} 0.15"
+      size="0.01 {ARENA_Y1/2+extra/2} 0.15"
+      rgba="0 0 0 1.0" contype="1" conaffinity="1"
       friction="0.45 0.01 0.003"/>
 """
     else:

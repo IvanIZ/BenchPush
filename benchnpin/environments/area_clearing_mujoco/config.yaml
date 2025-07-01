@@ -4,7 +4,7 @@ render:
 
 boxes:
   num_boxes: 10
-  clearance: 0.2
+  clearance: 0.1
   box_half_size: 0.04
 
 train:
@@ -39,7 +39,7 @@ env:
   room_length: 1.4225
   wall_clearence_outer: 0.2 # Provides clearance from either of the room length and width
   wall_clearence_inner: 0.1 
-  internal_clearance_length: 0.1
+  internal_clearance_length: 0.2
   shortest_path_channel_scale: 0.25
   local_map_pixel_width: 224
   local_map_pixel_width_sam: 96
@@ -48,7 +48,7 @@ env:
 
 small_pillars:
   num_pillars: 2
-  pillar_half: [0.14225, 0.14225, 0.20]
+  pillar_half: [0.1, 0.1, 0.20]
 
 misc:
   ministep_size: 2.5

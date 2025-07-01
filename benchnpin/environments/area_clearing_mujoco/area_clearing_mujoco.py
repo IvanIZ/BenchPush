@@ -402,7 +402,7 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
             #self.num_completed_boxes += self.num_completed_boxes_new
         
             sim_steps += 1
-            if sim_steps % 10 == 0 and self.cfg.render.show:
+            if sim_steps % 20 == 0 and self.cfg.render.show:
                 self.render_env()
 
             # break if robot is stuck
@@ -711,9 +711,6 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
     # Reward functions
 
     def _get_rew(self):
-        
-        # NONMOVEMENT_DIST_THRESHOLD = 0.05
-        # NONMOVEMENT_TURN_THRESHOLD = np.radians(0.05)
 
         robot_reward = 0
         non_movement_penalty=False
@@ -746,13 +743,6 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
         # Compute stats
         self.robot_cumulative_reward += robot_reward
 
-        """
-        # work
-        updated_boxes = CostMap.get_obs_from_poly(self.boxes)
-        work = total_work_done(self.prev_boxes, updated_boxes)
-        self.total_work[0] += work
-        self.total_work[1].append(work)
-        self.prev_boxes = updated_boxes"""
         return robot_reward
 
     def init_motion_dict(self):
