@@ -825,14 +825,11 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
             curr_xy = self.data.qpos[jpos : jpos+2]
 
             # progress *before* we mutate last_xy
-            # prev_d = np.linalg.norm(last_xy - goal_xy)
-            # curr_d = np.linalg.norm(curr_xy  - goal_xy)
             prev_d = self._distance_to_nearest_edge(last_xy)
             curr_d = self._distance_to_nearest_edge(curr_xy)
             boxes_total_distance += prev_d - curr_d
 
             # book-keeping for next step
-            # motion_dict[body_id][0] += np.linalg.norm(curr_xy - last_xy)
             motion_dict[body_id][0] += np.linalg.norm(curr_xy - last_xy)
             motion_dict[body_id][1][:] = curr_xy
 

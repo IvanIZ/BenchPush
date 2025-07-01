@@ -318,26 +318,26 @@ def build_xml(robot_qpos, boxes, stl_model_path,extra_xml,Z_BOX, box_size, ARENA
     <geom name="Wall_X1" type="box"
       pos="{-wall_clearence_outer-0.125} {ARENA_Y1/2} 0.15"
       size="0.125 {ARENA_Y1/2+wall_clearence_outer+0.25} 0.15"
-      rgba="0.2 0.2 0.2 1" contype="1" conaffinity="1"
+      rgba="0.2 0.2 0.2 0.6" contype="1" conaffinity="1"
       friction="0.45 0.01 0.003"/>
 
     <geom name="Wall_X2" type="box"
       pos="{ARENA_X1+wall_clearence_outer+0.125} {ARENA_Y1/2} 0.15"
       size="0.125 {ARENA_Y1/2+wall_clearence_outer+0.25} 0.15"
-      rgba="0.2 0.2 0.2 1" contype="1" conaffinity="1"
+      rgba="0.2 0.2 0.2 0.6" contype="1" conaffinity="1"
       friction="0.45 0.01 0.003"/>
 
     <!-- Y-walls: bottom and top -->
     <geom name="Wall_Y1" type="box"
       pos="{ARENA_X1/2} {-wall_clearence_outer-0.125} 0.15"
       size="{ARENA_X1/2+wall_clearence_outer+0.125} 0.125 0.15"
-      rgba="0.2 0.2 0.2 1" contype="1" conaffinity="1"
+      rgba="0.2 0.2 0.2 0.6" contype="1" conaffinity="1"
       friction="0.45 0.01 0.003"/>
 
     <geom name="Wall_Y2" type="box"
       pos="{ARENA_X1/2} {ARENA_Y1+wall_clearence_outer+0.125} 0.15"
       size="{ARENA_X1/2+wall_clearence_outer+0.125} 0.125 0.15"
-      rgba="0.2 0.2 0.2 1" contype="1" conaffinity="1"
+      rgba="0.2 0.2 0.2 0.6" contype="1" conaffinity="1"
       friction="0.45 0.01 0.003"/>
     
      <!-- robot -->
