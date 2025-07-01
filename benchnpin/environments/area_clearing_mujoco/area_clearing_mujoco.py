@@ -294,7 +294,7 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
 
         # check if episode is done
         terminated = False
-        if len(self.joint_id_boxes) == 0:
+        if len(self.joint_id_boxes) == len(self.completed_boxes_id):
             terminated = True
         
         self.inactivity_counter += 1
