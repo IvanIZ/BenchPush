@@ -537,6 +537,9 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
         #     self.motion_dict = self.init_motion_dict()
         #     self.observation_init = True
 
+        return self.generate_observation_channels_with_env_data(robot_properties, boxes_vertices)
+
+    def generate_observation_channels_with_env_data(self, robot_properties, boxes_vertices):
         # Update the global overhead map with the current robot and boundaries
         self.update_global_overhead_map(robot_properties[1], boxes_vertices)
 
