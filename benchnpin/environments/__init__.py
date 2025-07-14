@@ -21,7 +21,7 @@ register(
 register(
      id="box-delivery-mujoco-v0",
      entry_point="benchnpin.environments.box_delivery_mujoco:BoxDeliveryMujoco",
-     max_episode_steps=3000,
+     max_episode_steps=2000,
 )
 
 register(
