@@ -67,16 +67,22 @@ for eps_idx in range(total_episodes):
     observation, info = env.reset()
     obstacles = info['obs']
     state = info['state']
+    ship_angular_vel = info['ship_angular_vel']
+    ship_linear_vel = info['ship_linear_vel']
+    curr_speed = np.linalg.norm(ship_linear_vel)
     current_yaw = state[2]
 
     # start a new rollout
+    step_idx = 0
     while True:
+        step_idx += 1
         
         # call planning based policy
         omega, v = policy.act(observation=(observation / 255).astype(np.float64), ship_pos=info['state'], obstacles=obstacles, 
                             goal=env.goal,
                             conc=env.cfg.concentration, 
-                            action_scale=env.max_yaw_rate_step)
+                            action_scale=env.max_yaw_rate_step, 
+                            speed=curr_speed)
         omega = omega * env.max_yaw_rate_step           # unnormalize to real-world scale
         env.update_path(policy.path)
 
@@ -94,10 +100,17 @@ for eps_idx in range(total_episodes):
         
         observation, reward, terminated, truncated, info = env.step(action)
         obstacles = info['obs']
-        env.render()
+        if step_idx % 5 == 0:
+            env.render()
 
         state = info['state']
         current_yaw = state[2]
+
+        ship_angular_vel = info['ship_angular_vel']
+        ship_linear_vel = info['ship_linear_vel']
+        curr_speed = np.linalg.norm(ship_linear_vel)
+        # print("desired angular vel: ", omega, "; actual angular vel: ", ship_angular_vel)
+        # print("desired linear vel: ", v, "; actual linear vel: ", ship_linear_vel)
 
         # print("reward: ", reward, "; dist reward: ", info['dist reward'], "; col reward: ", info['collision reward'], "; col reward scaled: ", info['scaled collision reward'])
         # total_dist_reward += info['dist reward']
