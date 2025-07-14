@@ -1,0 +1,70 @@
+render:
+  show: true
+  show_obs: true
+
+boxes:
+  num_boxes: 10
+  clearance: 0.1
+  box_half_size: 0.04
+
+train:
+  train_mode: false
+  job_type: 'sam'
+  job_name: 'sam_model'
+  batch_size: 32
+  checkpoint_freq: 6000
+  exploration_timesteps: 6000
+  final_exploration: 0.01
+  gamma: 0.99
+  grad_norm_clipping: 10
+  job_id_to_resume: null
+  learning_rate: 0.01
+  learning_starts: 1000
+  n_epochs: 10
+  n_steps: 256
+  replay_buffer_size: 10000
+  resume_training: false
+  target_update_freq: 1000
+  total_timesteps: 60000
+  use_correct_direction_reward: true
+  verbose: 2
+  weight_decay: 0.0001
+  tries_before_inactive: 3000
+
+  
+### ENVIRONMENT PARAMS
+env:
+  area_clearing_version: "Fully_open_area" # Choose from one of them: Fully_open_area ,Partially_closed_with_walls ,Partially_closed_with_static
+  room_width: 1.4225
+  room_length: 1.4225
+  wall_clearence_outer: 0.2 # Provides clearance from either of the room length and width
+  wall_clearence_inner: 0.1 
+  internal_clearance_length: 0.2
+  shortest_path_channel_scale: 0.25
+  local_map_pixel_width: 224
+  local_map_pixel_width_sam: 96
+  wall_thickness: 50.0 # Really high wall thickness to ensure nothing in vicinity of local maps
+  invert_receptacle_map: false
+
+small_pillars:
+  num_pillars: 2
+  pillar_half: [0.1, 0.1, 0.20]
+
+misc:
+  ministep_size: 2.5
+  inactivity_cutoff_sam: 100
+  inactivity_cutoff: 200
+  random_seed: 42
+
+agent:
+  action_type: 'position' # options are velocity, heading, position
+  length: 0.138
+  width: 0.183
+  robot_clear: 0.15
+
+rewards_sam:
+  partial_rewards_scale: 0.2
+  goal_reward: 1.0
+  collision_penalty: 0.25
+  non_movement_penalty: 0.25
+  correct_direction_reward_scale: 1
