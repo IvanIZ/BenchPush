@@ -18,8 +18,8 @@ class PlanningBasedPolicy(BasePolicy):
     def __init__(self, planner_type, cfg=None, planner_config=None) -> None:
         super().__init__()
 
-        if planner_type not in ['predictive', 'lattice']:
-            raise Exception("Invalid planner type. Choose a planner between 'lattice' or 'predictive'.")
+        if planner_type not in ['predictive', 'lattice', 'straight']:
+            raise Exception("Invalid planner type. Choose a planner between 'lattice', 'predictive', or 'straight'.")
         self.planner_type = planner_type
 
         self.lattice_planner = LatticePlanner(planner_config)
@@ -37,6 +37,27 @@ class PlanningBasedPolicy(BasePolicy):
             occ_map = observation[0]
             footprint = observation[1]
             self.path = self.predictive_planner.plan(ship_pos=ship_pos, goal=goal, occ_map=occ_map, footprint=footprint, conc=conc)
+
+        elif self.planner_type == 'straight':
+            self.path = self.straight_planner(ship_pos, goal)
+
+    
+    def straight_planner(self, ship_pose, goal, dy=10):
+
+        x, y, theta = ship_pose
+        _, goal_y = goal
+
+        # generate evenly-space y values, including goal_y if it lands on the grid
+        y_vals = np.arange(y, goal_y + dy * 0.5, dy)
+
+        # assemble the (N, 3) path
+        path = np.column_stack((
+            np.full_like(y_vals, x, dtype=float), 
+            y_vals, 
+            np.full_like(y_vals, theta, dtype=float)
+        ))
+
+        return path
 
 
     def act(self, observation, **kwargs):

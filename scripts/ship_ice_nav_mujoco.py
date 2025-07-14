@@ -49,8 +49,9 @@ dt = env.model.opt.timestep  # Time step from the model
 # Initialize previous error
 previous_error = 0.0
 
-# initialize planning policy
-planner_type = 'lattice'             # set planner type here. 'lattice' or 'predictive'
+# select planner type
+# planner_type = 'lattice'             # set planner type here. 'lattice' or 'predictive'
+planner_type = 'straight'            # use 'straight' planner to test path tracking
 policy = PlanningBasedPolicy(planner_type=planner_type, planner_config='lattice_config_mujoco.yaml')
 
 # initialize RL policy
