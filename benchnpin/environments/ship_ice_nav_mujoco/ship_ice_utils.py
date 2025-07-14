@@ -478,12 +478,6 @@ def apply_fluid_forces_to_body(model, data, body_name, joint_prefix, phase, ice_
     torque_z = yaw_drag_linear + yaw_drag_quad
     total_torque = np.array([0.0, 0.0,torque_z])
     
-    # Clamping max omega just for not having errors
-    if omega_z > max_omega:
-        data.qvel[dof_yaw] = max_omega
-    elif omega_z < -max_omega:
-        data.qvel[dof_yaw] = -max_omega    
-    
     # computation for wave force below
     pos = data.xpos[body_id]
     x, y = pos[0], pos[1]
@@ -864,7 +858,7 @@ def generate_rand_exp(conc, map_shape, ship_state, goal, max_trials, filename=No
         exp_dict['exp'][i]['goal'] = goal
 
         # generate ship starting state
-        print(ship_state)
+        # print(ship_state)
         if ship_state['range_x'] is None:
             x = find_best_start_x(obstacles)
         else:
