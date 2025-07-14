@@ -132,9 +132,11 @@ def header_block(hfield, stl_model_path, sim_timestep, channel_len, channel_wid,
             
             <!ASV->
             <body name="asv" pos="{ASV_X0} {ASV_Y0} 0" quat="0.7071 0 0 0.7071">
+              <inertial mass="{ASV_MASS_TOTAL}" pos="-4.0 0.0 0.2" diaginertia=".1 .1 .1"/>
               <joint name="asv_x"   type="slide" axis="1 0 0"/>
               <joint name="asv_y"   type="slide" axis="0 1 0"/>
               <joint name="asv_yaw" type="hinge" axis="0 0 1" damping="10.0"/>
+
               <geom name="asv_cs_long_bottom" type="mesh" mesh="cs_long_bottom" mass="{ASV_MASS_TOTAL/2}" rgba="0.698 0.133 0.133 1" euler="0 0 -180"/>
               <geom name="asv_cs_long_top" type="mesh" mesh="cs_long_top" mass="{ASV_MASS_TOTAL/2}" rgba="0.45 0.47 0.50 1" euler="0 0 -180"/>
               <geom name="asv_CONTAINER_Full1" type="mesh" mesh="CONTAINER_Full" pos="{-1*STL_SCALE*10} {-4*STL_SCALE*10} {1*STL_SCALE*10}"  rgba="0.588 0.204 0.188 1" euler="0 0 -180"/>
@@ -285,7 +287,8 @@ def footer_block():
             <!-- <motor name="asv_forward" joint="asv_x"  ctrlrange="-6e7 9e7" gear="1"/> -->
             <!-- <motor name="asv_rudder"  joint="asv_yaw" ctrlrange="-6e7 9e7"   gear="5"/> -->
 
-            <velocity name="asv_forward" joint="asv_x"  ctrlrange="-80 80" forcelimited="false" kv="1000000.0"/>
+            <velocity name="asv_forward_x" joint="asv_x"  ctrlrange="-20 20" forcelimited="false" kv="1000000.0"/>
+            <velocity name="asv_forward_y" joint="asv_y"  ctrlrange="-20 20" forcelimited="false" kv="1000000.0"/>
             <velocity name="asv_rudder"  joint="asv_yaw" ctrlrange="-10 10" forcelimited="false" kv="10000000000.0"/>
           </actuator>
         </mujoco>
