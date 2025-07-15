@@ -1,6 +1,6 @@
 render:
-  show: true
-  show_obs: true
+  show: false
+  show_obs: false
 
 boxes:
   num_boxes: 10

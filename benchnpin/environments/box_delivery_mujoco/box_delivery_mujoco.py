@@ -68,6 +68,7 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
             "rgb_array",
             "depth_array",
             "rgbd_tuple",
+            "None"
         ],
     }
 
@@ -285,7 +286,9 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
 
     def render_env(self, mode='human', close=False):
         """Renders the environment."""
-        self.render()
+
+        if self.cfg.render.show and self.render_mode == "human":
+            self.render()
 
         if self.cfg.render.show_obs and self.show_observation and self.observation is not None:# and self.t % self.cfg.render.frequency == 1:
             self.show_observation = False
