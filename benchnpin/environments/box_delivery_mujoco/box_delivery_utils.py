@@ -12,7 +12,7 @@ import random
 
 from benchnpin.common.utils.mujoco_utils import inside_poly, quat_z, quat_z_yaw, corners_xy
 
-def precompute_static_vertices(keep_out, room_width, room_length):
+def precompute_static_vertices(keep_out, wall_thickness, room_width, room_length):
     """
     Gives list of static vertices that do not change during the simulation
     """
@@ -20,7 +20,7 @@ def precompute_static_vertices(keep_out, room_width, room_length):
     half_width, half_length= room_width/2, room_length/2
     X0, X1 = -half_width, half_width
     Y0, Y1 = -half_length, half_length
-    t      = 4.0
+    t      = wall_thickness
 
     """Wall vertices are defined in the world frame, with a clearance"""
     Wall_vertices = [

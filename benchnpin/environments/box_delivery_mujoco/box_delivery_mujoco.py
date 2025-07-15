@@ -657,7 +657,7 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
         small_obstacle_map = np.zeros((self.local_map_pixel_width+20, self.local_map_pixel_width+20), dtype=np.float32)
         
         # Precompute static vertices for walls and columns
-        Wall_vertices, columns_from_keepout, corners=precompute_static_vertices(self.initialization_keepouts, self.room_width, self.room_length)
+        Wall_vertices, columns_from_keepout, corners=precompute_static_vertices(self.initialization_keepouts, self.wall_thickness, self.room_width, self.room_length)
 
         # self.excluded_polygons= Wall_vertices+columns_from_keepout+ corners
 
