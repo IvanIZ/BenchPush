@@ -21,3 +21,6 @@ for i in range(num_epochs):
         action = goal_pos
 
         observation, reward, terminated, truncated, info = env.step(action)
+
+        if terminated or truncated:
+            break
