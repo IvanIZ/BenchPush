@@ -17,9 +17,6 @@ for i in range(num_epochs):
     env.reset()
     for t in range(num_steps_per_epoch):
 
-        x = random.uniform(0.5, 1.0)
-        y = random.uniform(0.5, 2.3)
-
         goal_pos = [0]
         action = goal_pos
 
