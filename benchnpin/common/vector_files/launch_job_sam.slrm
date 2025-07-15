@@ -1,12 +1,13 @@
 #!/bin/sh
 # Node resource configurations
-#SBATCH --job-name=SAM_ld
+#SBATCH --exclude=gpu138
+#SBATCH --job-name=SAM
 #SBATCH --mem=20G
 #SBATCH --gres=gpu:rtx6000:1
-#SBATCH -c 8
+#SBATCH -c 4
 #SBATCH --qos=normal
 #SBATCH --time=12:00:00
-#SBATCH --output=benchnpin/baselines/box_delivery/SAM/vector_logs/slurm-%j.out
+#SBATCH --output=benchnpin/baselines/box_delivery_mujoco/SAM/vector_logs/slurm-%j.out
 #SBATCH --mail-user=steven.caro@uwaterloo.ca
 #SBATCH --mail-type=ALL
 
@@ -24,6 +25,5 @@ date=$(date '+%Y-%m-%d')
 archive=$HOME/finished_jobs/$date/$SLURM_JOB_ID
 mkdir -p $archive
 
-cp $PWD/benchnpin/baselines/box_delivery/SAM/vector_logs/slurm-$SLURM_JOB_ID.out $archive/job.out
-# cp $PWD/logs/slurm-$SLURM_JOB_ID.err $archive/job.err
-
+cp $PWD/benchnpin/baselines/box_delivery_mujoco/SAM/vector_logs/slurm-$SLURM_JOB_ID.out $archive/job.out
+cp $PWD/benchnpin/baselines/box_delivery_mujoco/SAM/vector_logs/slurm-$SLURM_JOB_ID.out $archive/job.err

@@ -20,18 +20,18 @@ def main(cfg, job_id):
 
         if cfg.train.job_type == 'sam':
             # ========================= Spatial Action Map Policy =========================
-            sam_policy = BoxDeliverySAM(model_name=model_name, cfg=cfg)
+            sam_policy = BoxDeliveryMujocoSAM(model_name=model_name, cfg=cfg)
             sam_policy.train(job_id)
 
-        elif cfg.train.job_type == 'ppo':
-            # ================================ PPO Policy =================================    
-            ppo_policy = BoxDeliveryPPO(model_name=model_name, cfg=cfg)
-            ppo_policy.train(resume_training=cfg.train.resume_training, n_steps=cfg.train.n_steps, batch_size=cfg.train.batch_size)
+        # elif cfg.train.job_type == 'ppo':
+        #     # ================================ PPO Policy =================================    
+        #     ppo_policy = BoxDeliveryPPO(model_name=model_name, cfg=cfg)
+        #     ppo_policy.train(resume_training=cfg.train.resume_training, n_steps=cfg.train.n_steps, batch_size=cfg.train.batch_size)
 
-        elif cfg.train.job_type == 'sac':
-            # ================================ SAC Policy =================================
-            sac_policy = BoxDeliverySAC(model_name=model_name, cfg=cfg)
-            sac_policy.train(resume_training=cfg.train.resume_training, batch_size=cfg.train.batch_size, learning_starts=cfg.train.learning_starts)
+        # elif cfg.train.job_type == 'sac':
+        #     # ================================ SAC Policy =================================
+        #     sac_policy = BoxDeliverySAC(model_name=model_name, cfg=cfg)
+        #     sac_policy.train(resume_training=cfg.train.resume_training, batch_size=cfg.train.batch_size, learning_starts=cfg.train.learning_starts)
     
     if cfg.evaluate.eval_mode:
         benchmark_results = []
@@ -88,8 +88,8 @@ if __name__ == '__main__':
         # High level configuration for the box delivery task
         cfg={
             'render': {
-                'show': True,           # if true display the environment
-                'show_obs': True,       # if true show observation
+                'show': False,           # if true display the environment
+                'show_obs': False,       # if true show observation
             },
             'agent': {
                 'action_type': 'position', # 'position', 'heading', 'velocity'
@@ -102,14 +102,14 @@ if __name__ == '__main__':
                 'obstacle_config': 'small_empty', # options are small_empty, small_columns, large_columns, large_divider
             },
             'train': {
-                'train_mode': False,
+                'train_mode': True,
                 'job_type': 'sam', # 'sam', 'ppo', 'sac'
-                'job_name': 'SAM',
+                'job_name': 'first_test',
                 'resume_training': False,
                 'job_id_to_resume': None,
             },
             'evaluate': {
-                'eval_mode': True,
+                'eval_mode': False,
                 'num_eps': 10,
                 'policy_types': ['sam', 'sam', 'sam'], # list of policy types to evaluate
                 'action_types': ['position', 'position', 'position'], # list of action types to evaluate

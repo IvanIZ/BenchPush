@@ -31,6 +31,13 @@ train:
   weight_decay: 0.0001
   tries_before_inactive: 3000
 
+evaluate:
+  eval_mode: false
+  num_eps: 2
+  policy_types: []  # list of policy types to evaluate
+  action_types: []  # list of action types to evaluate
+  models: []  # list of model names to evaluate
+  obs_configs: []  # list of obstacle configurations to evaluate
   
 ### ENVIRONMENT PARAMS
 env:

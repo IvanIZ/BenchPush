@@ -15,6 +15,9 @@ benchnpin/baselines/box_delivery/ppo/vector_logs/
 benchnpin/baselines/box_delivery/sac/checkpoint/
 benchnpin/baselines/box_delivery/sac/models/
 benchnpin/baselines/box_delivery/sac/vector_logs/
+benchnpin/baselines/box_delivery_mujoco/SAM/vector_logs/
+benchnpin/baselines/box_delivery_mujoco/SAM/output_logs/
+benchnpin/baselines/box_delivery_mujoco/SAM/checkpoint/
 
 /plots
 
