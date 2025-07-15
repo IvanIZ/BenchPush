@@ -2,7 +2,14 @@ import benchnpin.environments
 import gymnasium as gym
 import random
 
-env = gym.make('box-delivery-mujoco-v0', render_mode = "human", frame_skip=2)
+# render 
+render= True
+if render == True:
+    render_mode = "human"
+else:
+    render_mode = None
+
+env = gym.make('box-delivery-mujoco-v0', render_mode = render_mode, frame_skip=1)
 env.reset()
 
 terminated = truncated = False

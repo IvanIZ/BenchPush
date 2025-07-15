@@ -2,9 +2,15 @@
 import benchnpin.environments
 import gymnasium as gym
 import random
-import numpy as np
 
-env = gym.make('area-clearing-mujoco-v0', render_mode = "human", cfg=cfg)
+# render 
+render= True
+if render == True:
+    render_mode = "human"
+else:
+    render_mode = None
+
+env = gym.make('area-clearing-mujoco-v0', render_mode =render_mode)
 env.reset()
 
 terminated = truncated = False
