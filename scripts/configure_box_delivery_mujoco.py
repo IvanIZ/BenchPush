@@ -17,7 +17,7 @@ cfg = {
 ############### ^^^^^^^ Configurable Parameters for Ship-Ice ^^^^^^^ ####################
 
 
-env = gym.make('box-delivery-mujoco-v0', render_mode = "human", cfg=cfg)
+env = gym.make('box-delivery-mujoco-v0', render_mode = "human", cfg=cfg, frame_skip=2)
 env.reset()
 
 terminated = truncated = False
