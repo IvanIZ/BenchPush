@@ -46,14 +46,16 @@ BOX_SEG_INDEX = 4
 ROBOT_SEG_INDEX = 5
 MAX_SEG_INDEX = 8
 
-MOVE_STEP_SIZE = 0.05
+scale_factor = (2.845/10) # NOTE: this scales thresholds to be proportionately the same as in the 2d environment
+
+MOVE_STEP_SIZE = 0.05 * scale_factor
 TURN_STEP_SIZE = np.radians(15)
 
-WAYPOINT_MOVING_THRESHOLD = 0.6
+WAYPOINT_MOVING_THRESHOLD = 0.6 * scale_factor
 WAYPOINT_TURNING_THRESHOLD = np.radians(10)
-NOT_MOVING_THRESHOLD = 0.005
+NOT_MOVING_THRESHOLD = 0.005 * scale_factor
 NOT_TURNING_THRESHOLD = np.radians(0.05)
-NONMOVEMENT_DIST_THRESHOLD = 0.05
+NONMOVEMENT_DIST_THRESHOLD = 0.05 * scale_factor
 NONMOVEMENT_TURN_THRESHOLD = np.radians(0.05)
 STEP_LIMIT = 5000
 
@@ -319,7 +321,9 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
         robot_boxes = 0
         robot_reward = 0
 
-        robot_initial_position = self.data.xpos[self.base_body_id][:2].copy()
+        # robot_initial_position = self.data.xpos[self.base_body_id][:2].copy()
+        robot_initial_position = self.data.qpos[self.qpos_index_base:self.qpos_index_base+2]
+        
         robot_initial_heading = quat_z_yaw(*self.data.qpos[self.qpos_index_base+3:self.qpos_index_base+7])
 
         # TODO check if move_sign is necessary
@@ -464,8 +468,7 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
             self.do_simulation([v_l, v_r], self.frame_skip)
 
             # get new robot pose
-            robot_position = self.data.xpos[self.base_body_id][:2].copy()
-            # robot_position = list(robot_position)
+            robot_position = self.data.qpos[self.qpos_index_base:self.qpos_index_base+2]
             robot_heading = quat_z_yaw(*self.data.qpos[self.qpos_index_base+3:self.qpos_index_base+7])
             prev_heading_diff = heading_diff
             
@@ -656,7 +659,7 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
         # Precompute static vertices for walls and columns
         Wall_vertices, columns_from_keepout, corners=precompute_static_vertices(self.initialization_keepouts, self.room_width, self.room_length)
 
-        self.excluded_polygons= Wall_vertices+columns_from_keepout+ corners
+        # self.excluded_polygons= Wall_vertices+columns_from_keepout+ corners
 
         # Iterating through each wall vertice and keepout columns
         for wall_vertices_each_wall in Wall_vertices+columns_from_keepout+corners:
@@ -946,7 +949,8 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
         # robot base
         m_robot = self.model.body_mass[self.base_body_id]
         # use xpos (faster) because the body is a single free joint
-        cx, cy = self.data.xpos[self.base_body_id][:2]
+        # cx, cy = self.data.xpos[self.base_body_id][:2]
+        cx, cy = self.data.qpos[self.qpos_index_base:self.qpos_index_base+2]
         track[self.base_body_id] = [0.0, np.array([cx, cy], dtype=float), float(m_robot)]
 
         # boxes
@@ -970,7 +974,8 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
 
         # robot
         length, last_xy, mass = motion_dict[self.base_body_id]
-        cx, cy = self.data.xpos[self.base_body_id][:2]
+        # cx, cy = self.data.xpos[self.base_body_id][:2]
+        cx, cy = self.data.qpos[self.qpos_index_base:self.qpos_index_base+2]
         dist = np.linalg.norm(np.array([cx, cy]) - last_xy)
         motion_dict[self.base_body_id][0] += dist
         motion_dict[self.base_body_id][1][:] = (cx, cy)
@@ -1028,7 +1033,7 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
                 return True
         return False
 
-    def reset_model(self): # TODO find out if this is used
+    def reset_model(self):
         """
         Randomly sample non-overlapping (x, y, theta) for robot and boxes.
         Teleport them in simulation using sim.data.qpos.
@@ -1115,7 +1120,8 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
 
         #self.motion_dict = init_motion_dict(self.model, self.data, self.base_body_id, self.joint_id_boxes)
 
-        self._prev_robot_xy      = np.array(self.data.xpos[self.base_body_id][:2])
+        # self._prev_robot_xy      = np.array(self.data.xpos[self.base_body_id][:2])
+        self._prev_robot_xy = np.array(self.data.qpos[self.qpos_index_base:self.qpos_index_base+2])
         self._prev_robot_heading = quat_z_yaw(*self.data.qpos[self.qpos_index_base+3:self.qpos_index_base+7])
 
 
