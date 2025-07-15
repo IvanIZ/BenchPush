@@ -130,6 +130,7 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
         self.local_map_pixels_per_meter = self.local_map_pixel_width / self.local_map_width
         self.wall_thickness = self.cfg.env.wall_thickness
         self.num_boxes = self.cfg.boxes.num_boxes
+        self.num_completed_boxes_new = 0
 
         # state
         self.num_channels = 4
@@ -496,7 +497,6 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
                     robot_waypoint_heading = robot_waypoint_headings[robot_waypoint_index]
                     done_turning = False
                     self.path = self.path[1:]
-
 
             # teleport boxes in the receptacle
             self.joint_id_boxes, self.num_completed_boxes_new = transporting(self.model, self.data, self.joint_id_boxes, self.room_width,
