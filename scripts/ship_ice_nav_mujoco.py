@@ -84,24 +84,19 @@ for eps_idx in range(total_episodes):
                             conc=env.cfg.concentration, 
                             action_scale=env.max_yaw_rate_step, 
                             speed=curr_speed)
-        omega = omega * env.max_yaw_rate_step           # unnormalize to real-world scale
         env.update_path(policy.path)
 
         # call RL policy
         # action = policy.act(observation=observation, model_eps='470000')
         # action = policy.act(observation=observation, model_eps='130000')
 
-        # # Compute PD control signal
-        # rudder_control, previous_error = compute_pd_control(current_yaw, target_yaw, previous_error, dt, kp, kd)
+        v_x, v_y = v * np.sin(current_yaw), -v * np.cos(current_yaw)
 
-        # forward_force = 40050000.0      # 15N forward force
-
-        action = [v, omega]
-        # print(action)
+        action = [v_x,v_y, omega]
         
         observation, reward, terminated, truncated, info = env.step(action)
         obstacles = info['obs']
-        if step_idx % 5 == 0:
+        if step_idx % 10 == 0:
             env.render()
 
         state = info['state']
@@ -110,13 +105,6 @@ for eps_idx in range(total_episodes):
         ship_angular_vel = info['ship_angular_vel']
         ship_linear_vel = info['ship_linear_vel']
         curr_speed = np.linalg.norm(ship_linear_vel)
-        # print("desired angular vel: ", omega, "; actual angular vel: ", ship_angular_vel)
-        # print("desired linear vel: ", v, "; actual linear vel: ", ship_linear_vel)
-
-        # print("reward: ", reward, "; dist reward: ", info['dist reward'], "; col reward: ", info['collision reward'], "; col reward scaled: ", info['scaled collision reward'])
-        # total_dist_reward += info['dist reward']
-        # total_col_reward += info['collision reward']
-        # total_scaled_col_reward += info['scaled collision reward']
 
         if terminated or truncated:
             policy.reset()
