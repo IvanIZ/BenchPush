@@ -198,6 +198,8 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
         self.qpos_index_base = self.model.jnt_qposadr[joint_adr]
         self.base_joint_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_JOINT, "base_joint")
 
+        self.robot_mass = self.model.body_mass[self.base_body_id]
+
         # Box joint addresses
         joint_id_boxes=[]
         for i in range (self.cfg.boxes.num_boxes):
@@ -313,7 +315,7 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
        
         # render environment
         if self.cfg.render.show:
-            self.show_observation = True
+            self.show_observation = False
             self.render()
 
         return self.observation, reward, terminated, truncated, info
