@@ -541,6 +541,6 @@ def transporting(model, data, joint_id_boxes, ARENA_X1, ARENA_Y1, goal_half, goa
 
     # number of boxes that are transported
     final_len = len(joint_id_boxes)
-    no_boxes = initial_len - final_len
+    num_boxes = initial_len - final_len
     
-    return joint_id_boxes, no_boxes
+    return joint_id_boxes, num_boxes
