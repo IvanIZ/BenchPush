@@ -85,7 +85,8 @@ class PlanningBasedPolicy(BasePolicy):
         # call ideal controller to get angular velocity control
         # omega, v = self.dp.ideal_control(ship_pos[0], ship_pos[1], ship_pos[2])
 
-        self.dp(ship_pos[0], ship_pos[1], ship_pos[2])
+        # Added -15 here for normalization
+        self.dp(ship_pos[0]-15, ship_pos[1], ship_pos[2])
         omega = self.dp.state.r * np.pi / 180
         v = np.linalg.norm(self.dp.state.get_global_velocity())
 

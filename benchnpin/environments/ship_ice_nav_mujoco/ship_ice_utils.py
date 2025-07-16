@@ -287,8 +287,8 @@ def footer_block():
             <!-- <motor name="asv_forward" joint="asv_x"  ctrlrange="-6e7 9e7" gear="1"/> -->
             <!-- <motor name="asv_rudder"  joint="asv_yaw" ctrlrange="-6e7 9e7"   gear="5"/> -->
 
-            <velocity name="asv_forward_x" joint="asv_x"  ctrlrange="-20 20" forcelimited="false" kv="1000000.0"/>
-            <velocity name="asv_forward_y" joint="asv_y"  ctrlrange="-20 20" forcelimited="false" kv="1000000.0"/>
+            <velocity name="asv_forward_x" joint="asv_x"  ctrlrange="-40 40" forcelimited="false" kv="1000000.0"/>
+            <velocity name="asv_forward_y" joint="asv_y"  ctrlrange="-40 40" forcelimited="false" kv="1000000.0"/>
             <velocity name="asv_rudder"  joint="asv_yaw" ctrlrange="-10 10" forcelimited="false" kv="10000000000.0"/>
           </actuator>
         </mujoco>
