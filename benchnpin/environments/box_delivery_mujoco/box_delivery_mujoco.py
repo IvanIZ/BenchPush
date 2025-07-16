@@ -195,6 +195,7 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
                 "rgb_array",
                 "depth_array",
                 "rgbd_tuple",
+                "None"
             ],
             "render_fps": int(np.round(1.0 / self.dt)),
         }
