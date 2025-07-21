@@ -526,7 +526,7 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
             robot_new_position = robot_position.copy()
             robot_new_heading = robot_heading
             heading_diff = self.heading_difference(robot_heading, robot_waypoint_heading)
-            if np.abs(heading_diff) > TURN_STEP_SIZE and np.abs(heading_diff - prev_heading_diff) > 0.001:
+            if np.abs(heading_diff) > TURN_STEP_SIZE / 2 and np.abs(heading_diff - prev_heading_diff) > 0.001:
                 pass
             else:
                 done_turning = True
@@ -534,14 +534,9 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
                     robot_new_position = robot_waypoint_position
 
             # change robot pose (use controller)
-            v, w, dist = make_controller(robot_prev_position, robot_prev_heading, robot_waypoint_position)
-
-            # if dist < 0.02:
-            #     # arrived at location
-            #     self.data.ctrl[:] = 0.0
-            #     break
-
-            # otherwise drive as normal
+            v, w, _ = make_controller(robot_prev_position, robot_prev_heading, robot_waypoint_position)
+            if not done_turning:
+                v=0
             v_l, v_r = vw_to_wheels(v, w)
 
             # apply the control 'frame_skip' steps
@@ -554,13 +549,14 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
             
             # stop moving if robot collided with obstacle
             self.robot_hit_obstacle = self.robot_hits_static()
-            if self.distance(robot_prev_waypoint_position, robot_position) > MOVE_STEP_SIZE:
-                if self.robot_hit_obstacle:
+            # if self.distance(robot_prev_waypoint_position, robot_position) > MOVE_STEP_SIZE:
+            if self.distance(robot_prev_position, robot_position) < MOVE_STEP_SIZE / 100:
+                if self.robot_hit_obstacle or done_turning:
                     robot_is_moving = False
                     break   # Note: self.robot_distance does not get updated
 
             # stop if robot reached waypoint
-            if (self.distance(robot_position, robot_waypoint_positions[robot_waypoint_index]) < WAYPOINT_MOVING_THRESHOLD
+            if (self.distance(robot_position, robot_waypoint_positions[robot_waypoint_index]) < WAYPOINT_MOVING_THRESHOLD/2
                     and np.abs(robot_heading - robot_waypoint_headings[robot_waypoint_index]) < WAYPOINT_TURNING_THRESHOLD):
 
                 # update distance moved
