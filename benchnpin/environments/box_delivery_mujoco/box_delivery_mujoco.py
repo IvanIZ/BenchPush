@@ -381,6 +381,13 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
 
         self.data.qvel[base_qpos_addr:base_qpos_addr+6] = 0
 
+        # Box joint addresses
+        joint_id_boxes=[]
+        for i in range (self.num_boxes):
+            joint_id=mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_JOINT, f"box{i}_joint")
+            joint_id_boxes.append(joint_id)
+        self.joint_id_boxes = joint_id_boxes
+
         # Assume box is square with radius from center to corner (diagonal/2)
         box_r = np.sqrt(self.cfg.boxes.box_half_size ** 2 + self.cfg.boxes.box_half_size ** 2)
 
@@ -573,9 +580,6 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
                     done_turning = False
                     self.path = self.path[1:]
 
-            # teleport boxes in the receptacle
-            self.joint_id_boxes, self.num_completed_boxes_new = transporting(self.model, self.data, self.joint_id_boxes, self.room_width,
-                                                                             self.room_length,goal_half= self.receptacle_half, goal_center= self.receptacle_position, box_half_size=0.04)
             sim_steps += 1
             if sim_steps % 10 == 0 and self.cfg.render.show:
                 self.render_env()

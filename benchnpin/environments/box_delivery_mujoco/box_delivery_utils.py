@@ -496,6 +496,7 @@ def transport_box_from_recept(model, data, joint_id_boxes, ARENA_X1, ARENA_Y1, g
     initial_len = len(joint_id_boxes)
     # half-edge of box
     HSIZE = box_half_size
+    box_radius = box_half_size * np.sqrt(2)
     # local corner coordinates
     corners_local_coordinates = np.array([
         [-HSIZE, -HSIZE],
@@ -515,14 +516,20 @@ def transport_box_from_recept(model, data, joint_id_boxes, ARENA_X1, ARENA_Y1, g
         qadr = model.jnt_qposadr[jid]
 
         # joint centre (x,y) and quaternion
-        centre_xy = data.qpos[qadr : qadr+2]
+        centre_xy = data.qpos[qadr : qadr+2].copy()
         qw, qx, qy, qz = data.qpos[qadr+3 : qadr+7]
+
+        # Sometimes the box gets squished against the wall
+        if np.abs(centre_xy[0]) + box_radius > ARENA_X1/2:
+            centre_xy[0] = np.sign(centre_xy[0]) * (ARENA_X1/2 - box_radius)
+        if np.abs(centre_xy[1]) + box_radius > ARENA_Y1/2:
+            centre_xy[1] = np.sign(centre_xy[1]) * (ARENA_Y1/2 - box_radius)
 
         # yaw from quaternion
         yaw = quat_z_yaw(qw, qx, qy, qz)
 
         # world vertices
-        verts = corners_xy(centre_xy, yaw,corners_local_coordinates)
+        verts = corners_xy(centre_xy, yaw, corners_local_coordinates)
 
         # containment test – every vertex must satisfy the four inequalities
         inside = np.all((xmin <= verts[:,0]) & (verts[:,0] <= xmax) &
