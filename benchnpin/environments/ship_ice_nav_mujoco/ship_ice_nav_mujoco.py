@@ -18,7 +18,7 @@ except ImportError as e:
 
 from benchnpin.common.utils.mujoco_utils import get_body_pose_2d, get_box_2d_vertices, corners_xy, zero_body_velocity, get_body_vel
 from benchnpin.common.utils.utils import DotDict
-from benchnpin.environments.ship_ice_nav_mujoco.ship_ice_utils import generate_shipice_xml, apply_fluid_forces_to_body, load_ice_field, update_wavefield
+from benchnpin.environments.ship_ice_nav_mujoco.ship_ice_utils import generate_shipice_xml, apply_fluid_forces_to_body, load_ice_field
 
 
 DEFAULT_CAMERA_CONFIG = {
@@ -151,8 +151,6 @@ class ShipIceMujoco(MujocoEnv, utils.EzPickle):
         # drag and wave force (ship)
         # frontal area is an approximation here for the part of ship submerged in fluid
         apply_fluid_forces_to_body(self.model, self.data, 'asv', 'asv', self.phase, self.ice_dict)
-
-        #update_wavefield(self.model,self.data, total_time, self.wave_id)
 
         # Apply drag to all ice floes
         for n in range(self.num_floes):

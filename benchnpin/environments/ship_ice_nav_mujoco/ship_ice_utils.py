@@ -68,36 +68,6 @@ def hfield_data_as_string(n=64, amp=0.2, kx=2*np.pi/200, ky=2*np.pi/80):
     height = amp * np.sin(kx*X) * np.cos(ky*Y)
     return " ".join(f"{h:.6f}" for h in height.ravel())
 
-def update_wavefield(model: mujoco.MjModel,
-                     data:  mujoco.MjData,
-                     hfield_id: int,
-                     t: float,
-                     amp: float = 0.20,
-                     kx: float = 2*np.pi/200,
-                     ky: float = 2*np.pi/80,
-                     w:  float = 2*np.pi/10):
-    """Rewrite h-field and push it to MuJoCo every sim-step."""
-
-    nrow = model.hfield_nrow[hfield_id]
-    ncol = model.hfield_ncol[hfield_id]
-    adr  = model.hfield_adr[hfield_id]
-
-    # cache grids once
-    if not hasattr(update_wavefield, "_X"):
-        xs = np.linspace(0, 2*np.pi, nrow, endpoint=False)
-        ys = np.linspace(0, 2*np.pi, ncol, endpoint=False)
-        update_wavefield._X, update_wavefield._Y = np.meshgrid(xs, ys, indexing="ij")
-
-    X, Y = update_wavefield._X, update_wavefield._Y
-
-    height = amp * np.sin(kx*X + w*t) * np.cos(ky*Y + w*t)
-
-    model.hfield_data[adr : adr + nrow*ncol] = height.astype(np.float32).ravel()
-
-    # ---------- NEW LINES ----------
-    mujoco.mj_updateHField(model, hfield_id, None)   # refresh internal buffers
-    mujoco.mj_forward(model, data)                   # recompute derived data
-
 
 def header_block(hfield, stl_model_path, sim_timestep, channel_len, channel_wid, num_floes):
     """Creates a header for the XML code"""

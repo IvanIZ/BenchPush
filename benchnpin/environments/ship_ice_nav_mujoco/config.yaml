@@ -60,7 +60,7 @@ environment:
 
 output_dir: "logs/"
 egocentric_obs: true  # true for RL baselines, false for predictive planner
-concentration: 0.1    # options are 0.1, 0.2, 0.3, 0.4, 0.5
+concentration: 0.5    # options are 0.1, 0.2, 0.3, 0.4, 0.5
 goal_y: 1200
 render_scale: 40      # scale renderer window to fit screen size
 
