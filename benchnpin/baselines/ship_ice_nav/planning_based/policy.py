@@ -8,7 +8,6 @@ from benchnpin.common.controller.dp import DP
 from typing import List, Tuple
 import numpy as np
 
-
 class PlanningBasedPolicy(BasePolicy):
     """
     A baseline policy for autonomous ship navigation in ice-covered waters. 
@@ -59,46 +58,118 @@ class PlanningBasedPolicy(BasePolicy):
 
         return path
 
-
     def act(self, observation, **kwargs):
+        # tunables parameters
+        CFG = dict(
+            THRESH      = 10.0,     # cross‑track switch
+            look_car    = 50.0,     # carrot distance when far
+            d_back      = 15.0,     # slice behind (for straightness test)
+            d_ahead     = 25.0,     # slice ahead
 
-        # parameters for planners
-        ship_pos = kwargs.get('ship_pos', [0, 0, np.pi / 2])
-        obstacles = kwargs.get('obstacles', None)
-        goal = kwargs.get('goal', None)
-        conc = kwargs.get('conc', None)
-        action_scale = kwargs.get('action_scale', None)
-        cur_speed = kwargs.get('speed', None)
-        
-        # plan a path
+            # yaw‑rate PID
+            kp = 0.10,  ki = 0.15,  kd = 2.0,
+            i_cap = 10.0,  dead = 0.02,
+
+            # straight‑line turn
+            straight_ang = 0.100,   # max value
+            yaw_big      = 0.50,    # only if yaw_err is greater than this
+            omega_small  = 0.002,   # gentle turn rate
+
+            # surge PI
+            kp_v = 0.50,  ki_v = 0.05,  v_max = 2.5,
+            omega_max = 0.02 # cap
+        )
+        dt                       = kwargs.get("dt", 0.005)
+        ship_x, ship_y, ship_yaw = kwargs["ship_pos"]
+        action_scale             = kwargs["action_scale"]
+
+        # building path once
         if self.path is None:
-            self.plan_path(ship_pos, goal, observation, conc, obstacles)
+            self.plan_path(kwargs["ship_pos"], kwargs["goal"],
+                        observation,
+                        kwargs.get("conc"),
+                        kwargs.get("obstacles"))
 
-            # setup dp controller to track the planned path
-            cx = self.path.T[0]
-            cy = self.path.T[1]
-            ch = self.path.T[2]
-            self.dp = DP(x=ship_pos[0], y=ship_pos[1], yaw=ship_pos[2],
-                    cx=cx, cy=cy, ch=ch, **self.lattice_planner.cfg.controller)
-            self.dp_state = self.dp.state
-        
-        # call ideal controller to get angular velocity control
-        # omega, v = self.dp.ideal_control(ship_pos[0], ship_pos[1], ship_pos[2])
+        px, py = self.path[:, 0], self.path[:, 1]
 
-        # Added -15 here for normalization
-        self.dp(ship_pos[0]-15, ship_pos[1], ship_pos[2])
-        omega = self.dp.state.r * np.pi / 180
-        v = np.linalg.norm(self.dp.state.get_global_velocity())
+        # nearest path index and cross‑track distance
+        d2     = (px - ship_x)**2 + (py - ship_y)**2
+        i_near = int(np.argmin(d2))
+        ct_err = float(np.sqrt(d2[i_near]))
 
-        # update setpoint
-        x_s, y_s, h_s = self.dp.get_setpoint(cur_speed)
-        print("set point: ", x_s, y_s, h_s)
-        print("ship pose: ", ship_pos)
+        # far case
+        if ct_err > CFG['THRESH']:
 
-        self.dp.setpoint = np.asarray([x_s, y_s, np.unwrap([self.dp_state.yaw, h_s])[1]])
+            # carrot target
+            dist, j = 0.0, i_near
+            while dist < CFG['look_car'] and j + 1 < len(px):
+                dist += np.hypot(px[j+1]-px[j], py[j+1]-py[j]); j += 1
+            x_t, y_t = px[j], py[j]
 
-        return omega / action_scale, self.lattice_planner.cfg.controller.target_speed
+            yaw_ref = np.arctan2(y_t - ship_y, x_t - ship_x)
+            yaw_err = np.arctan2(np.sin(yaw_ref - ship_yaw),
+                                np.cos(yaw_ref - ship_yaw))
 
+            # straight‑line detector
+            # building local slice 15 m back and 25 m ahead
+            dist_b, k = 0.0, i_near
+            while dist_b < CFG['d_back'] and k > 0:
+                dist_b += np.hypot(px[k]-px[k-1], py[k]-py[k-1]); k -= 1
+            dist_f, j2 = 0.0, i_near
+            while dist_f < CFG['d_ahead'] and j2 + 1 < len(px):
+                dist_f += np.hypot(px[j2+1]-px[j2], py[j2+1]-py[j2]); j2 += 1
+
+            v_back = np.array([px[i_near] - px[k],  py[i_near] - py[k]])
+            v_fwd  = np.array([px[j2]     - px[i_near], py[j2]     - py[i_near]])
+            ang_seg = abs(np.arctan2(v_back[0]*v_fwd[1] - v_back[1]*v_fwd[0],
+                                    np.dot(v_back, v_fwd)))
+
+            straight_slice = (ang_seg < CFG['straight_ang'])
+            big_yaw_err    = (abs(yaw_err) > CFG['yaw_big'])
+
+            # yaw control
+            if straight_slice and big_yaw_err:
+                # gentle and fixed‑rate correction
+                omega = np.sign(yaw_err) * CFG['omega_small']
+            else:
+                # full PID yaw‑rate
+                if not hasattr(self, "_int_yaw"):
+                    self._int_yaw, self._prev_yaw = 0.0, yaw_err
+
+                if abs(yaw_err) > CFG['dead']:
+                    self._int_yaw = np.clip(self._int_yaw + yaw_err*dt,
+                                            -CFG['i_cap'], CFG['i_cap'])
+                else:
+                    self._int_yaw *= 0.8
+
+                d_yaw          = (yaw_err - self._prev_yaw)/dt
+                self._prev_yaw = yaw_err
+
+                omega = (CFG['kp']*yaw_err +
+                        CFG['ki']*self._int_yaw +
+                        CFG['kd']*d_yaw)
+                omega = np.clip(omega, -CFG['omega_max'], CFG['omega_max'])
+
+        # near case
+        else:
+            dist_b, k = 0.0, i_near
+            while dist_b < CFG['d_back'] and k > 0:
+                dist_b += np.hypot(px[k]-px[k-1], py[k]-py[k-1]); k -= 1
+            dist_f, j = 0.0, i_near
+            while dist_f < CFG['d_ahead'] and j + 1 < len(px):
+                dist_f += np.hypot(px[j+1]-px[j], py[j+1]-py[j]); j += 1
+            dx, dy  = px[j]-px[k], py[j]-py[k]
+            yaw_ref = np.arctan2(dy, dx)
+            yaw_err = np.arctan2(np.sin(yaw_ref - ship_yaw),
+                                np.cos(yaw_ref - ship_yaw))
+            omega   = np.clip(yaw_err/dt, -CFG['omega_max'], CFG['omega_max'])
+
+        # surge control
+        if not hasattr(self, "_int_v"): self._int_v = 0.0
+        self._int_v = np.clip(self._int_v + CFG['ki_v']*ct_err*dt, 0, CFG['v_max'])
+        v_cmd = min(CFG['v_max'], CFG['kp_v']*ct_err + self._int_v)
+
+        return omega/action_scale, 20.0*v_cmd
 
     def evaluate(self, num_eps: int, model_eps: str ='latest') -> Tuple[List[float], List[float], List[float], str]:
         env = gym.make('ship-ice-v0', cfg=self.cfg)

@@ -56,7 +56,7 @@ for eps_idx in range(total_episodes):
         
         observation, reward, terminated, truncated, info = env.step(action)
         obstacles = info['obs']
-        if step_idx % 10 == 0:
+        if step_idx % 50 == 0:
             env.render()
 
         state = info['state']
