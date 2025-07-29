@@ -12,7 +12,7 @@ import os
 # Bench-NPIN imports
 from benchnpin.common.controller.position_controller import PositionController
 from benchnpin.common.utils.utils import DotDict
-from benchnpin.environments.area_clearing_mujoco.area_clearing_utils import generate_boxDelivery_xml, precompute_static_vertices, dynamic_vertices, intersects_keepout, receptacle_vertices, transporting
+from benchnpin.environments.area_clearing_mujoco.area_clearing_utils import generate_area_clearing_xml, precompute_static_vertices, dynamic_vertices, intersects_keepout, receptacle_vertices, transporting
 from benchnpin.common.utils.mujoco_utils import vw_to_wheels, make_controller, quat_z, inside_poly, quat_z_yaw
 from benchnpin.common.utils.sim_utils import get_color
 
@@ -147,7 +147,7 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
 
         # generate random environment
         xml_file = os.path.join(self.current_dir, 'turtlebot3_burger_updated.xml')
-        _, self.initialization_keepouts = generate_boxDelivery_xml(N=self.cfg.boxes.num_boxes, env_type=self.cfg.env.area_clearing_version, file_name=xml_file,
+        _, self.initialization_keepouts = generate_area_clearing_xml(N=self.cfg.boxes.num_boxes, env_type=self.cfg.env.area_clearing_version, file_name=xml_file,
                         ROBOT_clear=self.cfg.agent.robot_clear, BOXES_clear=self.cfg.boxes.clearance, Z_BOX=self.cfg.boxes.box_half_size, ARENA_X=(0.0, self.room_width), 
                         ARENA_Y=(0.0, self.room_length), box_half_size=self.cfg.boxes.box_half_size, num_pillars=self.cfg.small_pillars.num_pillars, pillar_half=self.cfg.small_pillars.pillar_half,
                         wall_clearence_outer=self.cfg.env.wall_clearence_outer,wall_clearence_inner=self.cfg.env.wall_clearence_inner,internal_clearance_length=self.cfg.env.internal_clearance_length)
@@ -315,7 +315,7 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
        
         # render environment
         if self.cfg.render.show:
-            self.show_observation = False
+            self.show_observation = True
             self.render()
 
         return self.observation, reward, terminated, truncated, info
@@ -878,10 +878,10 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
             return True
 
         # Define bounds of the placement area (slightly inside the walls)
-        x_min = self.internal_clearance_length
-        x_max = self.room_width - self.internal_clearance_length
-        y_min = self.internal_clearance_length
-        y_max = self.room_length - self.internal_clearance_length
+        x_min = -self.room_width/2 + self.internal_clearance_length
+        x_max = self.room_width/2 - self.internal_clearance_length
+        y_min = -self.room_length/2 + self.internal_clearance_length
+        y_max = self.room_length/2 - self.internal_clearance_length
 
         # Sample robot pose
         while True:

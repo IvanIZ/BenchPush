@@ -43,7 +43,7 @@ def precompute_static_vertices(keep_out, room_width, room_length, wall_clearence
         half_span = half_l + extra_len     # full half-length along Y
 
         # left thin wall  (negative x)
-        cx = -wall_clearence_inner
+        cx = -half_w - wall_clearence_inner
         Side_vertices.append(
             ["Side_left",
              [(cx-thickness, -half_span),
@@ -52,7 +52,7 @@ def precompute_static_vertices(keep_out, room_width, room_length, wall_clearence
               (cx-thickness,  half_span)]]
         )
         # right thin wall (positive x)
-        cx = room_width + wall_clearence_inner
+        cx = half_w + wall_clearence_inner
         Side_vertices.append(
             ["Side_right",
              [(cx-thickness, -half_span),
@@ -68,8 +68,8 @@ def precompute_static_vertices(keep_out, room_width, room_length, wall_clearence
     def columns_from_keepout(keep_out):
         out = []
         for k, poly in enumerate(keep_out):
-            shifted = [(x - room_width/2, y - room_length/2) for x, y in poly]
-            out.append([f"Column_{k}", shifted])
+            # Keep the coordinates as they are since they're already centered
+            out.append([f"Column_{k}", poly])
         return out
 
     return Wall_vertices, columns_from_keepout(keep_out), Side_vertices
@@ -81,7 +81,6 @@ def dynamic_vertices(model, data, qpos_idx_robot: int, joint_ids_boxes: list[int
 
     # robot vertices
     cx, cy = data.qpos[qpos_idx_robot:qpos_idx_robot+2]
-    cx, cy = cx-(room_width/2), cy-(room_length/2)
     qw, qx, qy, qz = data.qpos[qpos_idx_robot+3:qpos_idx_robot+7]
     yaw  = quat_z_yaw(qw, qx, qy, qz)
 
@@ -102,7 +101,6 @@ def dynamic_vertices(model, data, qpos_idx_robot: int, joint_ids_boxes: list[int
     for jid in joint_ids_boxes:
         adr   = model.jnt_qposadr[jid]
         bx, by = data.qpos[adr:adr+2]
-        bx, by = bx-(room_width/2), by-(room_length/2)
         qw, qx, qy, qz = data.qpos[adr+3:adr+7]
         yaw  = quat_z_yaw(qw, qx, qy, qz)
         verts = corners_xy(np.array([bx, by]), yaw, local_box).tolist()
@@ -162,17 +160,18 @@ def changing_per_configuration(env_type: str,
     # Partially_closed_with_walls
     if env_type == "Partially_closed_with_static":
 
-      cx = ARENA_X[1] / 2.0
+      cx = 0.0  # Center the pillars at x=0
 
-      # lower and upper Y bounds
-      y_min = internal_clearance_length + pillar_half[1] / 2.0
-      y_max = ARENA_Y[1] - pillar_half[1] / 2.0 - internal_clearance_length
+      # lower and upper Y bounds, centered around y=0
+      y_min = -ARENA_Y[1]/2 + internal_clearance_length + pillar_half[1] / 2.0
+      y_max = ARENA_Y[1]/2 - pillar_half[1] / 2.0 - internal_clearance_length
 
       # evenly space n_pillars points between y_min and y_max
       if n_pillars == 1:
         centers = [(cx, (y_min + y_max) / 2.0)]
-      step = (y_max - y_min) / (n_pillars - 1)
-      centers = [(cx, y_min + i * step) for i in range(n_pillars)]
+      else:
+        step = (y_max - y_min) / (n_pillars - 1)
+        centers = [(cx, y_min + i * step) for i in range(n_pillars)]
 
       for k, (cx, cy) in enumerate(centers):
         xml, poly = pillar(f"small_col{k}", cx, cy, pillar_half)
@@ -201,11 +200,11 @@ def intersects_keepout(x, y, keep_out):
 def sample_scene(n_boxes, keep_out, ROBOT_R, BOXES_clear, ARENA_X, ARENA_Y, internal_clearance_length):
     """returns robot pose + list of box poses (x,y,theta)"""
 
-    # compute inset bounds once
-    xmin = ARENA_X[0] + internal_clearance_length
-    xmax = ARENA_X[1] - internal_clearance_length
-    ymin = ARENA_Y[0] + internal_clearance_length
-    ymax = ARENA_Y[1] - internal_clearance_length
+    # compute inset bounds once, centered around (0,0)
+    xmin = -ARENA_X[1]/2 + internal_clearance_length
+    xmax = ARENA_X[1]/2 - internal_clearance_length
+    ymin = -ARENA_Y[1]/2 + internal_clearance_length
+    ymax = ARENA_Y[1]/2 - internal_clearance_length
 
     # Robot iteration for its placement
     for _ in range(2000):
@@ -251,13 +250,13 @@ def build_xml(robot_qpos, boxes, stl_model_path,extra_xml,Z_BOX, box_size, ARENA
       side_walls_code= f"""
     <!-- X-walls: left and right sides -->
     <geom name="wall_X1" type="box"
-      pos="{-wall_clearence_inner} {ARENA_Y1/2} 0.15"
+      pos="{-ARENA_X1/2-wall_clearence_inner} 0 0.15"
       size="0.01 {ARENA_Y1/2+extra/2} 0.15"
       rgba="0 0 0 1.0" contype="1" conaffinity="1"
       friction="0.45 0.01 0.003"/>
 
     <geom name="wall_X2" type="box"
-      pos="{ARENA_X1+wall_clearence_inner} {ARENA_Y1/2+0} 0.15"
+      pos="{ARENA_X1/2+wall_clearence_inner} 0 0.15"
       size="0.01 {ARENA_Y1/2+extra/2} 0.15"
       rgba="0 0 0 1.0" contype="1" conaffinity="1"
       friction="0.45 0.01 0.003"/>
@@ -296,46 +295,46 @@ def build_xml(robot_qpos, boxes, stl_model_path,extra_xml,Z_BOX, box_size, ARENA
   <worldbody>
   
     <!-- Floor -->
-    <body pos="{ARENA_X1/2} {ARENA_Y1/2} 0">
+    <body pos="0 0 0">
       <geom name="floor" type="box" size="{ARENA_X1/2+wall_clearence_outer+0.25} {ARENA_Y1/2+wall_clearence_outer+0.25} 0.01" friction="0.5 0.05 0.0001" contype="1" conaffinity="1"/>
     </body>
     
     <!-- Marked area -->
 
     <site name="clearance_outline" 
-      pos="{ARENA_X1/2} {ARENA_Y1/2} 0.001" 
+      pos="0 0 0.001" 
       type="box"
       size="{ARENA_X1/2} {ARENA_Y1/2} 0.01" 
       rgba="0 1 0 1"/>
 
     <site name="clearance_outline_2" 
-      pos="{ARENA_X1/2} {ARENA_Y1/2} 0.001" 
+      pos="0 0 0.001" 
       type="box"
       size="{ARENA_X1/2-0.02} {ARENA_Y1/2-0.02} 0.012" 
       rgba="1 1 1 1"/>
       
     <!-- X-walls: left and right sides -->
     <geom name="Wall_X1" type="box"
-      pos="{-wall_clearence_outer-0.125} {ARENA_Y1/2} 0.15"
+      pos="{-ARENA_X1/2-wall_clearence_outer-0.125} 0 0.15"
       size="0.125 {ARENA_Y1/2+wall_clearence_outer+0.25} 0.15"
       rgba="0.2 0.2 0.2 0.6" contype="1" conaffinity="1"
       friction="0.45 0.01 0.003"/>
 
     <geom name="Wall_X2" type="box"
-      pos="{ARENA_X1+wall_clearence_outer+0.125} {ARENA_Y1/2} 0.15"
+      pos="{ARENA_X1/2+wall_clearence_outer+0.125} 0 0.15"
       size="0.125 {ARENA_Y1/2+wall_clearence_outer+0.25} 0.15"
       rgba="0.2 0.2 0.2 0.6" contype="1" conaffinity="1"
       friction="0.45 0.01 0.003"/>
 
     <!-- Y-walls: bottom and top -->
     <geom name="Wall_Y1" type="box"
-      pos="{ARENA_X1/2} {-wall_clearence_outer-0.125} 0.15"
+      pos="0 {-ARENA_Y1/2-wall_clearence_outer-0.125} 0.15"
       size="{ARENA_X1/2+wall_clearence_outer} 0.125 0.15"
       rgba="0.2 0.2 0.2 0.6" contype="1" conaffinity="1"
       friction="0.45 0.01 0.003"/>
 
     <geom name="Wall_Y2" type="box"
-      pos="{ARENA_X1/2} {ARENA_Y1+wall_clearence_outer+0.125} 0.15"
+      pos="0 {ARENA_Y1/2+wall_clearence_outer+0.125} 0.15"
       size="{ARENA_X1/2+wall_clearence_outer} 0.125 0.15"
       rgba="0.2 0.2 0.2 0.6" contype="1" conaffinity="1"
       friction="0.45 0.01 0.003"/>
@@ -395,7 +394,7 @@ def build_xml(robot_qpos, boxes, stl_model_path,extra_xml,Z_BOX, box_size, ARENA
     return header + box_xml + extra_xml + side_walls_code+ footer
 
 
-def generate_boxDelivery_xml(N,env_type,file_name,ROBOT_clear,BOXES_clear,Z_BOX,ARENA_X,ARENA_Y,
+def generate_area_clearing_xml(N,env_type,file_name,ROBOT_clear,BOXES_clear,Z_BOX,ARENA_X,ARENA_Y,
                   box_half_size,num_pillars, pillar_half, wall_clearence_outer, wall_clearence_inner, internal_clearance_length):
     
     # Name of input and output file otherwise set to default
@@ -429,7 +428,7 @@ def transporting(model, data, joint_id_boxes, ARENA_X1, ARENA_Y1,completed_boxes
         [-HSIZE,  HSIZE]
     ])
     
-    goal_center=[(ARENA_X1/2)+goal_center[0], (ARENA_Y1/2)+ goal_center[1]]
+    goal_center=[goal_center[0], goal_center[1]]
     
     xmin, xmax = goal_center[0] - goal_half[0], goal_center[0] + goal_half[0]
     ymin, ymax = goal_center[1] - goal_half[1], goal_center[1] + goal_half[1]
