@@ -300,6 +300,7 @@ def build_xml(robot_qpos, boxes, stl_model_path, extra_xml, Z_BOX, box_size, ARE
     <mesh name="right_tire"  file="right_tire.stl"  scale="0.001 0.001 0.001"/>
     <mesh name="lds"         file="lds.stl"         scale="0.001 0.001 0.001"/>
     <mesh name="bumper"      file="TurtleBot3 Burger Bumper.STL" scale="0.001 0.001 0.001"/>
+    <material name="mat_noreflect" rgba="0 0.3922 0 1" specular="0" shininess="0" reflectance="0"/>
   </asset>
 
   <visual>
@@ -333,7 +334,7 @@ def build_xml(robot_qpos, boxes, stl_model_path, extra_xml, Z_BOX, box_size, ARE
     <geom name="marked_area" type="box"
       pos="{goal_center[0]} {goal_center[1]} 0.01"
       size="{goal_half} {goal_half} 0.0005"
-      rgba="0.5 1 0.5 1"
+      material="mat_noreflect"
       contype="0"
       conaffinity="0"
       friction="0.5 0.05 0.0001"/>
