@@ -451,12 +451,12 @@ def build_xml(robot_qpos, boxes, stl_model_path, extra_xml, Z_BOX, box_size, ARE
 def clearance_poly_generator(ARENA_X, ARENA_Y):
     """ Returns a polygon within which all items must be placed, with a clearance """
     return [
-        (-ARENA_X[1]/2 + 0.300, -ARENA_Y[1]/2 + 0.600), (-ARENA_X[1]/2 + 0.615, -ARENA_Y[1]/2 + 0.600),
-        (-ARENA_X[1]/2 + 0.615, -ARENA_Y[1]/2 + 0.300), (ARENA_X[1]/2 - 0.600, -ARENA_Y[1]/2 + 0.300),
-        (ARENA_X[1]/2 - 0.600, -ARENA_Y[1]/2 + 0.600), (ARENA_X[1]/2 - 0.300, -ARENA_Y[1]/2 + 0.600),
-        (ARENA_X[1]/2 - 0.300, ARENA_Y[1]/2 - 0.600), (ARENA_X[1]/2 - 0.600, ARENA_Y[1]/2 - 0.600),
-        (ARENA_X[1]/2 - 0.600, ARENA_Y[1]/2 - 0.345), (-ARENA_X[1]/2 + 0.615, ARENA_Y[1]/2 - 0.300),
-        (-ARENA_X[1]/2 + 0.615, ARENA_Y[1]/2 - 0.600), (-ARENA_X[1]/2 + 0.300, ARENA_Y[1]/2 - 0.600)
+        (-ARENA_X[1]/2 + 0.100, -ARENA_Y[1]/2 + 0.300), (-ARENA_X[1]/2 + 0.315, -ARENA_Y[1]/2 + 0.300),
+        (-ARENA_X[1]/2 + 0.415, -ARENA_Y[1]/2 + 0.100), (ARENA_X[1]/2 - 0.300, -ARENA_Y[1]/2 + 0.100),
+        (ARENA_X[1]/2 - 0.300, -ARENA_Y[1]/2 + 0.300), (ARENA_X[1]/2 - 0.100, -ARENA_Y[1]/2 + 0.300),
+        (ARENA_X[1]/2 - 0.100, ARENA_Y[1]/2 - 0.300), (ARENA_X[1]/2 - 0.300, ARENA_Y[1]/2 - 0.300),
+        (ARENA_X[1]/2 - 0.300, ARENA_Y[1]/2 - 0.045), (-ARENA_X[1]/2 + 0.415, ARENA_Y[1]/2 - 0.100),
+        (-ARENA_X[1]/2 + 0.415, ARENA_Y[1]/2 - 0.300), (-ARENA_X[1]/2 + 0.100, ARENA_Y[1]/2 - 0.300)
     ]
 
 def generate_boxDelivery_xml(N,env_type,file_name,ROBOT_clear,CLEAR,Z_BOX,ARENA_X,ARENA_Y,
