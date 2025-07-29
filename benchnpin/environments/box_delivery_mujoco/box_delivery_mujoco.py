@@ -325,6 +325,7 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
         active, parked, keep_outs = self._sample_pillar_centres()
         self.initialization_keepouts = keep_outs
         self.observation_init= False
+        print(self.clearance_poly)
         
         # place every pillar (active + parked)
         all_centres = active + parked
@@ -360,10 +361,10 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
                 return False
 
             return True
-
+        
         # Define bounds of the placement area (slightly inside the walls)
-        x_min, x_max = -self.room_width / 2 + 0.2, self.room_width / 2 - 0.2
-        y_min, y_max = -self.room_length / 2 + 0.2, self.room_length / 2 - 0.2
+        y_min, y_max = -self.room_width / 2 + 0.1, self.room_width / 2 - 0.1
+        x_min, x_max = -self.room_length / 2 + 0.1, self.room_length / 2 - 0.1
 
         # Sample robot pose
         while True:
@@ -398,6 +399,7 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
                 theta = np.random.uniform(-np.pi, np.pi)
                 if is_valid((x, y, theta), box_r):
                     positions.append(((x, y, theta), box_r))
+                    print(f"Box {i} position: {x}, {y}, {theta}")
                     break
             
             qadr = self.model.jnt_qposadr[self.joint_id_boxes[i]]
@@ -410,7 +412,6 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
         # self._prev_robot_xy      = np.array(self.data.xpos[self.base_body_id][:2])
         self._prev_robot_xy = np.array(self.data.qpos[self.qpos_index_base:self.qpos_index_base+2])
         self._prev_robot_heading = quat_z_yaw(*self.data.qpos[self.qpos_index_base+3:self.qpos_index_base+7])
-
 
         # get the robot and boxes vertices
         robot_properties, boxes_vertices=dynamic_vertices(self.model,self.data, self.qpos_index_base,self.joint_id_boxes, self.robot_dimen, self.cfg.boxes.box_half_size, self.room_length, self.room_width)
@@ -1082,8 +1083,6 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
 
     # contacts
     def robot_hits_static(self) -> bool:
-        """
-        """
 
         ROBOT_PREFIX    = "base"
         STATIC_PREFIXES = ("wall", "small_col", "large_col", "divider", "corner")

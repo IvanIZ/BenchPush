@@ -1,14 +1,12 @@
 """
-Creates a fresh MJCF file with:
-- TurtleBot3 Burger (random start pose)
-- N blue boxes (N from user, 10-20) with random yaw
-- Randomly create enviornment type
+Randomly create enviornment type
 """
 
 import numpy as np
 from pathlib import Path
 import os
 import random
+import math
 
 from benchnpin.common.utils.mujoco_utils import inside_poly, quat_z, quat_z_yaw, corners_xy
 
@@ -340,10 +338,7 @@ def build_xml(robot_qpos, boxes, stl_model_path, extra_xml, Z_BOX, box_size, ARE
       friction="0.5 0.05 0.0001"/>
       
     <!-- transporting area -->
-    <geom name="transporting_area" type="box"
-      pos="{ARENA_X1/2+0.05} {ARENA_Y1/2+0.07} 0.01"
-      size="0.05 0.05 0.05"
-      rgba="0.5 1 0.5 1"/>
+    <geom name="transporting_area" type="box" pos="{ARENA_X1/2+0.05} {ARENA_Y1/2+0.07} 0.01" size="0.05 0.05 0.05" rgba="0.5 1 0.5 1"/>
       
     <!-- transporting area Y-walls -->
     <geom name="transporting_wall_y1" type="box"
@@ -449,16 +444,23 @@ def build_xml(robot_qpos, boxes, stl_model_path, extra_xml, Z_BOX, box_size, ARE
 """
     return header + box_xml + extra_xml +adjust_pillar_plane+ footer
 
-def clearance_poly_generator(ARENA_X, ARENA_Y):
-    """ Returns a polygon within which all items must be placed, with a clearance """
-    return [
-        (-ARENA_X[1]/2 + 0.100, -ARENA_Y[1]/2 + 0.300), (-ARENA_X[1]/2 + 0.315, -ARENA_Y[1]/2 + 0.300),
-        (-ARENA_X[1]/2 + 0.415, -ARENA_Y[1]/2 + 0.100), (ARENA_X[1]/2 - 0.300, -ARENA_Y[1]/2 + 0.100),
-        (ARENA_X[1]/2 - 0.300, -ARENA_Y[1]/2 + 0.300), (ARENA_X[1]/2 - 0.100, -ARENA_Y[1]/2 + 0.300),
-        (ARENA_X[1]/2 - 0.100, ARENA_Y[1]/2 - 0.300), (ARENA_X[1]/2 - 0.300, ARENA_Y[1]/2 - 0.300),
-        (ARENA_X[1]/2 - 0.300, ARENA_Y[1]/2 - 0.045), (-ARENA_X[1]/2 + 0.415, ARENA_Y[1]/2 - 0.100),
-        (-ARENA_X[1]/2 + 0.415, ARENA_Y[1]/2 - 0.300), (-ARENA_X[1]/2 + 0.100, ARENA_Y[1]/2 - 0.300)
-    ]
+def clearance_poly_generator(ARENA_X, ARENA_Y,
+                             wall_clearance=0.1,
+                             corner_clearance=0.2,
+                             receptacle_clearance=0.4):
+
+    # Compute the inset rectangle bounds (straight‐wall clearance)
+    x_min = -ARENA_X[1]/2 + wall_clearance
+    x_max =  ARENA_X[1]/2 - wall_clearance
+    y_min = -ARENA_Y[1]/2 + wall_clearance
+    y_max =  ARENA_Y[1]/2 - wall_clearance
+
+    receptacle_clearance= receptacle_clearance+wall_clearance
+
+    return [(x_min, y_min+corner_clearance), (x_min+corner_clearance,y_min+corner_clearance), (x_min+corner_clearance,y_min),
+            (x_max-receptacle_clearance,y_min), (x_max-receptacle_clearance,y_min+receptacle_clearance), (x_max,y_min+receptacle_clearance),
+            (x_max,y_max-corner_clearance), (x_max-corner_clearance,y_max-corner_clearance), (x_max-corner_clearance,y_max),
+            (x_min+corner_clearance,y_max), (x_min+corner_clearance,y_max-corner_clearance), (x_min,y_max-corner_clearance)]
 
 def generate_boxDelivery_xml(N,env_type,file_name,ROBOT_clear,CLEAR,Z_BOX,ARENA_X,ARENA_Y,
                   box_half_size, goal_half, goal_center,num_pillars, pillar_half, adjust_num_pillars,sim_timestep):
