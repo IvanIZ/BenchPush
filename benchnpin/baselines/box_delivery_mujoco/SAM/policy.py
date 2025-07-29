@@ -389,13 +389,14 @@ class BoxDeliveryMujocoSAM(BasePolicy):
         rewards_list = []
         for eps_idx in range(num_eps):
             print("Progress: ", eps_idx, " / ", num_eps, " episodes")
-            obs, info = env.reset()
+            obs, _ = env.reset()
+            state, info = obs
             # metric.reset(info)
             done = truncated = False
             eps_reward = 0.0
             while True:
-                action, _ = self.model.predict(obs)
-                obs, reward, done, truncated, info = env.step(action)
+                action, _ = self.model.predict(state)
+                state, reward, done, truncated, info = env.step(action)
                 # metric.update(info=info, reward=reward, eps_complete=(done or truncated))
                 if done or truncated:
                     break

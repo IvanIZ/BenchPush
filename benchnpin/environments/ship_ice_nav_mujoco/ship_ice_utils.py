@@ -20,7 +20,7 @@ from benchnpin.common.geometry.polygon import generate_polygon, poly_area
 from benchnpin.common.utils.mujoco_utils import polygon_from_vertices, extrude_and_export
 
 ASV_MASS_TOTAL = 6000000.0     # kg
-ICE_DENSITY    = 9000.0        # kg m⁻³ (Since ice is shown as an extermely thin plate for stimulation purposes)
+ICE_DENSITY    = 900.0        # kg m⁻³ (Since ice is shown as an extermely thin plate for stimulation purposes)
 RHO_WATER      = 1025.0        # kg m⁻³
 CD_SHIP             = 0.5      # assuming like an airfoil
 CD_ICE              = 1.1      # assuming like an airfoil
@@ -67,8 +67,6 @@ def hfield_data_as_string(n=64, amp=0.2, kx=2*np.pi/200, ky=2*np.pi/80):
     X, Y = np.meshgrid(x, y, indexing="ij")
     height = amp * np.sin(kx*X) * np.cos(ky*Y)
     return " ".join(f"{h:.6f}" for h in height.ravel())
-
-
 
 
 def header_block(hfield, stl_model_path, sim_timestep, channel_len, channel_wid, num_floes):
@@ -287,8 +285,8 @@ def footer_block():
             <!-- <motor name="asv_forward" joint="asv_x"  ctrlrange="-6e7 9e7" gear="1"/> -->
             <!-- <motor name="asv_rudder"  joint="asv_yaw" ctrlrange="-6e7 9e7"   gear="5"/> -->
 
-            <velocity name="asv_forward_x" joint="asv_x"  ctrlrange="-20 20" forcelimited="false" kv="1000000.0"/>
-            <velocity name="asv_forward_y" joint="asv_y"  ctrlrange="-20 20" forcelimited="false" kv="1000000.0"/>
+            <velocity name="asv_forward_x" joint="asv_x"  ctrlrange="-5 5" forcelimited="false" kv="1000000.0"/>
+            <velocity name="asv_forward_y" joint="asv_y"  ctrlrange="-5 5" forcelimited="false" kv="1000000.0"/>
             <velocity name="asv_rudder"  joint="asv_yaw" ctrlrange="-10 10" forcelimited="false" kv="10000000000.0"/>
           </actuator>
         </mujoco>
@@ -351,7 +349,7 @@ def generate_shipice_xml(concentration, xml_file, sim_timestep, channel_len, cha
         ice_area_dict[f'ice_{i}'] = {'area': area_2d, 'vertices': vertices}
 
         out_file = os.path.join(directory, 'ice_' + str(i) + '.stl')
-        extrude_and_export(polygon, h_min=0.4, h_max=1.0, filename=out_file)
+        extrude_and_export(polygon, h_min=0.4, h_max=0.8, filename=out_file)
 
 
     # get stl model path

@@ -1,36 +1,34 @@
 """
-Creates a fresh MJCF file with:
-- TurtleBot3 Burger (random start pose)
-- N blue boxes (N from user, 10-20) with random yaw
-- Randomly create enviornment type
+Randomly create enviornment type
 """
 
 import numpy as np
 from pathlib import Path
 import os
 import random
+import math
 
 from benchnpin.common.utils.mujoco_utils import inside_poly, quat_z, quat_z_yaw, corners_xy
 
-def precompute_static_vertices(keep_out, wall_thickness, room_width, room_length):
+def precompute_static_vertices(keep_out, wall_thickness, room_length, room_width):
     """
     Gives list of static vertices that do not change during the simulation
     """
     # Walls vertices computation
     half_width, half_length= room_width/2, room_length/2
-    X0, X1 = -half_width, half_width
-    Y0, Y1 = -half_length, half_length
+    X0, X1 = -half_length, half_length
+    Y0, Y1 = -half_width, half_width
     t      = wall_thickness
 
     """Wall vertices are defined in the world frame, with a clearance"""
-    Wall_vertices = [
-        ["Wall_left",
+    wall_vertices = [
+        ["wall_left",
          [(X0-t, Y0-t), (X0, Y0-t), (X0, Y1+t), (X0-t, Y1+t)]],
-        ["Wall_right",
+        ["wall_right",
          [(X1,   Y0-t), (X1+t, Y0-t), (X1+t, Y1+t), (X1, Y1+t)]],
-        ["Wall_bottom",
+        ["wall_bottom",
          [(X0, Y0-t), (X1, Y0-t), (X1, Y0), (X0, Y0)]],
-        ["Wall_top",
+        ["wall_top",
          [(X0, Y1), (X1, Y1), (X1, Y1+t), (X0, Y1+t)]],
     ]
     # Columns and Dividers
@@ -40,7 +38,7 @@ def precompute_static_vertices(keep_out, wall_thickness, room_width, room_length
     def columns_from_keepout(keep_out):
         out = []
         for k, poly in enumerate(keep_out):
-            shifted = [(x - half_width, y - half_length) for x, y in poly]
+            shifted = [(x - half_length, y - half_width) for x, y in poly]
             out.append([f"Column_{k}", shifted])
         return out
     
@@ -54,7 +52,7 @@ def precompute_static_vertices(keep_out, wall_thickness, room_width, room_length
     ]
 
     # helper to mirror and then arena-shift
-    def shift(poly, mirror_x: bool, mirror_y: bool, half_x=half_width, half_y=half_length):
+    def shift(poly, mirror_x: bool, mirror_y: bool, half_x=half_length, half_y=half_width):
         out = []
         for x, y in poly:
             px = (2 * half_x - x) if mirror_x else x
@@ -66,11 +64,11 @@ def precompute_static_vertices(keep_out, wall_thickness, room_width, room_length
     corners = [
         ["Corner_BL", shift(base, False, False)],   # bottom-left (x=0, y=0)
         ["Corner_BR", shift(base, True,  False)],   # bottom-right (x=2Hx, y=0)
-        ["Corner_TL", shift(base, True, True)],    # top-left   (x=0,  y=2Hy)
+        ["Corner_TL", shift(base, False, True)],    # top-left   (x=0,  y=2Hy)
     ]
 
 
-    return Wall_vertices, columns_from_keepout(keep_out), corners
+    return wall_vertices, columns_from_keepout(keep_out), corners
 
 
 def dynamic_vertices(model, data, qpos_idx_robot: int, joint_ids_boxes: list[int], robot_full, box_half, room_length, room_width):
@@ -80,34 +78,32 @@ def dynamic_vertices(model, data, qpos_idx_robot: int, joint_ids_boxes: list[int
 
     # robot vertices
     cx, cy = data.qpos[qpos_idx_robot:qpos_idx_robot+2]
-    cx, cy = cx-(room_width/2), cy-(room_length/2)
     qw, qx, qy, qz = data.qpos[qpos_idx_robot+3:qpos_idx_robot+7]
-    yaw  = quat_z_yaw(qw, qx, qy, qz)
+    yaw = quat_z_yaw(qw, qx, qy, qz)
 
     local_robot = np.array([[-robot_full[0]/2, -robot_full[1]/2-0.03],
                             [ robot_full[0]/2, -robot_full[1]/2-0.03],
                             [ robot_full[0]/2,  robot_full[1]/2-0.03],
                             [-robot_full[0]/2,  robot_full[1]/2-0.03]])
-    Robot_vertices = ["robot",
-                      corners_xy(np.array([cx, cy]), yaw, local_robot).tolist(),yaw,(cx, cy)]
+    robot_vertices = ["robot",
+                      corners_xy(np.array([cx, cy]), yaw, local_robot).tolist(), yaw, (cx, cy)]
 
     # boxes vertices
     local_box = np.array([[-box_half, -box_half],
-                           [ box_half, -box_half],
-                           [ box_half,  box_half],
-                           [-box_half,  box_half]])
+                          [ box_half, -box_half],
+                          [ box_half,  box_half],
+                          [-box_half,  box_half]])
 
-    Boxes_vertices = []
+    boxes_vertices = []
     for jid in joint_ids_boxes:
-        adr   = model.jnt_qposadr[jid]
+        adr = model.jnt_qposadr[jid]
         bx, by = data.qpos[adr:adr+2]
-        bx, by = bx-(room_width/2), by-(room_length/2)
         qw, qx, qy, qz = data.qpos[adr+3:adr+7]
-        yaw  = quat_z_yaw(qw, qx, qy, qz)
+        yaw = quat_z_yaw(qw, qx, qy, qz)
         verts = corners_xy(np.array([bx, by]), yaw, local_box).tolist()
-        Boxes_vertices.append([verts])
+        boxes_vertices.append([verts])
 
-    return Robot_vertices, Boxes_vertices
+    return robot_vertices, boxes_vertices
 
 def receptacle_vertices(receptacle_half, receptacle_local_dimension):
     """
@@ -236,29 +232,28 @@ def intersects_keepout(x, y, keep_out):
     return any(inside_poly(x, y, poly) for poly in keep_out)
   
 
-def sample_scene(n_boxes, keep_out,ROBOT_R,CLEAR,ARENA_X,ARENA_Y, clearance_poly):
+def sample_scene(n_boxes, keep_out, ROBOT_R, CLEAR, ARENA_X, ARENA_Y, clearance_poly):
     """returns robot pose + list of box poses (x,y,theta)"""
-    
+
     # Robot iteration for its placement
     for _ in range(2000):
-        rx = np.random.uniform(*ARENA_X)
-        ry = np.random.uniform(*ARENA_Y)
+        rx = np.random.uniform(-ARENA_X[1]/2, ARENA_X[1]/2)
+        ry = np.random.uniform(-ARENA_Y[1]/2, ARENA_Y[1]/2)
         if inside_poly(rx, ry, clearance_poly) and not intersects_keepout(rx, ry, keep_out):
             break
     robot_qpos = f"{rx:.4f} {ry:.4f} 0.01"
-    
 
     # Boxes iteration for its placement
     boxes = []
     tries = 0
     while len(boxes) < n_boxes and tries < 10000:
         tries += 1
-        x = np.random.uniform(*ARENA_X)
-        y = np.random.uniform(*ARENA_Y)
+        x = np.random.uniform(-ARENA_X[1]/2, ARENA_X[1]/2)
+        y = np.random.uniform(-ARENA_Y[1]/2, ARENA_Y[1]/2)
         if not inside_poly(x, y, clearance_poly):
             continue
         if intersects_keepout(x, y, keep_out):
-            continue        
+            continue
         if np.hypot(x - rx, y - ry) < ROBOT_R:
             continue
         if any(np.hypot(x - cx, y - cy) < CLEAR for cx, cy, _ in boxes):
@@ -271,19 +266,18 @@ def sample_scene(n_boxes, keep_out,ROBOT_R,CLEAR,ARENA_X,ARENA_Y, clearance_poly
     return robot_qpos, boxes
 
 
-def build_xml(robot_qpos, boxes, stl_model_path,extra_xml,Z_BOX, box_size, ARENA_X1, ARENA_Y1, goal_half, goal_center, adjust_num_pillars, robot_rgb,sim_timestep):
+def build_xml(robot_qpos, boxes, stl_model_path, extra_xml, Z_BOX, box_size, ARENA_X1, ARENA_Y1, goal_half, goal_center, adjust_num_pillars, robot_rgb, sim_timestep):
     """Building data for a different file"""
-    goal_center=[(ARENA_X1/2)+goal_center[0], (ARENA_Y1/2)+ goal_center[1]]
 
-    if adjust_num_pillars is True: 
-      adjust_pillar_plane= f"""
+    if adjust_num_pillars is True:
+        adjust_pillar_plane = f"""
     <!-- Pillar plane -->
-    <body pos="-0.4 {ARENA_Y1/2} 0">
+    <body pos="-0.4 0 0">
       <geom type="box" size="0.4 {ARENA_Y1/2} 0.01" friction="0.5 0.05 0.0001"/>
     </body>
 """
     else:
-      adjust_pillar_plane = ""
+        adjust_pillar_plane = ""
     header = f"""
 <mujoco model="box_delivery_structured_env">
   <compiler angle="radian" autolimits="true" meshdir="{stl_model_path}"/>
@@ -297,15 +291,14 @@ def build_xml(robot_qpos, boxes, stl_model_path,extra_xml,Z_BOX, box_size, ARENA
   </default>
 
   <asset>
-
     <material name="blue_mat" rgba="0.4 0.3 0.2 1"/>
-
     <mesh name="corner_full" file="corner_full.stl" scale="0.001 0.001 0.001"/>
-    <mesh name="burger_base" file="burger_base.stl"scale="0.001 0.001 0.001"/>
-    <mesh name="left_tire"   file="left_tire.stl"  scale="0.001 0.001 0.001"/>
-    <mesh name="right_tire"  file="right_tire.stl" scale="0.001 0.001 0.001"/>
-    <mesh name="lds"         file="lds.stl"        scale="0.001 0.001 0.001"/>
+    <mesh name="burger_base" file="burger_base.stl" scale="0.001 0.001 0.001"/>
+    <mesh name="left_tire"   file="left_tire.stl"   scale="0.001 0.001 0.001"/>
+    <mesh name="right_tire"  file="right_tire.stl"  scale="0.001 0.001 0.001"/>
+    <mesh name="lds"         file="lds.stl"         scale="0.001 0.001 0.001"/>
     <mesh name="bumper"      file="TurtleBot3 Burger Bumper.STL" scale="0.001 0.001 0.001"/>
+    <material name="mat_noreflect" rgba="0 0.3922 0 1" specular="0" shininess="0" reflectance="0"/>
   </asset>
 
   <visual>
@@ -316,89 +309,86 @@ def build_xml(robot_qpos, boxes, stl_model_path,extra_xml,Z_BOX, box_size, ARENA
   <worldbody>
   
     <!-- Floor -->
-    <body pos="{ARENA_X1/2} {ARENA_Y1/2} 0">
+    <body pos="0 0 0">
       <geom name="floor" type="box" size="{ARENA_X1/2} {ARENA_Y1/2} 0.01" friction="0.5 0.05 0.0001" contype="1" conaffinity="1"/>
     </body>
     
     <!-- Corner 1 -->
-    <body name="corner_1" pos="0.0 0.0 0.05" quat="0 1 0 0">
+    <body name="corner_1" pos="{-ARENA_X1/2} {-ARENA_Y1/2} 0.05" quat="0 1 0 0">
       <geom name="corner_1" type="mesh" mesh="corner_full" rgba="0.0 0.3 1.0 1.0" contype="1" conaffinity="1"/>
     </body>
     
     <!-- Corner 2 -->
-    <body name="corner_2" pos="{ARENA_X1} 0.0 0.05" quat="0 1 1 0">
+    <body name="corner_2" pos="{ARENA_X1/2} {-ARENA_Y1/2} 0.05" quat="0 1 1 0">
       <geom name="corner_2" type="mesh" mesh="corner_full" rgba="0.0 0.3 1.0 1.0" contype="1" conaffinity="1"/>
     </body>
     
     <!-- Corner 3 -->
-    <body name="corner_3" pos="{ARENA_X1} {ARENA_Y1} 0.05" quat="0 0 1 0">
+    <body name="corner_3" pos="{-ARENA_X1/2} {ARENA_Y1/2} -0.01" quat="1 0 0 0">
       <geom name="corner_3" type="mesh" mesh="corner_full" rgba="0.0 0.3 1.0 1.0" contype="1" conaffinity="1"/>
     </body>
-    
+        
     <!-- Marked area -->
     <geom name="marked_area" type="box"
       pos="{goal_center[0]} {goal_center[1]} 0.01"
       size="{goal_half} {goal_half} 0.0005"
-      rgba="0.5 1 0.5 1"
+      material="mat_noreflect"
       contype="0"
       conaffinity="0"
       friction="0.5 0.05 0.0001"/>
-    
+      
     <!-- transporting area -->
-    <geom name="transporting_area" type="box"
-      pos="0.05 {ARENA_Y1+0.07} 0.01"
-      size="0.05 0.05 0.05"
-      rgba="0.5 1 0.5 1"/>
-    
-    <!-- transporting area Y-walls-->
+    <geom name="transporting_area" type="box" pos="{ARENA_X1/2+0.05} {ARENA_Y1/2+0.07} 0.01" size="0.05 0.05 0.05" rgba="0.5 1 0.5 1"/>
+      
+    <!-- transporting area Y-walls -->
     <geom name="transporting_wall_y1" type="box"
-      pos="0.05 {ARENA_Y1+0.01} 1.0"
+      pos="{ARENA_X1/2+0.05} {ARENA_Y1/2+0.01} 1.0"
       size="0.05 0.01 1.0"
       rgba="1 1 1 0.1" contype="1" conaffinity="1"/>
       
     <geom name="transporting_wall_y2" type="box"
-      pos="0.05 {ARENA_Y1+0.12} 1.0"
+      pos="{ARENA_X1/2+0.05} {ARENA_Y1/2+0.12} 1.0"
       size="0.05 0.01 1.0"
       rgba="1 1 1 0.1" contype="1" conaffinity="1"/>
       
-    <!-- transporting area X-walls-->
+    <!-- transporting area X-walls -->
     <geom name="transporting_wall_x1" type="box"
-      pos="-0.01 {ARENA_Y1+0.07} 1.0"
+      pos="{ARENA_X1/2-0.01} {ARENA_Y1/2+0.07} 1.0"
       size="0.01 0.05 1.0"
       rgba="1 1 1 0.1" contype="1" conaffinity="1"/>
       
     <geom name="transporting_wall_x2" type="box"
-      pos="0.11 {ARENA_Y1+0.07} 1.0"
+      pos="{ARENA_X1/2+0.11} {ARENA_Y1/2+0.07} 1.0"
       size="0.01 0.05 1.0"
       rgba="1 1 1 0.1" contype="1" conaffinity="1"/>
       
     <!-- X-walls: left and right sides -->
     <geom name="Wall_X1" type="box"
-      pos="-0.01 {ARENA_Y1/2} 0.15"
+      pos="{-ARENA_X1/2-0.01} 0 0.15"
       size="0.01 {ARENA_Y1/2} 0.15"
       rgba="1 1 1 0.1" contype="1" conaffinity="1"
       friction="0.45 0.01 0.003"/>
 
     <geom name="Wall_X2" type="box"
-      pos="{ARENA_X1+0.01} {ARENA_Y1/2} 0.15"
+      pos="{ARENA_X1/2+0.01} 0 0.15"
       size="0.01 {ARENA_Y1/2} 0.15"
       rgba="1 1 1 0.1" contype="1" conaffinity="1"
       friction="0.45 0.01 0.003"/>
 
     <!-- Y-walls: bottom and top -->
     <geom name="Wall_Y1" type="box"
-      pos="{ARENA_X1/2} -0.01 0.15"
+      pos="0 {-ARENA_Y1/2-0.01} 0.15"
       size="{ARENA_X1/2} 0.01 0.15"
       rgba="1 1 1 0.1" contype="1" conaffinity="1"
       friction="0.45 0.01 0.003"/>
 
     <geom name="Wall_Y2" type="box"
-      pos="{ARENA_X1/2} {ARENA_Y1+0.01} 0.15"
+      pos="0 {ARENA_Y1/2+0.01} 0.15"
       size="{ARENA_X1/2} 0.01 0.15"
       rgba="1 1 1 0.1" contype="1" conaffinity="1"
       friction="0.45 0.01 0.003"/>
-    
-     <!-- robot -->
+      
+    <!-- robot -->
     <body name="base" pos="{robot_qpos}" euler="0 0 3.141592653589793">
       <joint type="free" name="base_joint"/>
       <!-- chassis -->
@@ -454,15 +444,23 @@ def build_xml(robot_qpos, boxes, stl_model_path,extra_xml,Z_BOX, box_size, ARENA
 """
     return header + box_xml + extra_xml +adjust_pillar_plane+ footer
 
-def clearance_poly_generator(ARENA_X, ARENA_Y):
-    """ Returns a polygon within which all items must be placed, with a clearance"""
+def clearance_poly_generator(ARENA_X, ARENA_Y,
+                             wall_clearance=0.1,
+                             corner_clearance=0.2,
+                             receptacle_clearance=0.4):
 
-    return [
-            (0.300, 0.600), (0.615, 0.600), (0.615, 0.300),
-            (ARENA_X[1]-0.6, 0.300), (ARENA_X[1]-0.6, 0.600), (ARENA_X[1]-0.3, 0.600),
-            (ARENA_X[1]-0.3, ARENA_Y[1]-0.6), (ARENA_X[1]-0.6, ARENA_Y[1]-0.6), (ARENA_X[1]-0.6, ARENA_Y[1]-0.345),
-            (0.615, ARENA_Y[1]-0.3), (0.615, ARENA_Y[1]-0.6), (0.300, ARENA_Y[1]-0.6)
-        ]
+    # Compute the inset rectangle bounds (straight‐wall clearance)
+    x_min = -ARENA_X[1]/2 + wall_clearance
+    x_max =  ARENA_X[1]/2 - wall_clearance
+    y_min = -ARENA_Y[1]/2 + wall_clearance
+    y_max =  ARENA_Y[1]/2 - wall_clearance
+
+    receptacle_clearance= receptacle_clearance+wall_clearance
+
+    return [(x_min, y_min+corner_clearance), (x_min+corner_clearance,y_min+corner_clearance), (x_min+corner_clearance,y_min),
+            (x_max-receptacle_clearance,y_min), (x_max-receptacle_clearance,y_min+receptacle_clearance), (x_max,y_min+receptacle_clearance),
+            (x_max,y_max-corner_clearance), (x_max-corner_clearance,y_max-corner_clearance), (x_max-corner_clearance,y_max),
+            (x_min+corner_clearance,y_max), (x_min+corner_clearance,y_max-corner_clearance), (x_min,y_max-corner_clearance)]
 
 def generate_boxDelivery_xml(N,env_type,file_name,ROBOT_clear,CLEAR,Z_BOX,ARENA_X,ARENA_Y,
                   box_half_size, goal_half, goal_center,num_pillars, pillar_half, adjust_num_pillars,sim_timestep):
@@ -495,12 +493,13 @@ def generate_waypoint_sites(num_sites=50):
     return "\n".join([site_template.format(i) for i in range(num_sites)])
 
 
-def transporting(model, data, joint_id_boxes, ARENA_X1, ARENA_Y1, goal_half, goal_center, box_half_size):
+def transport_box_from_recept(model, data, joint_id_boxes, ARENA_X1, ARENA_Y1, goal_half, goal_center, box_half_size):
     """Teleport a box only if all its vertices are inside the goal box."""
     
     initial_len = len(joint_id_boxes)
     # half-edge of box
     HSIZE = box_half_size
+    box_radius = box_half_size * np.sqrt(2)
     # local corner coordinates
     corners_local_coordinates = np.array([
         [-HSIZE, -HSIZE],
@@ -509,10 +508,8 @@ def transporting(model, data, joint_id_boxes, ARENA_X1, ARENA_Y1, goal_half, goa
         [-HSIZE,  HSIZE]
     ])
     
-    goal_center=[(ARENA_X1/2)+goal_center[0], (ARENA_Y1/2)+ goal_center[1]]
-
     GOAL_HALF   = np.array([goal_half, goal_half])
-    DROP_POS    = np.array([0.05, ARENA_Y1+0.07, 1.0])
+    DROP_POS    = np.array([ARENA_X1/2+0.05, ARENA_Y1/2+0.07, 1.0])
     
     xmin, xmax = goal_center[0] - GOAL_HALF[0], goal_center[0] + GOAL_HALF[0]
     ymin, ymax = goal_center[1] - GOAL_HALF[1], goal_center[1] + GOAL_HALF[1]
@@ -522,14 +519,20 @@ def transporting(model, data, joint_id_boxes, ARENA_X1, ARENA_Y1, goal_half, goa
         qadr = model.jnt_qposadr[jid]
 
         # joint centre (x,y) and quaternion
-        centre_xy = data.qpos[qadr : qadr+2]
+        centre_xy = data.qpos[qadr : qadr+2].copy()
         qw, qx, qy, qz = data.qpos[qadr+3 : qadr+7]
+
+        # Sometimes the box gets squished against the wall
+        if np.abs(centre_xy[0]) + box_radius > ARENA_X1/2:
+            centre_xy[0] = np.sign(centre_xy[0]) * (ARENA_X1/2 - box_radius)
+        if np.abs(centre_xy[1]) + box_radius > ARENA_Y1/2:
+            centre_xy[1] = np.sign(centre_xy[1]) * (ARENA_Y1/2 - box_radius)
 
         # yaw from quaternion
         yaw = quat_z_yaw(qw, qx, qy, qz)
 
         # world vertices
-        verts = corners_xy(centre_xy, yaw,corners_local_coordinates)
+        verts = corners_xy(centre_xy, yaw, corners_local_coordinates)
 
         # containment test – every vertex must satisfy the four inequalities
         inside = np.all((xmin <= verts[:,0]) & (verts[:,0] <= xmax) &

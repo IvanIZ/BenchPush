@@ -67,14 +67,14 @@ class ShipIceMujoco(MujocoEnv, utils.EzPickle):
         xml_file = os.path.join(self.current_dir, 'asv_ice_planar_random.xml')
 
         # build xml file
-        self.num_floes, self.ice_dict = generate_shipice_xml(self.cfg.concentration, xml_file, self.cfg.sim.timestep_sim, 
+        #self.num_floes, self.ice_dict = generate_shipice_xml(self.cfg.concentration, xml_file, self.cfg.sim.timestep_sim, 
+        #    self.cfg.environment.channel_len, self.cfg.environment.channel_wid, 
+        #    self.cfg.environment.icefield_len, self.cfg.environment.icefield_wid, 
+        #    load_cached=False, trial_idx=0)
+        self.num_floes, self.ice_dict = load_ice_field(self.cfg.concentration, xml_file, self.cfg.sim.timestep_sim, 
             self.cfg.environment.channel_len, self.cfg.environment.channel_wid, 
             self.cfg.environment.icefield_len, self.cfg.environment.icefield_wid, 
-            load_cached=False, trial_idx=0)
-        # self.num_floes, self.ice_dict = load_ice_field(self.cfg.concentration, xml_file, self.cfg.sim.timestep_sim, 
-        #     self.cfg.environment.channel_len, self.cfg.environment.channel_wid, 
-        #     self.cfg.environment.icefield_len, self.cfg.environment.icefield_wid, 
-        #     load_cached=True, trial_idx=0)
+            load_cached=True, trial_idx=0)
 
         self.phase = 0.0
 
@@ -110,6 +110,7 @@ class ShipIceMujoco(MujocoEnv, utils.EzPickle):
         self.max_yaw_rate_step = (np.pi/2) / 7        # rad/sec
 
         self.observation_space = Box(low=0, high=255, shape=(100, 100), dtype=np.uint8)
+        self.wave_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_HFIELD, "wave_field")
 
 
     def step(self, action):
@@ -144,6 +145,7 @@ class ShipIceMujoco(MujocoEnv, utils.EzPickle):
         Step over the MuJoCo simulation.
         """
         self.phase += 0.2 * self.cfg.sim.timestep_sim
+        total_time = self.phase * self.cfg.sim.timestep_sim
         self.data.ctrl[:] = ctrl
 
         # drag and wave force (ship)
