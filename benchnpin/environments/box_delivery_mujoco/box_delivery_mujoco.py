@@ -245,8 +245,10 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
 
         self.tries_before_inactive = self.cfg.train.tries_before_inactive
 
-        #Placing inactive pillars
+        # pillar clearance
+        self.pillar_clearance=0.3
 
+        # placing inactive pillars
         # height of the plane to be placed at
         self.STANDBY_Z   = 9.7
         # extra clearance between parked pillars
@@ -333,7 +335,6 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
         # pillars
         active, parked, self.initialization_keepouts = self._sample_pillar_centres()
         self.observation_init= False
-        print(self.clearance_poly)
         
         # place every pillar (active + parked)
         for k, (cx, cy) in enumerate(active):
@@ -398,6 +399,7 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
         # Set robot pose
         base_qpos_addr = self.model.jnt_qposadr[self.base_joint_id]
         self.data.qpos[base_qpos_addr:base_qpos_addr+3] = [x, y, 0.01]  # x, y, z
+        #self.data.qpos[base_qpos_addr:base_qpos_addr+3] = [x, y, 0.02]  # x, y, z
         self.data.qpos[base_qpos_addr+3:base_qpos_addr+7] = quat_z(theta)
 
         self.data.qvel[base_qpos_addr:base_qpos_addr+6] = 0
@@ -419,11 +421,11 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
                 theta = np.random.uniform(-np.pi, np.pi)
                 if is_valid((x, y, theta), box_r):
                     positions.append(((x, y, theta), box_r))
-                    print(f"Box {i} position: {x}, {y}, {theta}")
                     break
             
             qadr = self.model.jnt_qposadr[self.joint_id_boxes[i]]
             self.data.qpos[qadr:qadr+2] = np.array([x, y])
+            # self.data.qpos[qadr:qadr+3] = np.array([x, y,0.05])  # x, y, z
             self.data.qpos[qadr+3:qadr+7] = quat_z(theta)
             self.data.qvel[qadr:qadr+6] = 0
 
@@ -950,7 +952,6 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
         # penalty for hitting obstacles
         if self.robot_hit_obstacle:
             robot_reward -= self.collision_penalty
-            
         
         # penalty for small movements
         if self._step_dx < NONMOVEMENT_DIST_THRESHOLD and \
@@ -959,20 +960,19 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
             robot_reward -= self.non_movement_penalty
         
         # self.robot_cumulative_reward += robot_reward
-
-        """
-        # work
-        updated_boxes = CostMap.get_obs_from_poly(self.boxes)
-        work = total_work_done(self.prev_boxes, updated_boxes)
-        self.total_work[0] += work
-        self.total_work[1].append(work)
-        self.prev_boxes = updated_boxes"""
         return robot_reward
 
     def _sample_pillar_centres(self):
         """
         Sample non-overlapping (cx, cy) pairs for every pillar and the matching keep-outs.
         """
+
+        def boxes_overlap(cx, cy, px, py):
+            """Axis-aligned overlap test with clearance."""
+            return (
+                abs(cx - px) < (2 * hx + self.pillar_clearance) and
+                abs(cy - py) < (2 * hy + self.pillar_clearance)
+            )
 
         # “small_empty” scene
         if self.num_pillars is None or self.pillar_half is None:
@@ -1001,6 +1001,7 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
 
             if not all(inside_poly(x, y, self.clearance_poly) for x, y in corners):
                 continue
+            # if any(boxes_overlap(cx, cy, px, py) for px, py in active_centres):
             if any(np.hypot(cx-px, cy-py) < 2*hx + 0.30 for px, py in active_centres):
                 continue
 
