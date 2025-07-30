@@ -371,15 +371,15 @@ class AreaClearingSAM(BasePolicy):
     def evaluate(self, num_eps: int, model_eps: str ='latest'):
         
         # # create environment
-        # if self.cfg is not None:
-        #     # env = gym.make('area-clearing-v0', cfg=self.cfg)
-        #     env = gym.make('area-clearing-mujoco-v0', cfg=self.cfg)
+        if self.cfg is not None:
+            env = gym.make('area-clearing-v0', cfg=self.cfg)
+            # env = gym.make('area-clearing-mujoco-v0', cfg=self.cfg)
 
-        #     # env = gym.make('area-clearing-v0')
-        # else:
-        #     env = gym.make('area-clearing-v0')
+            # env = gym.make('area-clearing-v0')
+        else:
+            env = gym.make('area-clearing-v0')
         
-        env = gym.make('area-clearing-mujoco-v0', render_mode='human')
+        # env = gym.make('area-clearing-mujoco-v0', render_mode='human')
         env = env.unwrapped
 
         # env.configure_env_for_SAM()
