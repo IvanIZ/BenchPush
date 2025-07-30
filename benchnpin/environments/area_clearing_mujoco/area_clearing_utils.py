@@ -12,7 +12,7 @@ import random
 
 from benchnpin.common.utils.mujoco_utils import inside_poly, quat_z, quat_z_yaw, corners_xy
 
-def precompute_static_vertices(keep_out, room_width, room_length, wall_clearence_outer, wall_clearence_inner, env_type):
+def precompute_static_vertices(keep_out, wall_thickness, room_width, room_length, wall_clearence_outer, wall_clearence_inner, env_type):
     """
     Gives list of static vertices that do not change during the simulation
     """
@@ -20,7 +20,7 @@ def precompute_static_vertices(keep_out, room_width, room_length, wall_clearence
     half_w, half_l = room_width / 2, room_length / 2
 
     # OUTER WALLS  (thickness = 0.25, exactly what build_xml creates)
-    t = 0.25                   # wall thickness  (half-size in build_xml)
+    t = wall_thickness                   # wall thickness  (half-size in build_xml)
     c = wall_clearence_outer   # clearance beyond arena edge
 
     X0 = -half_w - c - t       # left   face x
@@ -28,7 +28,7 @@ def precompute_static_vertices(keep_out, room_width, room_length, wall_clearence
     Y0 = -half_l - c - t       # bottom face y
     Y1 = +half_l + c + t       # top    face y
 
-    Wall_vertices = [
+    wall_vertices = [
         ["Wall_left",   [(X0,     Y0), (X0+t,  Y0), (X0+t,  Y1), (X0,     Y1)]],
         ["Wall_right",  [(X1-t,   Y0), (X1,    Y0), (X1,    Y1), (X1-t,   Y1)]],
         ["Wall_bottom", [(-half_w-c, Y0), (+half_w+c, Y0), (+half_w+c, Y0+t), (-half_w-c, Y0+t)]],
@@ -36,7 +36,7 @@ def precompute_static_vertices(keep_out, room_width, room_length, wall_clearence
     ]
 
     # THIN SIDE-WALLS (present only in partially-closed envs)
-    Side_vertices = []
+    side_vertices = []
     if env_type in ("Partially_closed_with_walls", "Partially_closed_with_static"):
         thickness = 0.01                   # half-size in build_xml
         extra_len = 0.1 if env_type == "Partially_closed_with_walls" else 0.0
@@ -44,7 +44,7 @@ def precompute_static_vertices(keep_out, room_width, room_length, wall_clearence
 
         # left thin wall  (negative x)
         cx = -wall_clearence_inner
-        Side_vertices.append(
+        side_vertices.append(
             ["Side_left",
              [(cx-thickness, -half_span),
               (cx+thickness, -half_span),
@@ -53,7 +53,7 @@ def precompute_static_vertices(keep_out, room_width, room_length, wall_clearence
         )
         # right thin wall (positive x)
         cx = room_width + wall_clearence_inner
-        Side_vertices.append(
+        side_vertices.append(
             ["Side_right",
              [(cx-thickness, -half_span),
               (cx+thickness, -half_span),
@@ -68,20 +68,19 @@ def precompute_static_vertices(keep_out, room_width, room_length, wall_clearence
     def columns_from_keepout(keep_out):
         out = []
         for k, poly in enumerate(keep_out):
-            shifted = [(x - room_width/2, y - room_length/2) for x, y in poly]
+            shifted = [(x, y) for x, y in poly]
             out.append([f"Column_{k}", shifted])
         return out
 
-    return Wall_vertices, columns_from_keepout(keep_out), Side_vertices
+    return wall_vertices, columns_from_keepout(keep_out), side_vertices
 
-def dynamic_vertices(model, data, qpos_idx_robot: int, joint_ids_boxes: list[int], robot_full, box_half, room_length, room_width):
+def dynamic_vertices(model, data, qpos_idx_robot: int, joint_ids_boxes: list[int], robot_full, box_half):
     """
     Returns the vertices of the robot and boxes in the world frame.
     """
 
     # robot vertices
     cx, cy = data.qpos[qpos_idx_robot:qpos_idx_robot+2]
-    cx, cy = cx-(room_width/2), cy-(room_length/2)
     qw, qx, qy, qz = data.qpos[qpos_idx_robot+3:qpos_idx_robot+7]
     yaw  = quat_z_yaw(qw, qx, qy, qz)
 
@@ -102,7 +101,6 @@ def dynamic_vertices(model, data, qpos_idx_robot: int, joint_ids_boxes: list[int
     for jid in joint_ids_boxes:
         adr   = model.jnt_qposadr[jid]
         bx, by = data.qpos[adr:adr+2]
-        bx, by = bx-(room_width/2), by-(room_length/2)
         qw, qx, qy, qz = data.qpos[adr+3:adr+7]
         yaw  = quat_z_yaw(qw, qx, qy, qz)
         verts = corners_xy(np.array([bx, by]), yaw, local_box).tolist()
@@ -162,7 +160,7 @@ def changing_per_configuration(env_type: str,
     # Partially_closed_with_walls
     if env_type == "Partially_closed_with_static":
 
-      cx = ARENA_X[1] / 2.0
+      cx = 0  # Centered around (0, 0)
 
       # lower and upper Y bounds
       y_min = internal_clearance_length + pillar_half[1] / 2.0
@@ -237,34 +235,31 @@ def sample_scene(n_boxes, keep_out, ROBOT_R, BOXES_clear, ARENA_X, ARENA_Y, inte
     return robot_qpos, boxes
 
 
-def build_xml(robot_qpos, boxes, stl_model_path,extra_xml,Z_BOX, box_size, ARENA_X1, ARENA_Y1, env_type, wall_clearence_outer, wall_clearence_inner, robot_rgb):
+def build_xml(robot_qpos, boxes, stl_model_path, extra_xml, Z_BOX, box_size, ARENA_X1, ARENA_Y1, env_type, wall_clearence_outer, wall_clearence_inner, robot_rgb):
     """Building data for a different file"""
 
     if env_type == "Partially_closed_with_walls" or env_type == "Partially_closed_with_static": 
-      
-      extra=0.0
+        extra = 0.0
+        if env_type == "Partially_closed_with_walls":
+            extra = 0.1
 
-      if env_type == "Partially_closed_with_walls":
-
-        extra=0.1
-
-      side_walls_code= f"""
+        side_walls_code = f"""
     <!-- X-walls: left and right sides -->
     <geom name="wall_X1" type="box"
-      pos="{-wall_clearence_inner} {ARENA_Y1/2} 0.15"
-      size="0.01 {ARENA_Y1/2+extra/2} 0.15"
+      pos="{-ARENA_X1/2 - wall_clearence_inner} {ARENA_Y1/2} 0.15"
+      size="0.01 {ARENA_Y1 / 2 + extra / 2} 0.15"
       rgba="0 0 0 1.0" contype="1" conaffinity="1"
       friction="0.45 0.01 0.003"/>
 
     <geom name="wall_X2" type="box"
-      pos="{ARENA_X1+wall_clearence_inner} {ARENA_Y1/2+0} 0.15"
-      size="0.01 {ARENA_Y1/2+extra/2} 0.15"
+      pos="{ARENA_X1/2 + wall_clearence_inner} {ARENA_Y1/2} 0.15"
+      size="0.01 {ARENA_Y1 / 2 + extra / 2} 0.15"
       rgba="0 0 0 1.0" contype="1" conaffinity="1"
       friction="0.45 0.01 0.003"/>
 """
     else:
-      side_walls_code = ""
-    
+        side_walls_code = ""
+
     header = f"""
 <mujoco model="box_delivery_structured_env">
   <compiler angle="radian" autolimits="true" meshdir="{stl_model_path}" inertiafromgeom="true"/>
@@ -277,7 +272,7 @@ def build_xml(robot_qpos, boxes, stl_model_path,extra_xml,Z_BOX, box_size, ARENA
   </default>
 
   <asset>
-
+    
     <material name="blue_mat" rgba="0.4 0.3 0.2 1"/>
 
     <mesh name="corner_full" file="corner_full.stl" scale="0.001 0.001 0.001"/>
@@ -296,47 +291,46 @@ def build_xml(robot_qpos, boxes, stl_model_path,extra_xml,Z_BOX, box_size, ARENA
   <worldbody>
   
     <!-- Floor -->
-    <body pos="{ARENA_X1/2} {ARENA_Y1/2} 0">
-      <geom name="floor" type="box" size="{ARENA_X1/2+wall_clearence_outer+0.25} {ARENA_Y1/2+wall_clearence_outer+0.25} 0.01" friction="0.5 0.05 0.0001" contype="1" conaffinity="1"/>
+    <body pos="0 0 0">
+      <geom name="floor" type="box" size="{ARENA_X1 / 2 + wall_clearence_outer + 0.25} {ARENA_Y1 / 2 + wall_clearence_outer + 0.25} 0.01" friction="0.5 0.05 0.0001" contype="1" conaffinity="1"/>
     </body>
     
     <!-- Marked area -->
-
     <site name="clearance_outline" 
-      pos="{ARENA_X1/2} {ARENA_Y1/2} 0.001" 
+      pos="0 0 0.001" 
       type="box"
-      size="{ARENA_X1/2} {ARENA_Y1/2} 0.01" 
+      size="{ARENA_X1 / 2} {ARENA_Y1 / 2} 0.01" 
       rgba="0 1 0 1"/>
 
     <site name="clearance_outline_2" 
-      pos="{ARENA_X1/2} {ARENA_Y1/2} 0.001" 
+      pos="0 0 0.001" 
       type="box"
-      size="{ARENA_X1/2-0.02} {ARENA_Y1/2-0.02} 0.012" 
+      size="{ARENA_X1 / 2 - 0.02} {ARENA_Y1 / 2 - 0.02} 0.012" 
       rgba="1 1 1 1"/>
       
     <!-- X-walls: left and right sides -->
     <geom name="Wall_X1" type="box"
-      pos="{-wall_clearence_outer-0.125} {ARENA_Y1/2} 0.15"
-      size="0.125 {ARENA_Y1/2+wall_clearence_outer+0.25} 0.15"
+      pos="{-ARENA_X1/2 - wall_clearence_outer - 0.125} 0 0.15"
+      size="0.125 {ARENA_Y1 / 2 + wall_clearence_outer + 0.25} 0.15"
       rgba="0.2 0.2 0.2 0.6" contype="1" conaffinity="1"
       friction="0.45 0.01 0.003"/>
 
     <geom name="Wall_X2" type="box"
-      pos="{ARENA_X1+wall_clearence_outer+0.125} {ARENA_Y1/2} 0.15"
-      size="0.125 {ARENA_Y1/2+wall_clearence_outer+0.25} 0.15"
+      pos="{ARENA_X1/2 + wall_clearence_outer + 0.125} 0 0.15"
+      size="0.125 {ARENA_Y1 / 2 + wall_clearence_outer + 0.25} 0.15"
       rgba="0.2 0.2 0.2 0.6" contype="1" conaffinity="1"
       friction="0.45 0.01 0.003"/>
 
     <!-- Y-walls: bottom and top -->
     <geom name="Wall_Y1" type="box"
-      pos="{ARENA_X1/2} {-wall_clearence_outer-0.125} 0.15"
-      size="{ARENA_X1/2+wall_clearence_outer} 0.125 0.15"
+      pos="0 {-ARENA_X1/2 - wall_clearence_outer - 0.125} 0.15"
+      size="{ARENA_X1 / 2 + wall_clearence_outer} 0.125 0.15"
       rgba="0.2 0.2 0.2 0.6" contype="1" conaffinity="1"
       friction="0.45 0.01 0.003"/>
 
     <geom name="Wall_Y2" type="box"
-      pos="{ARENA_X1/2} {ARENA_Y1+wall_clearence_outer+0.125} 0.15"
-      size="{ARENA_X1/2+wall_clearence_outer} 0.125 0.15"
+      pos="0 {ARENA_Y1/2 + wall_clearence_outer + 0.125} 0.15"
+      size="{ARENA_X1 / 2 + wall_clearence_outer} 0.125 0.15"
       rgba="0.2 0.2 0.2 0.6" contype="1" conaffinity="1"
       friction="0.45 0.01 0.003"/>
     
@@ -380,7 +374,7 @@ def build_xml(robot_qpos, boxes, stl_model_path,extra_xml,Z_BOX, box_size, ARENA
             quat="{qw:.6f} {qx:.6f} {qy:.6f} {qz:.6f}" friction="0.4 0.015 0.002" contype="1" conaffinity="1"/>
     </body>"""
 
-        
+
     #Data to be written for footers
     footer = f"""
   </worldbody>
@@ -392,30 +386,30 @@ def build_xml(robot_qpos, boxes, stl_model_path,extra_xml,Z_BOX, box_size, ARENA
   </actuator>
 </mujoco>
 """
-    return header + box_xml + extra_xml + side_walls_code+ footer
+    return header + box_xml + extra_xml + side_walls_code + footer
 
 
-def generate_boxDelivery_xml(N,env_type,file_name,ROBOT_clear,BOXES_clear,Z_BOX,ARENA_X,ARENA_Y,
-                  box_half_size,num_pillars, pillar_half, wall_clearence_outer, wall_clearence_inner, internal_clearance_length):
+def generate_area_clearing_xml(N, env_type, file_name, ROBOT_clear, BOXES_clear, Z_BOX, ARENA_X, ARENA_Y,
+                  box_half_size, num_pillars, pillar_half, wall_clearence_outer, wall_clearence_inner, internal_clearance_length):
     
     # Name of input and output file otherwise set to default
     XML_OUT = Path(file_name)
     stl_model_path = os.path.join(os.path.dirname(__file__), 'models/')
     
     # Changing based on configration type
-    extra_xml, keep_out = changing_per_configuration(env_type, ARENA_X,ARENA_Y, num_pillars, pillar_half, internal_clearance_length)
+    extra_xml, keep_out = changing_per_configuration(env_type, ARENA_X, ARENA_Y, num_pillars, pillar_half, internal_clearance_length)
 
     # Finding the robot's q_pos and boxes's randomized data
-    robot_qpos, boxes = sample_scene(N,keep_out,ROBOT_clear,BOXES_clear,ARENA_X,ARENA_Y, internal_clearance_length)
+    robot_qpos, boxes = sample_scene(N, keep_out, ROBOT_clear, BOXES_clear, ARENA_X, ARENA_Y, internal_clearance_length)
   
     # Building new environemnt and writing it down
-    xml_string = build_xml(robot_qpos, boxes,stl_model_path,extra_xml,Z_BOX,box_half_size,ARENA_X[1],ARENA_Y[1],env_type, wall_clearence_outer, wall_clearence_inner, robot_rgb=(0.1, 0.1, 0.1))
+    xml_string = build_xml(robot_qpos, boxes, stl_model_path, extra_xml, Z_BOX, box_half_size, ARENA_X[1], ARENA_Y[1], env_type, wall_clearence_outer, wall_clearence_inner, robot_rgb=(0.1, 0.1, 0.1))
     XML_OUT.write_text(xml_string)
     
     return XML_OUT, keep_out
 
 
-def transporting(model, data, joint_id_boxes, ARENA_X1, ARENA_Y1,completed_boxes_id, goal_half, goal_center, box_half_size):
+def transport_box_from_recept(model, data, joint_id_boxes, ARENA_X1, ARENA_Y1, completed_boxes_id, goal_half, goal_center, box_half_size):
     """Teleport a box only if all its vertices are inside the goal box."""
     
     completed_boxes_id_new=[]
@@ -428,8 +422,6 @@ def transporting(model, data, joint_id_boxes, ARENA_X1, ARENA_Y1,completed_boxes
         [ HSIZE,  HSIZE],
         [-HSIZE,  HSIZE]
     ])
-    
-    goal_center=[(ARENA_X1/2)+goal_center[0], (ARENA_Y1/2)+ goal_center[1]]
     
     xmin, xmax = goal_center[0] - goal_half[0], goal_center[0] + goal_half[0]
     ymin, ymax = goal_center[1] - goal_half[1], goal_center[1] + goal_half[1]
