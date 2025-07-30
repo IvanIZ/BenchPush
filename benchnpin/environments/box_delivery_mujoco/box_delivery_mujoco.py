@@ -244,6 +244,15 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
         self.path = None
 
         self.tries_before_inactive = self.cfg.train.tries_before_inactive
+
+        #Placing inactive pillars
+
+        # height of the plane to be placed at
+        self.STANDBY_Z   = 9.7
+        # extra clearance between parked pillars
+        self.STANDBY_GAP = 0.20
+        # extra clearance between parked pillars and the wall
+        self.X_clearance = 0.3
         
         if self.cfg.render.show_obs or self.cfg.render.show:
             # show state
@@ -322,14 +331,12 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
         positions = []
 
         # pillars
-        active, parked, keep_outs = self._sample_pillar_centres()
-        self.initialization_keepouts = keep_outs
+        active, parked, self.initialization_keepouts = self._sample_pillar_centres()
         self.observation_init= False
         print(self.clearance_poly)
         
         # place every pillar (active + parked)
-        all_centres = active + parked
-        for k, (cx, cy) in enumerate(all_centres):
+        for k, (cx, cy) in enumerate(active):
             prefix = "small_col" if "small" in self.cfg.env.obstacle_config else "large_col"
             name   = f"{prefix}{k}"
 
@@ -339,6 +346,19 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
 
             adr = self.model.jnt_qposadr[j_id]
             self.data.qpos[adr:adr+3]   = [cx, cy, self.pillar_half[2]]
+            self.data.qpos[adr+3:adr+7] = [1, 0, 0, 0]
+            self.data.qvel[adr:adr+6]   = 0
+
+        for k, (cx, cy) in enumerate(parked):
+            prefix = "small_col" if "small" in self.cfg.env.obstacle_config else "large_col"
+            name   = f"{prefix}{k}"
+
+            j_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_JOINT, f"{name}_joint")
+            if j_id == -1:
+                continue
+
+            adr = self.model.jnt_qposadr[j_id]
+            self.data.qpos[adr:adr+3]   = [cx, cy, -self.STANDBY_Z]
             self.data.qpos[adr+3:adr+7] = [1, 0, 0, 0]
             self.data.qvel[adr:adr+6]   = 0
 
@@ -908,9 +928,6 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
     # Reward functions
 
     def _get_rew(self):
-        
-        # NONMOVEMENT_DIST_THRESHOLD = 0.05
-        # NONMOVEMENT_TURN_THRESHOLD = np.radians(0.05)
 
         robot_reward = 0
         non_movement_penalty=False
@@ -957,18 +974,6 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
         Sample non-overlapping (cx, cy) pairs for every pillar and the matching keep-outs.
         """
 
-        if self.pillar_half:
-            # matches the XML “pillar plane”
-            STANDBY_X      = -0.40
-            # same height as normal pillars
-            STANDBY_Z      = self.pillar_half[2]
-            HX, HY, _      = self.pillar_half
-            # extra clearance between parked pillars
-            STANDBY_GAP    = 0.20
-            # centre-to-centre spacing
-            STANDBY_STEP   = 2*HX + STANDBY_GAP
-            Y_little_extra = 0.20
-
         # “small_empty” scene
         if self.num_pillars is None or self.pillar_half is None:
             return [], [], []
@@ -986,8 +991,8 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
         tries = 0
         while len(active_centres) < n_active and tries < 50_000:
             tries += 1
-            cx = rng.uniform(0.60, self.room_length - 0.60)
-            cy = rng.uniform(0.60, self.room_width - 0.60)
+            cx = rng.uniform(-self.room_length/2+0.3, self.room_length/2 - 0.30)
+            cy = rng.uniform(-self.room_width/2+0.3, self.room_width/2-0.3)
 
             # pillar corners for clearance checks
             hx, hy, _ = self.pillar_half
@@ -1001,9 +1006,13 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
 
             active_centres.append((cx, cy))
 
+        HX, HY, _      = self.pillar_half
+        STANDBY_Y      = - self.room_width / 2 - HY - 0.1
+        STANDBY_STEP   = 2*self.pillar_half[2] + self.STANDBY_GAP
+
         # parked (inactive) pillars – laid out in a neat row on the stand-by plane
         parked_centres = [
-            (STANDBY_X, Y_little_extra+ k * STANDBY_STEP)
+            (-self.room_length/2+self.X_clearance+ k * STANDBY_STEP, -STANDBY_Y)
             for k in range(self.num_pillars - n_active)
         ]
 

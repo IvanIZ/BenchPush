@@ -38,7 +38,7 @@ def precompute_static_vertices(keep_out, wall_thickness, room_length, room_width
     def columns_from_keepout(keep_out):
         out = []
         for k, poly in enumerate(keep_out):
-            shifted = [(x - half_length, y - half_width) for x, y in poly]
+            shifted = [(x, y) for x, y in poly]
             out.append([f"Column_{k}", shifted])
         return out
     
@@ -164,8 +164,8 @@ def changing_per_configuration(env_type: str, clearance_poly,
         
         # This range is picked on clearance for robot and walls. Chosen the
         # lowest value
-        cx = rng.uniform(0.600, ARENA_X[1]-0.600)
-        cy = rng.uniform(0.600, ARENA_Y[1]-0.600)
+        cx = rng.uniform(-ARENA_X[1]/2+0.315, ARENA_X[1]/2+0.315)
+        cy = rng.uniform(-ARENA_Y[1]/2+0.315, ARENA_Y[1]/2+0.315)
 
         # test the 4 pillar corners
         corners = [(cx-half[0], cy-half[1]),
@@ -203,15 +203,6 @@ def changing_per_configuration(env_type: str, clearance_poly,
             xml, poly = pillar(f"large_col{k}", cx, cy, half)
             extra_xml += xml
             keep_out.append(poly)
-
-    # large_divider (one long wall)
-    # NEED TO CONFIRM
-    elif env_type == "large_divider":
-        cx, cy = 0.975, 1.655
-        half   = (0.55, 0.05, 0.30)
-        xml, poly = pillar("divider", cx, cy, half)
-        extra_xml += xml
-        keep_out.append(poly)
 
     # small_empty
     elif env_type == "small_empty":
@@ -326,6 +317,11 @@ def build_xml(robot_qpos, boxes, stl_model_path, extra_xml, Z_BOX, box_size, ARE
     <!-- Corner 3 -->
     <body name="corner_3" pos="{-ARENA_X1/2} {ARENA_Y1/2} -0.01" quat="1 0 0 0">
       <geom name="corner_3" type="mesh" mesh="corner_full" rgba="0.0 0.3 1.0 1.0" contype="1" conaffinity="1"/>
+    </body>
+
+    <!-- Pillars kept -->
+    <body pos="0 {ARENA_Y1/2+0.5} -10">
+      <geom name="pillars_kept" type="box" size="{ARENA_X1/2} 0.5 0.01" friction="0.5 0.05 0.0001" contype="1" conaffinity="1"/>
     </body>
         
     <!-- Marked area -->
