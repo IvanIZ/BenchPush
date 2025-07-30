@@ -93,12 +93,11 @@ class AreaClearingMujocoPPO(BasePolicy):
             eps_reward = 0.0
             while True:
                 action, _ = self.model.predict(state)
-                print("Action: ", action)
                 state, reward, done, truncated, info = env.step(action)
                 # metric.update(info=info, reward=reward, eps_complete=(done or truncated))
 
                 eps_reward += reward
-                env.render()
+                # env.render()
                 if done or truncated:
                     rewards_list.append(eps_reward)
                     break
