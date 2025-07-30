@@ -262,9 +262,9 @@ def build_xml(robot_qpos, boxes, stl_model_path, extra_xml, Z_BOX, box_size, ARE
 
     if adjust_num_pillars is True:
         adjust_pillar_plane = f"""
-    <!-- Pillar plane -->
-    <body pos="-0.4 0 0">
-      <geom type="box" size="0.4 {ARENA_Y1/2} 0.01" friction="0.5 0.05 0.0001"/>
+    <!-- Pillars kept -->
+    <body pos="0 {ARENA_Y1/2+0.5} -10">
+      <geom name="pillars_kept" type="box" size="{ARENA_X1/2} 0.5 0.01" friction="0.5 0.05 0.0001" contype="1" conaffinity="1"/>
     </body>
 """
     else:
@@ -317,11 +317,6 @@ def build_xml(robot_qpos, boxes, stl_model_path, extra_xml, Z_BOX, box_size, ARE
     <!-- Corner 3 -->
     <body name="corner_3" pos="{-ARENA_X1/2} {ARENA_Y1/2} -0.01" quat="1 0 0 0">
       <geom name="corner_3" type="mesh" mesh="corner_full" rgba="0.0 0.3 1.0 1.0" contype="1" conaffinity="1"/>
-    </body>
-
-    <!-- Pillars kept -->
-    <body pos="0 {ARENA_Y1/2+0.5} -10">
-      <geom name="pillars_kept" type="box" size="{ARENA_X1/2} 0.5 0.01" friction="0.5 0.05 0.0001" contype="1" conaffinity="1"/>
     </body>
         
     <!-- Marked area -->
