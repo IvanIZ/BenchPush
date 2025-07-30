@@ -143,7 +143,7 @@ class DenseActionSpacePolicy:
             info['output'] = output.squeeze(0)
         return action, info
 
-class AreaClearingSAM(BasePolicy):
+class AreaClearingMujocoSAM(BasePolicy):
 
     def __init__(self, model_name='sam_model', model_path=None, cfg=None) -> None:
         super().__init__()
@@ -201,7 +201,7 @@ class AreaClearingSAM(BasePolicy):
 
     def train(self, job_id) -> None:
         # create environment
-        env = gym.make('area-clearing-v0', cfg=self.cfg)
+        env = gym.make('area-clearing-mujoco-v0', render_mode='human', cfg=self.cfg)
         env = env.unwrapped
         env.configure_env_for_SAM()
         self.cfg = env.cfg # update cfg with env-specific config
@@ -271,7 +271,8 @@ class AreaClearingSAM(BasePolicy):
         train_summary_writer = SummaryWriter(log_dir=os.path.join(log_dir, f'{job_id}'))
         meters = Meters()
 
-        state, _ = env.reset()
+        obs, _ = env.reset()
+        state, info = obs
         total_timesteps_with_warmup = total_timesteps + learning_starts
         for timestep in tqdm(range(start_timestep, total_timesteps_with_warmup),
                              initial=start_timestep, total=total_timesteps_with_warmup, file=sys.stdout):
@@ -295,7 +296,8 @@ class AreaClearingSAM(BasePolicy):
 
             # reset if episode ended
             if done:
-                state, _ = env.reset()
+                obs, _ = env.reset()
+                state, info = obs
                 episode += 1
                 if truncated:
                     logging.info(f"Episode {episode} truncated. {info['cumulative_cubes']} in goal. Resetting environment...")
@@ -369,17 +371,11 @@ class AreaClearingSAM(BasePolicy):
 
 
     def evaluate(self, num_eps: int, model_eps: str ='latest'):
-        
-        # # create environment
-        # if self.cfg is not None:
-        #     # env = gym.make('area-clearing-v0', cfg=self.cfg)
-        #     env = gym.make('area-clearing-mujoco-v0', cfg=self.cfg)
-
-        #     # env = gym.make('area-clearing-v0')
-        # else:
-        #     env = gym.make('area-clearing-v0')
-        
-        env = gym.make('area-clearing-mujoco-v0', render_mode='human')
+        # create environment
+        if self.cfg is not None:
+            env = gym.make('area-clearing-mujoco-v0', render_mode='human', cfg=self.cfg)
+        else:
+            env = gym.make('area-clearing-mujoco-v0', render_mode='human')
         env = env.unwrapped
 
         # env.configure_env_for_SAM()
@@ -390,7 +386,7 @@ class AreaClearingSAM(BasePolicy):
         # env.cfg.agent.action_type = 'position'
         # env.cfg.sim.t_max = 50
 
-        # metric = TaskDrivenMetric(alg_name="SAM", robot_mass=env.robot_mass)
+        # metric = TaskDrivenMetric(alg_name="SAM", robot_mass=env.cfg.agent.mass)
 
         if model_eps == 'latest':
             self.model = DenseActionSpacePolicy(env.action_space.high, env.num_channels, 0.0,
@@ -401,13 +397,14 @@ class AreaClearingSAM(BasePolicy):
         rewards_list = []
         for eps_idx in range(num_eps):
             print("SAM Progress: ", eps_idx, " / ", num_eps, " episodes")
-            obs, info = env.reset()
+            obs, _ = env.reset()
+            state, info = obs
             # metric.reset(info)
             done = truncated = False
             eps_reward = 0.0
             while True:
-                action, _ = self.model.step(obs)
-                obs, reward, done, truncated, info = env.step(action)
+                action, _ = self.model.step(state)
+                state, reward, done, truncated, info = env.step(action)
                 # metric.update(info=info, reward=reward, eps_complete=(done or truncated))
                 if(self.cfg.render.show):
                     env.render()
@@ -421,7 +418,7 @@ class AreaClearingSAM(BasePolicy):
         # env.cfg.sim.t_max = old_t_max
 
         # return metric.success_rates, metric.efficiency_scores, metric.effort_scores, metric.rewards, "SAM"
-        return None, None, None, None, "SAM"
+        return None, None, None, None, None
 
 
     
