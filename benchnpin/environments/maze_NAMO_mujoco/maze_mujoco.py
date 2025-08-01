@@ -41,7 +41,7 @@ class MazeNAMOMujoco(MujocoEnv, utils.EzPickle):
 
     def __init__(
         self,
-        frame_skip: int = 10,
+        frame_skip: int = 15,
         default_camera_config: Dict[str, Union[float, int]] = DEFAULT_CAMERA_CONFIG,
         cfg=None,
         **kwargs,
@@ -79,16 +79,19 @@ class MazeNAMOMujoco(MujocoEnv, utils.EzPickle):
                                        local_width=self.cfg.occ.local_width, local_height=self.cfg.occ.local_height,
                                        ship_body=None, meter_to_pixel_scale=self.cfg.occ.m_to_pix_scale)
 
-        self.beta = 1.5             # amount to scale the collision reward
+        self.beta = 3000             # amount to scale the collision reward
+        # self.beta = 0.0             # amount to scale the collision reward
         self.k = 2                  # amount to scale the distance reward
-        self.k_increment = 150
+        self.k_increment = 300
         self.episode_idx = None     # the increment of this index is handled in reset()
+
+        print("beta: ", self.beta, "; k_increment: ", self.k_increment, "; frame skip: ", frame_skip, "; boundary cost: ", BOUNDARY_PENALTY, "; num box: ", self.cfg.boxes.num_boxes)
 
         # Define observation space
         self.low_dim_state = self.cfg.low_dim_state
         if self.low_dim_state:
             #low dimensional observation space comprises of the 2D positions of each obstacle in addition to the robot
-            self.observation_space = spaces.Box(low=-10, high=30, shape=((self.cfg.boxes.num_boxes+1) * 2,), dtype=np.float64)
+            self.observation_space = spaces.Box(low=-10, high=30, shape=((self.cfg.boxes.num_boxes+1) * 3,), dtype=np.float64)
         
         else:
             #high dimensional observation space comprises of the occupancy grid map with 4 channels
@@ -174,7 +177,14 @@ class MazeNAMOMujoco(MujocoEnv, utils.EzPickle):
     def step(self, action):
         self.t += 1
         
-        v, w = action
+        # v, w = action
+        # w = w * self.max_yaw_rate_step
+
+        if isinstance(action, np.ndarray):
+            action = action[0]
+
+        v = self.cfg.agent.forward_speed
+        w = action * self.cfg.agent.max_angular_speed
 
         # otherwise drive as normal
         v_l, v_r = vw_to_wheels(v, w)
@@ -182,14 +192,18 @@ class MazeNAMOMujoco(MujocoEnv, utils.EzPickle):
         # apply the control 'frame_skip' steps, by default 5
         self.do_simulation([v_l, v_r], self.frame_skip)
 
-        if self.render_mode == "human":
-            self.render()
+        # if self.render_mode == "human":
+        #     self.render()
 
         # truncation=False as the time limit is handled by the `TimeLimit` wrapper added during `make`
 
         # get observation
         obs_vertices, obs_positions = self.get_current_boxes()
-        observation = self.generate_observation(obs_vertices)
+        if self.low_dim_state:
+            observation = self.generate_observation_low_dim()
+        else:
+            observation = self.generate_observation(obs_vertices)
+
         if self.cfg.log_obs:
             self.log_observation(observation)
 
@@ -233,8 +247,14 @@ class MazeNAMOMujoco(MujocoEnv, utils.EzPickle):
             reward += TERMINAL_REWARD
             trial_success = True
 
-
-        info = {}
+        # Optionally, we can add additional info
+        info = {'state': get_body_pose_2d(self.model, self.data, body_name='base'), 
+            'total_work': self.total_work[0], 
+            'collision reward': collision_reward, 
+            'scaled collision reward': collision_reward * self.beta, 
+            'dist increment reward': dist_increment_reward, 
+            'trial_success': trial_success,
+        }
         return observation, reward, terminated, False, info
 
 
@@ -257,6 +277,30 @@ class MazeNAMOMujoco(MujocoEnv, utils.EzPickle):
         #for resnet input
         observation = (observation*255).astype(np.uint8)
         return observation
+
+    
+    def generate_observation_low_dim(self):
+
+        obs = np.zeros((self.cfg.boxes.num_boxes + 1) * 3)
+
+        # get robot state
+        obs[:3] = get_body_pose_2d(self.model, self.data, body_name='base')
+
+        for i in range(self.cfg.boxes.num_boxes):
+            body_name = "cube" + str(i)
+            start_idx = (i + 1) * 3
+            end_idx = (i + 2) * 3
+            obs[start_idx:end_idx] = get_body_pose_2d(self.model, self.data, body_name=body_name)
+
+        return obs
+
+
+    def render(self):
+        """
+        Render a frame from the MuJoCo simulation as specified by the render_mode
+        """
+        if self.render_mode is not None:
+            return self.mujoco_renderer.render(self.render_mode)
 
 
     def goal_is_reached(self):
@@ -370,8 +414,11 @@ class MazeNAMOMujoco(MujocoEnv, utils.EzPickle):
 
 
     def _get_obs(self):
-        obs_vertices, _ = self.get_current_boxes()
-        observation = self.generate_observation(obs_vertices)
+        if self.low_dim_state:
+            observation = self.generate_observation_low_dim()
+        else:
+            obs_vertices, _ = self.get_current_boxes()
+            observation = self.generate_observation(obs_vertices)
         return observation
 
 

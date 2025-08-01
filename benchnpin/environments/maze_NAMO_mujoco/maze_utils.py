@@ -127,7 +127,7 @@ def build_xml(robot_qpos, cubes, stl_model_path,extra_xml,Z_CUBE, cube_size, maz
   <compiler angle="radian" autolimits="true" meshdir="{stl_model_path}"/>
 
   <option integrator="implicitfast" gravity="0 0 -9.81"
-          timestep="0.005" iterations="50" viscosity="1.5"/>
+          timestep="0.01" iterations="50" viscosity="1.5"/>
 
   <default>
     <joint limited="false" armature="0.01"/>

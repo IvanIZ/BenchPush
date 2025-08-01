@@ -293,7 +293,6 @@ def wall_collision(data, model):
 
         if (name1.startswith("robot") and name2.startswith("wall")) or \
                 (name2.startswith("robot") and name1.startswith("wall")):
-                print("wall collide!!")
                 return True
     return False
 
