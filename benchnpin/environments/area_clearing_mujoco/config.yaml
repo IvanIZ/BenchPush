@@ -61,7 +61,7 @@ agent:
   length: 0.138
   width: 0.183
   robot_clear: 0.15
-  movement_step_size: 0.1 # If action type is heading, this is the distance to move in that heading
+  movement_step_size: 0.15 # If action type is heading, this is the distance to move in that heading
 
 rewards_sam:
   partial_rewards_scale: 0.2

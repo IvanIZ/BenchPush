@@ -335,7 +335,7 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
         robot_boxes = 0
         robot_reward = 0
 
-        robot_initial_position = self.data.qpos[self.qpos_index_base:self.qpos_index_base+2]
+        # robot_initial_position = self.data.xpos[self.qpos_index_base:self.qpos_index_base+2]
         robot_initial_position = self.data.xpos[self.base_body_id][:2].copy()
         robot_initial_heading = quat_z_yaw(*self.data.qpos[self.qpos_index_base+3:self.qpos_index_base+7])
         
@@ -351,6 +351,8 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
             x_movement = step_size * np.cos(angle)
             y_movement = step_size * np.sin(angle)
 
+            print(f"Heading: {angle}, x_movement: {x_movement}, y_movement: {y_movement}")
+
             # convert target position to pixel coordinates
             x_pixel = int(self.local_map_pixel_width / 2 + x_movement * self.local_map_pixels_per_meter)
             y_pixel = int(self.local_map_pixel_width / 2 - y_movement * self.local_map_pixels_per_meter)
@@ -363,9 +365,9 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
 
         # if self.cfg.render.show:
         #     self.renderer.update_path(self.path)
-        #self.update_path(self.path)
+        # self.update_path(self.path)
 
-        robot_distance, robot_turn_angle = self.execute_robot_path(robot_initial_position, robot_initial_heading)
+        robot_distance, robot_turn_angle = self.execute_robot_path(robot_initial_position, robot_initial_heading, robot_move_sign)
         
         self._step_dx = robot_distance
         self._step_dyaw = robot_turn_angle
@@ -403,13 +405,13 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
 
         return self.observation, reward, terminated, truncated, info
     
-    def execute_robot_path(self, robot_initial_position, robot_initial_heading):
+    def execute_robot_path(self, robot_initial_position, robot_initial_heading, robot_move_sign):
         robot_position = robot_initial_position.copy()
         robot_heading = robot_initial_heading
         robot_is_moving = True
         robot_distance = 0
-
         robot_waypoint_index = 1
+
         robot_waypoint_positions = [(waypoint[0], waypoint[1]) for waypoint in self.path]
         robot_waypoint_headings = [waypoint[2] for waypoint in self.path]
 
@@ -434,11 +436,22 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
             robot_new_heading = robot_heading
             heading_diff = self.heading_difference(robot_heading, robot_waypoint_heading)
             if np.abs(heading_diff) > TURN_STEP_SIZE and np.abs(heading_diff - prev_heading_diff) > 0.001:
-                pass
+                # turn towards next waypoint first
+                robot_new_heading += np.sign(heading_diff) * TURN_STEP_SIZE
             else:
                 done_turning = True
+                dx = robot_waypoint_position[0] - robot_position[0]
+                dy = robot_waypoint_position[1] - robot_position[1]
                 if self.distance(robot_position, robot_waypoint_position) < MOVE_STEP_SIZE:
                     robot_new_position = robot_waypoint_position
+                else:
+                    if robot_waypoint_index == len(robot_waypoint_position) - 1:
+                        move_sign = robot_move_sign
+                    else:
+                        move_sign = 1
+                    robot_new_heading = np.arctan2(move_sign * dy, move_sign * dx)
+                    robot_new_position[0] += move_sign * MOVE_STEP_SIZE * np.cos(robot_new_heading)
+                    robot_new_position[1] += move_sign * MOVE_STEP_SIZE * np.sin(robot_new_heading)
 
             # change robot pose (use controller)
             v, w, dist = make_controller(robot_prev_position, robot_prev_heading, robot_waypoint_position)
@@ -450,7 +463,7 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
             self.do_simulation([v_l, v_r], self.frame_skip)
 
             # get new robot pose
-            robot_initial_position = self.data.qpos[self.qpos_index_base:self.qpos_index_base+2]
+            # robot_initial_position = self.data.qpos[self.qpos_index_base:self.qpos_index_base+2]
             robot_initial_position = self.data.xpos[self.base_body_id][:2].copy()
             # robot_position = list(robot_position)
             robot_heading = quat_z_yaw(*self.data.qpos[self.qpos_index_base+3:self.qpos_index_base+7])
@@ -1028,16 +1041,15 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
                                                       self.local_map_pixel_width, self.local_map_width, self.local_map_pixels_per_meter,
                                                       TURN_STEP_SIZE, MOVE_STEP_SIZE, WAYPOINT_MOVING_THRESHOLD, WAYPOINT_TURNING_THRESHOLD)
 
+        return observation
+
+
+    def _get_reset_info(self):
         info = {
             'cumulative_distance': self.robot_cumulative_distance,
             'cumulative_boxes': self.robot_cumulative_boxes,
             'cumulative_reward': self.robot_cumulative_reward,
             'ministeps': 0,
         }
-        
-        return observation, info
 
-
-    def _get_reset_info(self):
-        return {
-        }
+        return info

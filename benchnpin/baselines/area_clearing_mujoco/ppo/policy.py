@@ -86,14 +86,14 @@ class AreaClearingMujocoPPO(BasePolicy):
         rewards_list = []
         for eps_idx in range(num_eps):
             print("PPO Progress: ", eps_idx, " / ", num_eps, " episodes")
-            obs, _ = env.reset()
-            state, info = obs
+            obs, info = env.reset()
             # metric.reset(info)
             done = truncated = False
             eps_reward = 0.0
             while True:
-                action, _ = self.model.predict(state)
-                state, reward, done, truncated, info = env.step(action)
+                action, _ = self.model.predict(obs)
+                # print(action)
+                obs, reward, done, truncated, info = env.step(action)
                 # metric.update(info=info, reward=reward, eps_complete=(done or truncated))
 
                 eps_reward += reward

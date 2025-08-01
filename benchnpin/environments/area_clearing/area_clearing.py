@@ -679,9 +679,6 @@ class AreaClearingEnv(gym.Env):
                 x_pixel = int(self.local_map_pixel_width / 2 + x_movement * self.local_map_pixels_per_meter)
                 y_pixel = int(self.local_map_pixel_width / 2 - y_movement * self.local_map_pixels_per_meter)
 
-                print("Heading action: ", action, "angle: ", angle, "x_pixel: ", x_pixel, "y_pixel: ", y_pixel)
-                print('Local map pixels per meter: ', self.local_map_pixels_per_meter)
-
                 # convert pixel coordinates to a single index
                 action = y_pixel * self.local_map_pixel_width + x_pixel
 
