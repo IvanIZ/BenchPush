@@ -110,7 +110,7 @@ if __name__ == '__main__':
             'render': {
                 'log_obs': False, # log occupancy observations
                 'show': True, # show the environment
-                'show_obs': True, # show the occupancy observation
+                'show_obs': False, # show the occupancy observation
             },
             'agent': {
                 # Options: 'position', 'heading', 'velocity'

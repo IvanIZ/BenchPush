@@ -124,7 +124,7 @@ if __name__ == '__main__':
                 'eval_mode': True,
                 'num_eps': 2,
                 'policy_types': ['ppo'], # list of policy types to evaluate
-                'model_names': ['ppo_model.zip'], # list of model names to evaluate
+                'model_names': ['ppo_model'], # list of model names to evaluate
                 'model_path': 'models/area_clearing', # path to the models
                 'obs_configs': [None], # list of obstacle configurations to evaluate
             },

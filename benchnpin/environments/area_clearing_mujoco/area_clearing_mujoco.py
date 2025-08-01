@@ -351,8 +351,6 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
             x_movement = step_size * np.cos(angle)
             y_movement = step_size * np.sin(angle)
 
-            print(f"Heading: {angle}, x_movement: {x_movement}, y_movement: {y_movement}")
-
             # convert target position to pixel coordinates
             x_pixel = int(self.local_map_pixel_width / 2 + x_movement * self.local_map_pixels_per_meter)
             y_pixel = int(self.local_map_pixel_width / 2 - y_movement * self.local_map_pixels_per_meter)

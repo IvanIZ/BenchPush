@@ -36,7 +36,7 @@ class AreaClearingMujocoPPO(BasePolicy):
             checkpoint_freq=10000,
             from_model_eps=None) -> None:
 
-        env = gym.make('area-clearing-mujoco-v0', cfg=self.cfg)
+        env = gym.make('area-clearing-mujoco-v0', cfg=self.cfg, render_mode='human')
         env = env.unwrapped
         
         if from_model_eps is not None:
