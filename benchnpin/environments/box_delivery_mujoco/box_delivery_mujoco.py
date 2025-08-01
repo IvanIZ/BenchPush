@@ -363,7 +363,7 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
             self.data.qpos[adr+3:adr+7] = [1, 0, 0, 0]
             self.data.qvel[adr:adr+6]   = 0
 
-        def is_valid(pos, radius):
+        def is_valid(pos, radius,positions):
             # unpack immediately
             x, y, _ = pos
 
@@ -374,11 +374,11 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
                     return False
 
             # check against pillar keep-outs
-            if intersects_keepout(x, y, self.initialization_keepouts):
+            if intersects_keepout(y, x, self.initialization_keepouts):
                 return False
 
             # finally check your overall clearance polygon
-            if not inside_poly(x, y, self.clearance_poly):
+            if not inside_poly(y,x , self.clearance_poly):
                 return False
 
             return True
@@ -392,7 +392,7 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
             x = np.random.uniform(x_min, x_max)
             y = np.random.uniform(y_min, y_max)
             theta = np.random.uniform(-np.pi, np.pi)
-            if is_valid((x, y, theta), self.cfg.agent.robot_clear):
+            if is_valid((x, y, theta), self.cfg.agent.robot_clear,positions):
                 positions.append(((x, y, theta), self.cfg.agent.robot_clear))
                 break
 
@@ -419,7 +419,7 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
                 x = np.random.uniform(x_min, x_max)
                 y = np.random.uniform(y_min, y_max)
                 theta = np.random.uniform(-np.pi, np.pi)
-                if is_valid((x, y, theta), box_r):
+                if is_valid((x, y, theta), box_r,positions):
                     positions.append(((x, y, theta), box_r))
                     break
             
