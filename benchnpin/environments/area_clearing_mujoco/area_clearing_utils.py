@@ -236,6 +236,13 @@ def sample_scene(n_boxes, keep_out, ROBOT_R, BOXES_clear, ARENA_X, ARENA_Y, inte
     return robot_qpos, boxes
 
 
+def generate_waypoint_sites(num_sites=500):
+    site_template = (
+        '<site name="wp{0}" pos="0 500 5" size="0.05" rgba="0 1 0 1" type="sphere"/>'
+    )
+    return "\n".join([site_template.format(i) for i in range(num_sites)])
+
+
 def build_xml(robot_qpos, boxes, stl_model_path, extra_xml, Z_BOX, box_size, ARENA_X1, ARENA_Y1, env_type, wall_clearence_outer, wall_clearence_inner, robot_rgb):
     """Building data for a different file"""
 
@@ -361,6 +368,8 @@ def build_xml(robot_qpos, boxes, stl_model_path, extra_xml, Z_BOX, box_size, ARE
         <geom quat="0.707388 0.706825 0 0" type="mesh" rgba="{robot_rgb[0]+0.1} {robot_rgb[1]+0.1} {robot_rgb[2]+0.1} 1" mesh="right_tire" friction="1.2 0.01 0.001"/>
       </body>
     </body>
+
+    {generate_waypoint_sites(100)}
       
 """
     

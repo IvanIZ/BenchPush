@@ -53,7 +53,7 @@ scale_factor = (2.845/10) # scales thresholds to be proportionately the same as 
 MOVE_STEP_SIZE = 0.05 * scale_factor
 TURN_STEP_SIZE = np.radians(15)
 
-WAYPOINT_MOVING_THRESHOLD = 0.6 * scale_factor
+WAYPOINT_MOVING_THRESHOLD = 0.2 * scale_factor
 WAYPOINT_TURNING_THRESHOLD = np.radians(10)
 NOT_MOVING_THRESHOLD = 0.005 * scale_factor
 NOT_TURNING_THRESHOLD = np.radians(0.05)
@@ -283,7 +283,7 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
             self.model.site(f"wp{i}").pos[2] = 0.3                  # set visualization point z-axis
 
         # Move the rest out of view
-        for i in range(len(waypoints), 50):
+        for i in range(len(waypoints), 100):
             site_id = self.model.site(f"wp{i}").id
             self.data.site_xpos[site_id] = np.array([1000, 1000, 1000])
 
@@ -363,7 +363,7 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
 
         # if self.cfg.render.show:
         #     self.renderer.update_path(self.path)
-        # self.update_path(self.path)
+        self.update_path(self.path)
 
         robot_distance, robot_turn_angle = self.execute_robot_path(robot_initial_position, robot_initial_heading, robot_move_sign)
         
@@ -469,7 +469,7 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
             robot_heading = quat_z_yaw(*self.data.qpos[self.qpos_index_base+3:self.qpos_index_base+7])
 
             # stop moving if robot collided with obstacle
-            self.robot_hit_obstacle = self.robot_hits_static()
+            self.robot_hit_obstacle = self.check_static_obstacle_collision()
             if self.distance(robot_prev_waypoint_position, robot_position) > MOVE_STEP_SIZE:
                 if self.robot_hit_obstacle:
                     robot_is_moving = False
@@ -920,7 +920,7 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
         return motion_dict, boxes_total_distance
 
     # contacts
-    def robot_hits_static(self) -> bool:
+    def check_static_obstacle_collision(self) -> bool:
         """
         """
 
@@ -1008,7 +1008,10 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
             self.data.qpos[qadr+3:qadr+7] = quat_z(theta)
             self.data.qvel[qadr:qadr+6] = 0
 
-        self._prev_robot_xy = self.data.qpos[self.qpos_index_base:self.qpos_index_base+2]
+        # Do simulation step to apply the changes
+        self.do_simulation([0, 0], 1)
+
+        # self._prev_robot_xy = self.data.qpos[self.qpos_index_base:self.qpos_index_base+2]
         self._prev_robot_xy = self.data.xpos[self.base_body_id][:2].copy()
         self._prev_robot_heading = quat_z_yaw(*self.data.qpos[self.qpos_index_base+3:self.qpos_index_base+7])
 
