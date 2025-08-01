@@ -38,7 +38,7 @@ env:
   room_width: 1.4225
   room_length: 1.4225
   wall_clearence_outer: 0.2 # Provides clearance from either of the room length and width
-  wall_clearence_inner: 0.1 
+  wall_clearence_inner: 0.1
   internal_clearance_length: 0.2
   shortest_path_channel_scale: 0.25
   local_map_pixel_width: 224
@@ -47,7 +47,7 @@ env:
   invert_receptacle_map: false
 
 small_pillars:
-  num_pillars: 2
+  num_pillars: 4
   pillar_half: [0.1, 0.1, 0.20]
 
 misc:

@@ -201,7 +201,7 @@ class AreaClearingSAM(BasePolicy):
 
     def train(self, job_id) -> None:
         # create environment
-        env = gym.make('box-delivery-v0', cfg=self.cfg)
+        env = gym.make('area-clearing-v0', cfg=self.cfg)
         env = env.unwrapped
         env.configure_env_for_SAM()
         self.cfg = env.cfg # update cfg with env-specific config

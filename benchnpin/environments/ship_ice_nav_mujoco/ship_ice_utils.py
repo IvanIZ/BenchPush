@@ -20,7 +20,7 @@ from benchnpin.common.geometry.polygon import generate_polygon, poly_area
 from benchnpin.common.utils.mujoco_utils import polygon_from_vertices, extrude_and_export
 
 ASV_MASS_TOTAL = 6000000.0     # kg
-ICE_DENSITY    = 9000.0        # kg m⁻³ (Since ice is shown as an extermely thin plate for stimulation purposes)
+ICE_DENSITY    = 900.0        # kg m⁻³ (Since ice is shown as an extermely thin plate for stimulation purposes)
 RHO_WATER      = 1025.0        # kg m⁻³
 CD_SHIP             = 0.5      # assuming like an airfoil
 CD_ICE              = 1.1      # assuming like an airfoil
@@ -67,8 +67,6 @@ def hfield_data_as_string(n=64, amp=0.2, kx=2*np.pi/200, ky=2*np.pi/80):
     X, Y = np.meshgrid(x, y, indexing="ij")
     height = amp * np.sin(kx*X) * np.cos(ky*Y)
     return " ".join(f"{h:.6f}" for h in height.ravel())
-
-
 
 
 def header_block(hfield, stl_model_path, sim_timestep, channel_len, channel_wid, num_floes):
@@ -132,9 +130,11 @@ def header_block(hfield, stl_model_path, sim_timestep, channel_len, channel_wid,
             
             <!ASV->
             <body name="asv" pos="{ASV_X0} {ASV_Y0} 0" quat="0.7071 0 0 0.7071">
+              <inertial mass="{ASV_MASS_TOTAL}" pos="-4.0 0.0 0.2" diaginertia=".1 .1 .1"/>
               <joint name="asv_x"   type="slide" axis="1 0 0"/>
               <joint name="asv_y"   type="slide" axis="0 1 0"/>
               <joint name="asv_yaw" type="hinge" axis="0 0 1" damping="10.0"/>
+
               <geom name="asv_cs_long_bottom" type="mesh" mesh="cs_long_bottom" mass="{ASV_MASS_TOTAL/2}" rgba="0.698 0.133 0.133 1" euler="0 0 -180"/>
               <geom name="asv_cs_long_top" type="mesh" mesh="cs_long_top" mass="{ASV_MASS_TOTAL/2}" rgba="0.45 0.47 0.50 1" euler="0 0 -180"/>
               <geom name="asv_CONTAINER_Full1" type="mesh" mesh="CONTAINER_Full" pos="{-1*STL_SCALE*10} {-4*STL_SCALE*10} {1*STL_SCALE*10}"  rgba="0.588 0.204 0.188 1" euler="0 0 -180"/>
@@ -285,7 +285,8 @@ def footer_block():
             <!-- <motor name="asv_forward" joint="asv_x"  ctrlrange="-6e7 9e7" gear="1"/> -->
             <!-- <motor name="asv_rudder"  joint="asv_yaw" ctrlrange="-6e7 9e7"   gear="5"/> -->
 
-            <velocity name="asv_forward" joint="asv_x"  ctrlrange="-80 80" forcelimited="false" kv="1000000.0"/>
+            <velocity name="asv_forward_x" joint="asv_x"  ctrlrange="-5 5" forcelimited="false" kv="1000000.0"/>
+            <velocity name="asv_forward_y" joint="asv_y"  ctrlrange="-5 5" forcelimited="false" kv="1000000.0"/>
             <velocity name="asv_rudder"  joint="asv_yaw" ctrlrange="-10 10" forcelimited="false" kv="10000000000.0"/>
           </actuator>
         </mujoco>
@@ -348,7 +349,7 @@ def generate_shipice_xml(concentration, xml_file, sim_timestep, channel_len, cha
         ice_area_dict[f'ice_{i}'] = {'area': area_2d, 'vertices': vertices}
 
         out_file = os.path.join(directory, 'ice_' + str(i) + '.stl')
-        extrude_and_export(polygon, h_min=0.4, h_max=1.0, filename=out_file)
+        extrude_and_export(polygon, h_min=0.4, h_max=0.8, filename=out_file)
 
 
     # get stl model path
@@ -477,12 +478,6 @@ def apply_fluid_forces_to_body(model, data, body_name, joint_prefix, phase, ice_
 
     torque_z = yaw_drag_linear + yaw_drag_quad
     total_torque = np.array([0.0, 0.0,torque_z])
-    
-    # Clamping max omega just for not having errors
-    if omega_z > max_omega:
-        data.qvel[dof_yaw] = max_omega
-    elif omega_z < -max_omega:
-        data.qvel[dof_yaw] = -max_omega    
     
     # computation for wave force below
     pos = data.xpos[body_id]
@@ -864,7 +859,7 @@ def generate_rand_exp(conc, map_shape, ship_state, goal, max_trials, filename=No
         exp_dict['exp'][i]['goal'] = goal
 
         # generate ship starting state
-        print(ship_state)
+        # print(ship_state)
         if ship_state['range_x'] is None:
             x = find_best_start_x(obstacles)
         else:

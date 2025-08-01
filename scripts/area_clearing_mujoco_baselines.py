@@ -3,10 +3,10 @@ An example script for training and evaluating baselines for area clearing task
 """
 import argparse
 
-from benchnpin.baselines.area_clearing.ppo.policy import AreaClearingPPO
-from benchnpin.baselines.area_clearing.sac.policy import AreaClearingSAC
+# from benchnpin.baselines.area_clearing.ppo.policy import AreaClearingPPO
+# from benchnpin.baselines.area_clearing.sac.policy import AreaClearingSAC
 from benchnpin.baselines.area_clearing.planning_based.policy import PlanningBasedPolicy
-from benchnpin.baselines.area_clearing.sam.policy import AreaClearingSAM
+from benchnpin.baselines.area_clearing_mujoco.sam.policy import AreaClearingMujocoSAM
 
 from benchnpin.common.metrics.base_metric import BaseMetric
 
@@ -27,18 +27,18 @@ def main(cfg, job_id):
 
         if cfg.train.job_type == 'sam':
             # ========================= Spatial Action Map Policy =========================
-            sam_policy = AreaClearingSAM(model_name=model_name, cfg=cfg)
+            sam_policy = AreaClearingMujocoSAM(model_name=model_name, cfg=cfg)
             sam_policy.train(job_id)
 
-        elif cfg.train.job_type == 'ppo':
-            # ================================ PPO Policy =================================    
-            ppo_policy = AreaClearingPPO(model_name=model_name, cfg=cfg)
-            ppo_policy.train(total_timesteps=cfg.train.total_timesteps, checkpoint_freq=cfg.train.checkpoint_freq, from_model_eps=cfg.train.from_model_eps)
+        # elif cfg.train.job_type == 'ppo':
+        #     # ================================ PPO Policy =================================    
+        #     ppo_policy = AreaClearingPPO(model_name=model_name, cfg=cfg)
+        #     ppo_policy.train(total_timesteps=cfg.train.total_timesteps, checkpoint_freq=cfg.train.checkpoint_freq, from_model_eps=cfg.train.from_model_eps)
 
-        elif cfg.train.job_type == 'sac':
-            # ================================ SAC Policy =================================
-            sac_policy = AreaClearingSAC(model_name=model_name, cfg=cfg)
-            sac_policy.train(total_timesteps=cfg.train.total_timesteps, checkpoint_freq=cfg.train.checkpoint_freq, from_model_eps=cfg.train.from_model_eps)
+        # elif cfg.train.job_type == 'sac':
+        #     # ================================ SAC Policy =================================
+        #     sac_policy = AreaClearingSAC(model_name=model_name, cfg=cfg)
+        #     sac_policy.train(total_timesteps=cfg.train.total_timesteps, checkpoint_freq=cfg.train.checkpoint_freq, from_model_eps=cfg.train.from_model_eps)
 
     if cfg.evaluate.eval_mode:
         benchmark_results = []
@@ -47,25 +47,25 @@ def main(cfg, job_id):
         for policy_type, model_name in zip(cfg.evaluate.policy_types, cfg.evaluate.model_names):
             if policy_type == 'sam':
                 # ========================= Spatial Action Map Policy =========================
-                sam_policy = AreaClearingSAM(model_name=model_name, model_path=model_path, cfg=cfg)
+                sam_policy = AreaClearingMujocoSAM(model_name=model_name, model_path=model_path, cfg=cfg)
                 benchmark_results.append(sam_policy.evaluate(num_eps=num_eps))
 
-            elif policy_type == 'ppo':
-                # ================================ PPO Policy =================================    
-                ppo_policy = AreaClearingPPO(model_name=model_name, model_path=model_path, cfg=cfg)
-                benchmark_results.append(ppo_policy.evaluate(num_eps=num_eps))
+            # elif policy_type == 'ppo':
+            #     # ================================ PPO Policy =================================    
+            #     ppo_policy = AreaClearingPPO(model_name=model_name, model_path=model_path, cfg=cfg)
+            #     benchmark_results.append(ppo_policy.evaluate(num_eps=num_eps))
 
-            elif policy_type == 'sac':
-                # ================================ SAC Policy =================================
-                sac_policy = AreaClearingSAC(model_name=model_name, model_path=model_path, cfg=cfg)
-                benchmark_results.append(sac_policy.evaluate(num_eps=num_eps))
+            # elif policy_type == 'sac':
+            #     # ================================ SAC Policy =================================
+            #     sac_policy = AreaClearingSAC(model_name=model_name, model_path=model_path, cfg=cfg)
+            #     benchmark_results.append(sac_policy.evaluate(num_eps=num_eps))
 
-            elif policy_type == 'planning_based':
-                # ========================== Planning Based Policy =============================
-                planning_based_policy = PlanningBasedPolicy(cfg.glns_executable_path, cfg=cfg)
-                benchmark_results.append(planning_based_policy.evaluate(num_eps=num_eps))
+            # elif policy_type == 'planning_based':
+            #     # ========================== Planning Based Policy =============================
+            #     planning_based_policy = PlanningBasedPolicy(cfg.glns_executable_path, cfg=cfg)
+            #     benchmark_results.append(planning_based_policy.evaluate(num_eps=num_eps))
 
-    BaseMetric.plot_algs_scores(benchmark_results, save_fig_dir='./', plot_success=True)
+    # BaseMetric.plot_algs_scores(benchmark_results, save_fig_dir='./', plot_success=True)
 
     # save eval results to disk
     pickle_dict = {
@@ -102,16 +102,17 @@ if __name__ == '__main__':
     else:
         # High level configuration for the area clearing task
         cfg={
-            'env': 'clear_env', # 'clear_env_small', 'clear_env', walled_env', 'walled_env_with_columns'
+            # 'env': 'clear_env', # 'clear_env_small', 'clear_env', walled_env', 'walled_env_with_columns'
             'num_obstacles': 10,
             'render': {
                 'log_obs': False, # log occupancy observations
-                'show': True, # show the environment'
+                'show': True, # show the environment
+                'show_obs': True, # show the occupancy observation
             },
             'agent': {
                 # Options: 'position', 'heading', 'velocity'
-                'action_type': 'heading', # Use for PPO and SAC
-                # 'action_type': 'position', # Used by default for SAM
+                # 'action_type': 'heading', # Use for PPO and SAC
+                'action_type': 'position', # Used by default for SAM
                 # action_type: 'velocity', # Use for GTSP
             },
             'train': {

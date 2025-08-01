@@ -239,7 +239,7 @@ class DP:
         theta_e = np.arctan2(np.sin(theta_e), np.cos(theta_e))
 
         # angular velocity
-        omega = 1.0 * theta_e
+        omega = 0.1* theta_e
         omega = omega / self.dt
 
         # global velocity

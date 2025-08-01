@@ -235,7 +235,7 @@ def build_xml(robot_qpos, cubes, stl_model_path,extra_xml,Z_CUBE, cube_size, maz
         cube_xml += f"""
     <body name="cube{i}" pos="{x:.4f} {y:.4f} {Z_CUBE:.3f}">
       <joint name="cube{i}_joint" type="free" />
-      <geom type="box" size="{cube_size}" material="blue_mat" mass="0.05"
+      <geom type="box" size="{cube_size}" material="blue_mat" mass="0.075"
             quat="{qw:.6f} {qx:.6f} {qy:.6f} {qz:.6f}" friction="0.4 0.015 0.002"/>
     </body>"""
 

@@ -53,33 +53,34 @@ def make_controller(curr_pos, curr_yaw, goal_pos):
     # qw, qx, qy, qz = data.qpos[qpos_index + 3 : qpos_index + 7]
     # yaw = np.arctan2(2*(qw*qz + qx*qy), 1 - 2*(qy*qy + qz*qz))
     
-    #The distance to the set goal
+    # The distance to the set goal
     # vec  = goal_xy - pos
     vec = goal_pos - curr_pos
     dist = np.linalg.norm(vec)
     
     
-    #Angle computations
+    # Angle computations
     goal_head = np.arctan2(vec[1], vec[0])
     err_yaw   = np.arctan2(np.sin(goal_head - curr_yaw), np.cos(goal_head - curr_yaw))
 
-    #Controller characteristics (APPROX CAN BE UPDATED LATER)
-    k_v, k_w = 4.0,4.0
+    # Controller characteristics (APPROX CAN BE UPDATED LATER)
+    # k_v, k_w = 4.0,4.0
+    k_v, k_w = 0.2, 8.0
 
-    #Rotation
-    if abs(err_yaw) > ANGLE_TOL:
-        return 0.0, k_w * err_yaw, dist
+    # Rotation
+    # if abs(err_yaw) > ANGLE_TOL:
+    #     return 0.0, k_w * err_yaw, dist
 
-    #Moving to required position
-    else:
+    # # Moving to required position
+    # else:
         # return k_v * dist, 0.0, dist
-        return k_v * dist, k_w * err_yaw, dist
+    return k_v, k_w * err_yaw, dist
 
 
 def pushing(model, data, joint_id_boxes, threshold=1e-1):
     """
-    Returns list of (cube_name, (x, y, z)) for all cubes that are currently moving.
-    Assumes each cube has 1 free joint.
+    Returns list of (box_name, (x, y, z)) for all boxes that are currently moving.
+    Assumes each box has 1 free joint.
     """
     moving = []
     for joint_id in joint_id_boxes:
@@ -103,7 +104,7 @@ def quat_z_yaw(qw, qx, qy, qz) -> float:
 
 
 def corners_xy(centre_xy, yaw,corners_local_coordinates) -> np.ndarray:
-    """4 x 2 array with world-space (x,y) vertices of a yawed cube."""
+    """4 x 2 array with world-space (x,y) vertices of a yawed box."""
     R = np.array([[ np.cos(yaw), -np.sin(yaw)],
                   [ np.sin(yaw),  np.cos(yaw)]])
     return centre_xy + corners_local_coordinates @ R.T
@@ -145,7 +146,7 @@ def get_body_vel(model, data, body_name):
 def get_box_2d_vertices(model, data, body_name):
         """
         Get the vertices and position in world coordinate of a box geometry
-        NOTE this function assumes that the body only has one geometry. Suitable for checking cubes and ice floes
+        NOTE this function assumes that the body only has one geometry. Suitable for checking boxes and ice floes
         """
         body_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, body_name)
 
@@ -192,7 +193,7 @@ def get_box_2d_vertices(model, data, body_name):
 def get_box_2d_area(model, data, body_name):
     """
     Get the vertices in world coordinate of a box geometry
-    NOTE this function assumes that the body only has one geometry. Suitable for checking cubes and ice floes
+    NOTE this function assumes that the body only has one geometry. Suitable for checking boxes and ice floes
     """
     body_id = mujoco.mj_name2id(model, mujoco.mjtObj.mjOBJ_BODY, body_name)
 

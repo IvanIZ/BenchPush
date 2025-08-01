@@ -14,7 +14,7 @@
 # We also recommend users to create a symlink of the checkpoint dir so your
 # training code stays the same with regards to different job IDs and it would
 # be easier to navigate the checkpoint directory
-ln -sfn /checkpoint/${USER}/${SLURM_JOB_ID} $PWD/benchnpin/baselines/box_delivery/SAM/checkpoint/${SLURM_JOB_ID}
+ln -sfn /checkpoint/${USER}/${SLURM_JOB_ID} $PWD/benchnpin/baselines/box_delivery_mujoco/SAM/checkpoint/${SLURM_JOB_ID}
 
 
 # In the future, the checkpoint directory will be removed immediately after the
@@ -26,10 +26,12 @@ touch /checkpoint/${USER}/${SLURM_JOB_ID}/DELAYPURGE
 # prepare the environment, here I am using environment modules, but you could
 # select the method of your choice (but note that code in ~/.bash_profile or
 # ~/.bashrc will not be executed with a new job)
-module purge && module load pytorch2.1-cuda11.8-python3.9
+module purge && module load pytorch2.1-cuda11.8-python3.10
+export DISPLAY=:99
+Xvfb :99 -screen 0 1024x768x24 &
 
 # Then we run our training code, using the checkpoint dir provided the code
 # demonstrates how to perform checkpointing in pytorch, please navigate to the
 # file for more information.
 source $PWD/venv/bin/activate
-python $PWD/tests/box_delivery_baselines.py --job_id ${SLURM_JOB_ID} --config_file $PWD/benchnpin/environments/box_delivery/config_sam.yaml
+python $PWD/scripts/box_delivery_mujoco_baselines.py --job_id ${SLURM_JOB_ID} 

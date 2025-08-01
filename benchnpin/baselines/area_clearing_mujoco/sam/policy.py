@@ -1,8 +1,8 @@
-import benchnpin.environments
 from benchnpin.baselines.base_class import BasePolicy
 from benchnpin.baselines.feature_extractors import DenseActionSpaceDQN
 from benchnpin.common.metrics.task_driven_metric import TaskDrivenMetric
 from benchnpin.common.utils.utils import DotDict
+import benchnpin.environments
 import gymnasium as gym
 from collections import namedtuple
 import random
@@ -86,7 +86,7 @@ class ReplayBuffer:
         return len(self.buffer)
     
 class DenseActionSpacePolicy:
-    def __init__(self, action_space, num_input_channels, final_exploration, train=False, checkpoint_path='', resume_training=False, evaluate=False, job_id_to_resume=None, random_seed=None, model_name='sam_model', model_dir=None):
+    def __init__(self, action_space, num_input_channels, final_exploration, train=False, checkpoint_path='', resume_training=False, evaluate=False, job_id_to_resume=None, random_seed=None, model_name='sam_model', model_path=None):
         self.action_space = action_space
         self.num_input_channels = num_input_channels
         self.final_exploration = final_exploration
@@ -96,15 +96,15 @@ class DenseActionSpacePolicy:
         self.policy_net = self.build_network()
         self.transform = transforms.ToTensor()
 
-        if model_dir is None:
-            model_dir = os.path.join(os.path.dirname(__file__), 'models/')
-
         # Resume from checkpoint if applicable
         if os.path.exists(checkpoint_path) or resume_training or evaluate:
             if resume_training:
                 model_path = os.path.join(os.path.dirname(__file__), f'checkpoint/{job_id_to_resume}/model-{model_name}.pt')
             elif evaluate:
-                model_path = os.path.join(model_dir, f'{model_name}.pt')
+                if model_path is not None:
+                    model_path = model_path + f'/{model_name}.pt'
+                else:
+                    model_path = os.path.join(os.path.dirname(__file__), f'models/{model_name}.pt')
             else:
                 checkpoint_dir = os.path.dirname(checkpoint_path)
                 model_path = f'{checkpoint_dir}/model-{self.model_name}.pt'
@@ -128,7 +128,7 @@ class DenseActionSpacePolicy:
     def apply_transform(self, s):
         return self.transform(s).unsqueeze(0)
 
-    def predict(self, state, exploration_eps=None, debug=False):
+    def step(self, state, exploration_eps=None, debug=False):
         if exploration_eps is None:
             exploration_eps = self.final_exploration
         state = self.apply_transform(state).to(self.device)
@@ -143,9 +143,9 @@ class DenseActionSpacePolicy:
             info['output'] = output.squeeze(0)
         return action, info
 
-class BoxDeliveryMujocoSAM(BasePolicy):
+class AreaClearingMujocoSAM(BasePolicy):
 
-    def __init__(self, cfg, model_name='sam_model', model_path=None) -> None:
+    def __init__(self, model_name='sam_model', model_path=None, cfg=None) -> None:
         super().__init__()
 
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -161,7 +161,6 @@ class BoxDeliveryMujocoSAM(BasePolicy):
         self.cfg = cfg
 
 
-
     def update_policy(self, policy_net, target_net, optimizer, batch, transform_func):
         state_batch = torch.cat([transform_func(s) for s in batch.state]).to(self.device)
         action_batch = torch.tensor(batch.action, dtype=torch.long).to(self.device)
@@ -174,10 +173,12 @@ class BoxDeliveryMujocoSAM(BasePolicy):
         next_state_values = torch.zeros(self.batch_size, dtype=torch.float32, device=self.device)
         non_final_mask = torch.tensor(tuple(map(lambda s: s is not None, batch.next_state)), dtype=torch.bool, device=self.device)
 
-        # Double DQN
-        with torch.no_grad():
-            best_action = policy_net(non_final_next_states).view(non_final_next_states.size(0), -1).max(1)[1].view(non_final_next_states.size(0), 1)
-            next_state_values[non_final_mask] = target_net(non_final_next_states).view(non_final_next_states.size(0), -1).gather(1, best_action).view(-1)
+        if self.use_double_dqn:
+            with torch.no_grad():
+                best_action = policy_net(non_final_next_states).view(non_final_next_states.size(0), -1).max(1)[1].view(non_final_next_states.size(0), 1)
+                next_state_values[non_final_mask] = target_net(non_final_next_states).view(non_final_next_states.size(0), -1).gather(1, best_action).view(-1)
+        else:
+            next_state_values[non_final_mask] = target_net(non_final_next_states).view(non_final_next_states.size(0), -1).max(1)[0].detach()
 
         expected_state_action_values = (reward_batch + torch.pow(self.gamma, ministeps_batch) * next_state_values)
         td_error = torch.abs(state_action_values - expected_state_action_values).detach()
@@ -200,9 +201,9 @@ class BoxDeliveryMujocoSAM(BasePolicy):
 
     def train(self, job_id) -> None:
         # create environment
-        # env = gym.make('box-delivery-mujoco-v0', cfg=self.cfg)
-        env = gym.make('box-delivery-mujoco-v0', render_mode = "human", cfg=self.cfg)
+        env = gym.make('area-clearing-mujoco-v0', render_mode='human', cfg=self.cfg)
         env = env.unwrapped
+        env.configure_env_for_SAM()
         self.cfg = env.cfg # update cfg with env-specific config
 
         job_id = job_id
@@ -235,7 +236,7 @@ class BoxDeliveryMujocoSAM(BasePolicy):
 
         # policy
         policy = DenseActionSpacePolicy(env.action_space.high, env.num_channels, self.final_exploration,
-                                         train=True, checkpoint_path=checkpoint_path, resume_training=resume_training, random_seed=self.cfg.misc.random_seed)
+                                         train=True, checkpoint_path=checkpoint_path, resume_training=resume_training)
 
         # optimizer
         optimizer = optim.SGD(policy.policy_net.parameters(), lr=self.learning_rate, momentum=0.9, weight_decay=self.weight_decay)
@@ -283,7 +284,7 @@ class BoxDeliveryMujocoSAM(BasePolicy):
                 exploration_eps = 1 - min(max(timestep - learning_starts, 0) / exploration_timesteps, 1) * (1 - self.final_exploration)
             else:
                 exploration_eps = self.final_exploration
-            action, _ = policy.predict(state, exploration_eps=exploration_eps)
+            action, _ = policy.step(state, exploration_eps=exploration_eps)
 
             # step the simulation
             next_state, reward, done, truncated, info = env.step(action)
@@ -299,7 +300,7 @@ class BoxDeliveryMujocoSAM(BasePolicy):
                 state, info = obs
                 episode += 1
                 if truncated:
-                    logging.info(f"Episode {episode} truncated. {info['cumulative_boxes']} in goal. Resetting environment...")
+                    logging.info(f"Episode {episode} truncated. {info['cumulative_cubes']} in goal. Resetting environment...")
                 else:
                     logging.info(f"Episode {episode} completed. Resetting environment...")
             
@@ -317,22 +318,22 @@ class BoxDeliveryMujocoSAM(BasePolicy):
             ################################################################################
             # Logging
             # meters
-            meters.update('step_time', step_time)
-            if timestep >= learning_starts:
-                for name, val in train_info.items():
-                    meters.update(name, val)
+            # meters.update('step_time', step_time)
+            # if timestep >= learning_starts:
+            #     for name, val in train_info.items():
+            #         meters.update(name, val)
             
-            if done:
-                for name in meters.get_names():
-                    train_summary_writer.add_scalar(name, meters.avg(name), timestep + 1)
-                eta_seconds = meters.avg('step_time') * (total_timesteps_with_warmup - timestep)
-                meters.reset()
+            # if done:
+            #     for name in meters.get_names():
+            #         train_summary_writer.add_scalar(name, meters.avg(name), timestep + 1)
+            #     eta_seconds = meters.avg('step_time') * (total_timesteps_with_warmup - timestep)
+            #     meters.reset()
 
-                train_summary_writer.add_scalar('episodes', episode, timestep + 1)
-                train_summary_writer.add_scalar('eta_hours', eta_seconds / 3600, timestep + 1)
+            #     train_summary_writer.add_scalar('episodes', episode, timestep + 1)
+            #     train_summary_writer.add_scalar('eta_hours', eta_seconds / 3600, timestep + 1)
 
-                for name in ['cumulative_boxes', 'cumulative_distance', 'cumulative_reward']:
-                    train_summary_writer.add_scalar(name, info[name], timestep + 1)
+            #     for name in ['cumulative_cubes', 'cumulative_distance', 'cumulative_reward']:
+            #         train_summary_writer.add_scalar(name, info[name], timestep + 1)
 
             ################################################################################
             # Checkpoint
@@ -369,58 +370,72 @@ class BoxDeliveryMujocoSAM(BasePolicy):
         env.close()
 
 
-
     def evaluate(self, num_eps: int, model_eps: str ='latest'):
-
-        # env = gym.make('box-delivery-mujoco-v0', cfg=self.cfg)
-        env = gym.make('box-delivery-mujoco-v0', render_mode = "human", cfg=self.cfg)
+        # create environment
+        if self.cfg is not None:
+            env = gym.make('area-clearing-mujoco-v0', render_mode='human', cfg=self.cfg)
+        else:
+            env = gym.make('area-clearing-mujoco-v0', render_mode='human')
         env = env.unwrapped
+
+        # env.configure_env_for_SAM()
+
+        # old_action_type = env.cfg.agent.action_type
+        # old_t_max = env.cfg.sim.t_max
+
+        # env.cfg.agent.action_type = 'position'
+        # env.cfg.sim.t_max = 50
+
+        # metric = TaskDrivenMetric(alg_name="SAM", robot_mass=env.cfg.agent.mass)
 
         if model_eps == 'latest':
             self.model = DenseActionSpacePolicy(env.action_space.high, env.num_channels, 0.0,
-                                                train=False, evaluate=True, model_name=self.model_name, model_dir=self.model_path)
+                                                train=False, evaluate=True, model_name=self.model_name, model_path=self.model_path)
         else:
             model_checkpoint = self.model_name + '_' + model_eps + '_steps'
-            self.model = DenseActionSpacePolicy(env.action_space.high, env.num_channels, 0.0,
-                                                train=False, evaluate=True, model_name=model_checkpoint)
-        
-        # metric = TaskDrivenMetric(alg_name="SAM", robot_mass=env.cfg.agent.mass)
 
         rewards_list = []
         for eps_idx in range(num_eps):
-            print("Progress: ", eps_idx, " / ", num_eps, " episodes")
+            print("SAM Progress: ", eps_idx, " / ", num_eps, " episodes")
             obs, _ = env.reset()
             state, info = obs
             # metric.reset(info)
             done = truncated = False
             eps_reward = 0.0
             while True:
-                action, _ = self.model.predict(state)
+                action, _ = self.model.step(state)
                 state, reward, done, truncated, info = env.step(action)
                 # metric.update(info=info, reward=reward, eps_complete=(done or truncated))
+                if(self.cfg.render.show):
+                    env.render()
                 if done or truncated:
                     break
         
         env.close()
         # metric.plot_scores(save_fig_dir=env.cfg.output_dir)
-        # return metric.success_rates, metric.efficiency_scores, metric.effort_scores, metric.rewards, f"SAM_{self.model_name}"
+
+        # env.cfg.agent.action_type = old_action_type
+        # env.cfg.sim.t_max = old_t_max
+
+        # return metric.success_rates, metric.efficiency_scores, metric.effort_scores, metric.rewards, "SAM"
         return None, None, None, None, None
 
 
     
-    def act(self, observation, action_space: int = None, num_channels: int = None, model_eps='latest'):
+    def act(self, observation, **kwargs):
+        raise NotImplementedError("The 'act' method is not implemented yet.")
+        # parameters for planners
+        model_eps = kwargs.get('model_eps', None)
+        
         # load trained model for the first time
         if self.model is None:
-            if action_space is None or num_channels is None:
-                raise ValueError("action_space and num_channels must be provided")
-            
-            if model_eps == 'latest':
-                self.model = DenseActionSpacePolicy(action_space, num_channels, 0.0,
-                                                    train=False, evaluate=True, model_name=self.model_name)
+
+            if model_eps is None:
+                # self.model = PPO.load(os.path.join(self.model_path, self.model_name))
+                pass
             else:
                 model_checkpoint = self.model_name + '_' + model_eps + '_steps'
-                self.model = DenseActionSpacePolicy(action_space.high, num_channels, 0.0,
-                                                    train=False, evaluate=True, model_name=model_checkpoint)
+                # self.model = PPO.load(os.path.join(self.model_path, model_checkpoint))
 
         action, _ = self.model.predict(observation)
         return action
