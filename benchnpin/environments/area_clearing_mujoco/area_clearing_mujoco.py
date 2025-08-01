@@ -421,6 +421,8 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
         done_turning = False
         prev_heading_diff = 0
 
+        print("Executing robot path with waypoints: ", robot_waypoint_positions)
+
         while True:
             if not robot_is_moving:
                 break
@@ -454,6 +456,8 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
             # change robot pose (use controller)
             v, w, dist = make_controller(robot_prev_position, robot_prev_heading, robot_waypoint_position)
 
+            # print('Distance to waypoint:', dist)
+
             # otherwise drive as normal
             v_l, v_r = vw_to_wheels(v, w)
 
@@ -461,12 +465,9 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
             self.do_simulation([v_l, v_r], self.frame_skip)
 
             # get new robot pose
-            # robot_initial_position = self.data.qpos[self.qpos_index_base:self.qpos_index_base+2]
-            robot_initial_position = self.data.xpos[self.base_body_id][:2].copy()
-            # robot_position = list(robot_position)
+            robot_position = self.data.xpos[self.base_body_id][:2].copy()
             robot_heading = quat_z_yaw(*self.data.qpos[self.qpos_index_base+3:self.qpos_index_base+7])
-            prev_heading_diff = heading_diff
-            
+
             # stop moving if robot collided with obstacle
             self.robot_hit_obstacle = self.robot_hits_static()
             if self.distance(robot_prev_waypoint_position, robot_position) > MOVE_STEP_SIZE:

@@ -68,8 +68,8 @@ def make_controller(curr_pos, curr_yaw, goal_pos):
     k_v, k_w = 0.2, 8.0
 
     # Rotation
-    # if abs(err_yaw) > ANGLE_TOL:
-    #     return 0.0, k_w * err_yaw, dist
+    if abs(err_yaw) > ANGLE_TOL:
+        return 0.0, k_w * err_yaw, dist
 
     # # Moving to required position
     # else:
