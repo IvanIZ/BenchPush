@@ -69,6 +69,7 @@ rewards_sam:
   collision_penalty: 0.25
   non_movement_penalty: 0.25
   correct_direction_reward_scale: 1
+  terminal_reward: 10.0
 
 rewards:
   partial_rewards_scale: 0.2
@@ -76,3 +77,4 @@ rewards:
   collision_penalty: 0.25
   non_movement_penalty: 0.25
   correct_direction_reward_scale: 1
+  terminal_reward: 10.0

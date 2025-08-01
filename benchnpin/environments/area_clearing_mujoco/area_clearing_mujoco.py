@@ -69,6 +69,7 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
             "human",
             "rgb_array",
             "depth_array",
+            "None"
         ],
     }
 
@@ -116,7 +117,7 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
         self.internal_clearance_length=self.cfg.env.internal_clearance_length
         self.receptacle_position=[0,0] # The center of the plane is assumed to be 0,0
         self.receptacle_half=[self.room_width/2, self.room_length/2]
-        self.num_completed_boxes_new = 0
+        self.num_completed_boxes = 0
 
         self.boundary_vertices = receptacle_vertices(self.receptacle_position, self.receptacle_half)
         self.walls = [] # TODO: if env is not empty, this should be set to the 'line' of each wall (look at pymunk version)
@@ -215,7 +216,7 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
             joint_id=mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_JOINT, f"box{i}_joint")
             joint_id_boxes.append(joint_id)
         self.joint_id_boxes = joint_id_boxes
-        self.completed_boxes_id=[]
+        self.completed_box_ids=[]
 
         # rewards
         if self.cfg.train.job_type == 'sam':
@@ -226,6 +227,7 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
         self.goal_reward = rewards.goal_reward
         self.collision_penalty = rewards.collision_penalty
         self.non_movement_penalty = rewards.non_movement_penalty
+        self.terminal_reward = rewards.terminal_reward
 
         # misc
         self.ministep_size = self.cfg.misc.ministep_size * scale_factor
@@ -255,7 +257,7 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
     def render_env(self, mode='human', close=False):
         """Renders the environment."""
 
-        if self.cfg.render.show and self.render_mode == "human":
+        if self.cfg.render.show:
             self.render()
 
         if self.cfg.render.show_obs and self.show_observation and self.observation is not None:# and self.t % self.cfg.render.frequency == 1:
@@ -275,6 +277,13 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
             self.state_plot.draw()
             # self.state_plot.pause(0.001)
             self.state_plot.pause(0.1)
+
+    def render(self):
+        """
+        Render a frame from the MuJoCo simulation as specified by the render_mode
+        """
+        if self.render_mode is not None:
+            return self.mujoco_renderer.render(self.render_mode)
 
 
     def update_path(self, waypoints):
@@ -372,8 +381,7 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
 
         # check if episode is done
         terminated = False
-        # print(self.completed_boxes_id)
-        if len(self.joint_id_boxes) == len(self.completed_boxes_id):
+        if len(self.joint_id_boxes) == len(self.completed_box_ids):
             terminated = True
         
         self.inactivity_counter += 1
@@ -386,7 +394,7 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
         self.observation=self.generate_observation(done=terminated)
         reward = self._get_rew()
         self.robot_cumulative_distance += robot_distance
-        self.robot_cumulative_boxes += self.num_completed_boxes_new
+        self.robot_cumulative_boxes = self.num_completed_boxes
         self.robot_cumulative_reward += reward
         ministeps = robot_distance / self.ministep_size
         info = {
@@ -420,8 +428,6 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
         sim_steps = 0
         done_turning = False
         prev_heading_diff = 0
-
-        print("Executing robot path with waypoints: ", robot_waypoint_positions)
 
         while True:
             if not robot_is_moving:
@@ -819,12 +825,17 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
             robot_reward+=self.partial_rewards_scale * boxes_total_distance
 
         # reward for boxes in receptacle
-        self.completed_boxes_id, self.num_completed_boxes_new = transport_box_from_recept(self.model, self.data, self.joint_id_boxes, self.room_width,
-                                                                                          self.room_length, self.completed_boxes_id, goal_half= self.receptacle_half, goal_center= self.receptacle_position, box_half_size=self.cfg.boxes.box_half_size)
-        if self.num_completed_boxes_new > 0:
+        self.completed_box_ids, completed_boxes_diff = transport_box_from_recept(self.model, self.data, self.joint_id_boxes, self.room_width,
+                                                                                          self.room_length, self.completed_box_ids, goal_half= self.receptacle_half, goal_center= self.receptacle_position, box_half_size=self.cfg.boxes.box_half_size)
+        if completed_boxes_diff > 0:
             self.inactivity_counter = 0
-        robot_reward += self.goal_reward * self.num_completed_boxes_new
-        
+        robot_reward += self.goal_reward * completed_boxes_diff
+
+        self.num_completed_boxes = len(self.completed_box_ids)
+
+        if not(self.cfg.train.job_type == 'sam') and self.num_completed_boxes == self.num_boxes:
+            robot_reward += self.terminal_reward
+
         # penalty for hitting obstacles
         if self.robot_hit_obstacle:
             robot_reward -= self.collision_penalty
@@ -896,7 +907,7 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
         motion_dict[self.base_body_id][1][:] = (cx, cy)
 
         # boxes still present
-        live_bodies_joint_id = list(set(self.joint_id_boxes) - set(self.completed_boxes_id))
+        live_bodies_joint_id = list(set(self.joint_id_boxes) - set(self.completed_box_ids))
         live_bodies = {self.model.jnt_bodyid[jid] for jid in live_bodies_joint_id}
         boxes_total_distance=0
 
@@ -1037,6 +1048,7 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
 
         observation=self.generate_observation()
 
+        self.completed_box_ids = []
 
         self.position_controller = PositionController(self.cfg, self.robot_radius, self.room_width, self.room_length, 
                                                       self.configuration_space, self.configuration_space_thin, self.closest_cspace_indices, 

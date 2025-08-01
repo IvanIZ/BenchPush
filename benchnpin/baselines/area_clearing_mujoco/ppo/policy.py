@@ -36,7 +36,7 @@ class AreaClearingMujocoPPO(BasePolicy):
             checkpoint_freq=10000,
             from_model_eps=None) -> None:
 
-        env = gym.make('area-clearing-mujoco-v0', cfg=self.cfg, render_mode='human')
+        env = gym.make('area-clearing-mujoco-v0', cfg=self.cfg, render_mode=None)
         env = env.unwrapped
         
         if from_model_eps is not None:
@@ -79,7 +79,7 @@ class AreaClearingMujocoPPO(BasePolicy):
             model_checkpoint = self.model_name + '_' + model_eps + '_steps'
             self.model = PPO.load(os.path.join(self.model_path, model_checkpoint))
 
-        env = gym.make('area-clearing-mujoco-v0', render_mode='human', cfg=self.cfg)
+        env = gym.make('area-clearing-mujoco-v0', render_mode=None, cfg=self.cfg)
         env = env.unwrapped
         # metric = TaskDrivenMetric(alg_name="PPO", robot_mass=env.cfg.agent.mass)
 
