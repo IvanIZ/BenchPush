@@ -607,10 +607,10 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
         small_obstacle_map = np.zeros((self.local_map_pixel_width+20, self.local_map_pixel_width+20), dtype=np.float32)
         
         # Precompute static vertices for walls and columns
-        wall_vertices, columns_from_keepout, side_vertices = precompute_static_vertices(self.initialization_keepouts, self.wall_thickness, self.room_width, self.room_length, self.cfg.env.wall_clearence_outer, self.cfg.env.wall_clearence_inner, self.cfg.env.area_clearing_version )
+        wall_vertices, self.columns_from_keepout, side_vertices = precompute_static_vertices(self.initialization_keepouts, self.wall_thickness, self.room_width, self.room_length, self.cfg.env.wall_clearence_outer, self.cfg.env.wall_clearence_inner, self.cfg.env.area_clearing_version )
 
         # Iterating through each wall vertice and keepout columns
-        for wall_vertices_each_wall in wall_vertices + columns_from_keepout + side_vertices:
+        for wall_vertices_each_wall in wall_vertices + self.columns_from_keepout + side_vertices:
 
             # get world coordinates of vertices
             vertices_np = np.array([[v[0], v[1]] for v in wall_vertices_each_wall[1]])
@@ -672,6 +672,10 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
         # Draw the boxes
         for box_vertices in boxes_vertices:
             draw_object(box_vertices[0], BOX_SEG_INDEX)
+
+        # Draw the pillars
+        for column in self.columns_from_keepout:
+            draw_object(column[1], 0)
 
         start_i, start_j = int(self.global_overhead_map.shape[0] / 2 - small_overhead_map.shape[0] / 2), int(self.global_overhead_map.shape[1] / 2 - small_overhead_map.shape[1] / 2)
         self.global_overhead_map[start_i:start_i + small_overhead_map.shape[0], start_j:start_j + small_overhead_map.shape[1]] = small_overhead_map

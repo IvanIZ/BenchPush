@@ -1,9 +1,4 @@
-"""
-Creates a fresh MJCF file with:
-- TurtleBot3 Burger (random start pose)
-- N blue boxes (N from user, 10-20) with random yaw
-- Randomly create enviornment type
-"""
+# Need to complete: columns and binary dialation
 
 import numpy as np
 from pathlib import Path
@@ -43,7 +38,7 @@ def precompute_static_vertices(keep_out, wall_thickness, room_width, room_length
         half_span = half_l + extra_len     # full half-length along Y
 
         # left thin wall  (negative x)
-        cx = -wall_clearence_inner
+        cx = -room_width/2 -wall_clearence_inner
         side_vertices.append(
             ["Side_left",
              [(cx-thickness, -half_span),
@@ -52,7 +47,7 @@ def precompute_static_vertices(keep_out, wall_thickness, room_width, room_length
               (cx-thickness,  half_span)]]
         )
         # right thin wall (positive x)
-        cx = room_width + wall_clearence_inner
+        cx = room_width/2 + wall_clearence_inner
         side_vertices.append(
             ["Side_right",
              [(cx-thickness, -half_span),
@@ -68,8 +63,8 @@ def precompute_static_vertices(keep_out, wall_thickness, room_width, room_length
     def columns_from_keepout(keep_out):
         out = []
         for k, poly in enumerate(keep_out):
-            shifted = [(x, y) for x, y in poly]
-            out.append([f"Column_{k}", shifted])
+            column_coordinates = [(x, y) for x, y in poly]
+            out.append([f"Column_{k}", column_coordinates])
         return out
 
     return wall_vertices, columns_from_keepout(keep_out), side_vertices
@@ -163,8 +158,8 @@ def changing_per_configuration(env_type: str,
       cx = 0  # Centered around (0, 0)
 
       # lower and upper Y bounds
-      y_min = internal_clearance_length + pillar_half[1] / 2.0
-      y_max = ARENA_Y[1] - pillar_half[1] / 2.0 - internal_clearance_length
+      y_min = -ARENA_Y[1]/2+ internal_clearance_length + pillar_half[1] / 2.0
+      y_max = ARENA_Y[1]/2 - pillar_half[1] / 2.0 - internal_clearance_length
 
       # evenly space n_pillars points between y_min and y_max
       if n_pillars == 1:
@@ -246,13 +241,13 @@ def build_xml(robot_qpos, boxes, stl_model_path, extra_xml, Z_BOX, box_size, ARE
         side_walls_code = f"""
     <!-- X-walls: left and right sides -->
     <geom name="wall_X1" type="box"
-      pos="{-ARENA_X1/2 - wall_clearence_inner} {ARENA_Y1/2} 0.15"
+      pos="{-ARENA_X1/2 - wall_clearence_inner} 0.0 0.15"
       size="0.01 {ARENA_Y1 / 2 + extra / 2} 0.15"
       rgba="0 0 0 1.0" contype="1" conaffinity="1"
       friction="0.45 0.01 0.003"/>
 
     <geom name="wall_X2" type="box"
-      pos="{ARENA_X1/2 + wall_clearence_inner} {ARENA_Y1/2} 0.15"
+      pos="{ARENA_X1/2 + wall_clearence_inner} 0.0 0.15"
       size="0.01 {ARENA_Y1 / 2 + extra / 2} 0.15"
       rgba="0 0 0 1.0" contype="1" conaffinity="1"
       friction="0.45 0.01 0.003"/>

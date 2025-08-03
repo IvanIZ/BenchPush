@@ -72,7 +72,7 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
 
     def __init__(
         self,
-        frame_skip: int = 5,
+        frame_skip: int = 1,
         default_camera_config: Dict[str, Union[float, int]] = DEFAULT_CAMERA_CONFIG,
         cfg=None,
         **kwargs,
@@ -336,30 +336,32 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
         active, parked, self.initialization_keepouts = self._sample_pillar_centres()
         self.observation_init= False
         
+        # float-safe membership test
+        def close(pt1, pt2, tol=1e-6):
+            return abs(pt1[0] - pt2[0]) <= tol and abs(pt1[1] - pt2[1]) <= tol
+
+        def in_list(pt, lst):
+            return any(close(pt, other) for other in lst)
+
         # place every pillar (active + parked)
-        for k, (cx, cy) in enumerate(active):
+        all_centres = active + parked
+        for k, (cx, cy) in enumerate(all_centres):
             prefix = "small_col" if "small" in self.cfg.env.obstacle_config else "large_col"
             name   = f"{prefix}{k}"
 
             j_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_JOINT, f"{name}_joint")
             if j_id == -1:
-                continue
+                print(f"Joint {name}_joint not found in the model.")
 
             adr = self.model.jnt_qposadr[j_id]
-            self.data.qpos[adr:adr+3]   = [cx, cy, self.pillar_half[2]]
-            self.data.qpos[adr+3:adr+7] = [1, 0, 0, 0]
-            self.data.qvel[adr:adr+6]   = 0
+            if in_list((cx, cy), active):
+                #active pillar
+                self.data.qpos[adr:adr+2] = [cx, cy]
 
-        for k, (cx, cy) in enumerate(parked):
-            prefix = "small_col" if "small" in self.cfg.env.obstacle_config else "large_col"
-            name   = f"{prefix}{k}"
-
-            j_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_JOINT, f"{name}_joint")
-            if j_id == -1:
-                continue
-
-            adr = self.model.jnt_qposadr[j_id]
-            self.data.qpos[adr:adr+3]   = [cx, cy, -self.STANDBY_Z]
+            else:
+                # parked pillar
+                self.data.qpos[adr:adr+3] = [cx, cy, -self.STANDBY_Z]
+    
             self.data.qpos[adr+3:adr+7] = [1, 0, 0, 0]
             self.data.qvel[adr:adr+6]   = 0
 
@@ -374,11 +376,11 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
                     return False
 
             # check against pillar keep-outs
-            if intersects_keepout(y, x, self.initialization_keepouts):
+            if intersects_keepout(x, y, self.initialization_keepouts):
                 return False
 
             # finally check your overall clearance polygon
-            if not inside_poly(y,x , self.clearance_poly):
+            if not inside_poly(x,y , self.clearance_poly):
                 return False
 
             return True
@@ -756,8 +758,6 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
         # Precompute static vertices for walls and columns
         wall_vertices, columns_from_keepout, corners=precompute_static_vertices(self.initialization_keepouts, self.wall_thickness, self.room_length, self.room_width)
 
-        # self.excluded_polygons= Wall_vertices+columns_from_keepout+ corners
-
         # Iterating through each wall vertice and keepout columns
         for wall_vertices_each_wall in wall_vertices+columns_from_keepout+corners:
 
@@ -816,10 +816,7 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
         receptacle_vertice=receptacle_vertices(self.receptacle_position, self.receptacle_half)
         draw_object(receptacle_vertice, RECEPTACLE_SEG_INDEX)
 
-
         # Draw the robot
-        # robot_vertices= robot_vertices[1]
-        # print(robot_vertices)
         draw_object(robot_vertices, ROBOT_SEG_INDEX)
         
         # Draw the boxes
@@ -988,8 +985,9 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
             n_active = self.num_pillars
 
         active_centres = []
+        corners_active = []
         tries = 0
-        while len(active_centres) < n_active and tries < 50_000:
+        while len(active_centres) < n_active and tries < 500000:
             tries += 1
             cx = rng.uniform(-self.room_length/2+0.3, self.room_length/2 - 0.30)
             cy = rng.uniform(-self.room_width/2+0.3, self.room_width/2-0.3)
@@ -1006,23 +1004,19 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
                 continue
 
             active_centres.append((cx, cy))
+            corners_active.append(corners)
 
         HX, HY, _      = self.pillar_half
-        STANDBY_Y      = - self.room_width / 2 - HY - 0.1
+        STANDBY_Y      = self.room_width / 2 + HY + 0.1
         STANDBY_STEP   = 2*self.pillar_half[2] + self.STANDBY_GAP
 
         # parked (inactive) pillars – laid out in a neat row on the stand-by plane
         parked_centres = [
-            (-self.room_length/2+self.X_clearance+ k * STANDBY_STEP, -STANDBY_Y)
+            (-self.room_length/2+self.X_clearance+ k * STANDBY_STEP, STANDBY_Y)
             for k in range(self.num_pillars - n_active)
         ]
 
-        # keep-outs only for active pillars
-        keep_out_active = [[(cx-hx, cy-hy), (cx+hx, cy-hy),
-                            (cx+hx, cy+hy), (cx-hx, cy+hy)]
-                        for cx, cy in active_centres]
-
-        return active_centres, parked_centres, keep_out_active
+        return active_centres, parked_centres, corners_active
 
     def init_motion_dict(self):
         """

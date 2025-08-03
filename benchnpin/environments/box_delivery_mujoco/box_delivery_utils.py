@@ -217,11 +217,13 @@ def changing_per_configuration(env_type: str, clearance_poly,
     return extra_xml, keep_out  
 
 
-def intersects_keepout(x, y, keep_out):
-    """To ensure that it doesn't lie in the keep out area due to pillars"""
-    
-    return any(inside_poly(x, y, poly) for poly in keep_out)
-  
+def intersects_keepout(x, y, polys, margin=0.0):
+    for poly in polys:                     # poly = list of (px, py)
+        xs, ys = zip(*poly)
+        if (min(xs)-margin <= x <= max(xs)+margin and
+            min(ys)-margin <= y <= max(ys)+margin):
+            return True
+    return False
 
 def sample_scene(n_boxes, keep_out, ROBOT_R, CLEAR, ARENA_X, ARENA_Y, clearance_poly):
     """returns robot pose + list of box poses (x,y,theta)"""

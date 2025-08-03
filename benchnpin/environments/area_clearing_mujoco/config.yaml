@@ -34,7 +34,7 @@ train:
   
 ### ENVIRONMENT PARAMS
 env:
-  area_clearing_version: "Fully_open_area" # Choose from one of them: Fully_open_area ,Partially_closed_with_walls ,Partially_closed_with_static
+  area_clearing_version: "Partially_closed_with_static" # Choose from one of them: Fully_open_area ,Partially_closed_with_walls ,Partially_closed_with_static
   room_width: 1.4225
   room_length: 1.4225
   wall_clearence_outer: 0.2 # Provides clearance from either of the room length and width

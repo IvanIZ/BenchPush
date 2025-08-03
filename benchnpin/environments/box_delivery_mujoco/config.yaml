@@ -52,7 +52,7 @@ env:
   invert_receptacle_map: false
   receptacle_position: [1.2725, 0.56125]
   receptacle_half: 0.15
-  sim_timestep: 0.002
+  sim_timestep: 0.0001
 
 small_pillars:
   num_pillars: 2
