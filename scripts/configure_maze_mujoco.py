@@ -21,21 +21,21 @@ cfg = {
 env = gym.make('maze-NAMO-mujoco-v0', render_mode = "human", cfg=cfg)
 
 terminated = truncated = False
-num_epochs = 20
+num_epochs = 10
 num_steps_per_epoch = 40000
 
 for i in range(num_epochs):
 
-    env.reset()
+    _, info = env.reset()
+
     for t in range(num_steps_per_epoch):
 
-        v = 0.1
         w = 0
-
-        goal_pos = [v, w]
-        action = goal_pos
+        action = w
 
         observation, reward, terminated, truncated, info = env.step(action)
+        env.render()
+        print(info['state'])
 
         if terminated or truncated:
             break
