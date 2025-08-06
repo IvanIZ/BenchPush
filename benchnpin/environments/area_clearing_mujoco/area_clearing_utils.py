@@ -126,7 +126,7 @@ def receptacle_vertices(receptacle_position, receptacle_local_dimension):
     return Receptacle_vertices
 
 def changing_per_configuration(env_type: str, 
-                               ARENA_X, ARENA_Y, n_pillars, pillar_half, internal_clearance_length):
+                               ARENA_X, ARENA_Y, n_pillars, pillar_half, internal_clearance_length,robot_radius):
     """ 
     Based on the configration, it would create code for pillars along with
     polygon to the area where nothing has to be placed.
@@ -166,6 +166,12 @@ def changing_per_configuration(env_type: str,
         centers = [(cx, (y_min + y_max) / 2.0)]
       step = (y_max - y_min) / (n_pillars - 1)
       centers = [(cx, y_min + i * step) for i in range(n_pillars)]
+      clearance = step-2*pillar_half[1]  # clearance between pillars
+
+      if clearance < 2* robot_radius:
+          raise ValueError(f"Too many pillars for the given area, "
+                           f"clearance between pillars is {clearance:.2f}m, "
+                           f"but robot diameter is {robot_radius*2:.2f}m")
 
       for k, (cx, cy) in enumerate(centers):
         xml, poly = pillar(f"small_col{k}", cx, cy, pillar_half)
@@ -385,14 +391,14 @@ def build_xml(robot_qpos, boxes, stl_model_path, extra_xml, Z_BOX, box_size, ARE
 
 
 def generate_area_clearing_xml(N, env_type, file_name, ROBOT_clear, BOXES_clear, Z_BOX, ARENA_X, ARENA_Y,
-                  box_half_size, num_pillars, pillar_half, wall_clearence_outer, wall_clearence_inner, internal_clearance_length):
+                  box_half_size, num_pillars, pillar_half, wall_clearence_outer, wall_clearence_inner, internal_clearance_length, robot_radius):
     
     # Name of input and output file otherwise set to default
     XML_OUT = Path(file_name)
     stl_model_path = os.path.join(os.path.dirname(__file__), 'models/')
     
     # Changing based on configration type
-    extra_xml, keep_out = changing_per_configuration(env_type, ARENA_X, ARENA_Y, num_pillars, pillar_half, internal_clearance_length)
+    extra_xml, keep_out = changing_per_configuration(env_type, ARENA_X, ARENA_Y, num_pillars, pillar_half, internal_clearance_length, robot_radius)
 
     # Finding the robot's q_pos and boxes's randomized data
     robot_qpos, boxes = sample_scene(N, keep_out, ROBOT_clear, BOXES_clear, ARENA_X, ARENA_Y, internal_clearance_length)
