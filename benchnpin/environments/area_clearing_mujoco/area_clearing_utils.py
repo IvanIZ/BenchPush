@@ -405,7 +405,7 @@ def generate_area_clearing_xml(N, env_type, file_name, ROBOT_clear, BOXES_clear,
 
 
 def transport_box_from_recept(model, data, joint_id_boxes, ARENA_X1, ARENA_Y1, completed_boxes_id, goal_half, goal_center, box_half_size):
-    """Teleport a box only if all its vertices are inside the goal box."""
+    """To identify if boxes are within the goal region or not."""
     
     completed_boxes_id_new=[]
     # half-edge of box
@@ -436,8 +436,8 @@ def transport_box_from_recept(model, data, joint_id_boxes, ARENA_X1, ARENA_Y1, c
         verts = corners_xy(centre_xy, yaw,corners_local_coordinates)
 
         # containment test – every vertex must satisfy the four inequalities
-        outside = not (np.all((xmin <= verts[:,0]) & (verts[:,0] <= xmax) &
-                        (ymin <= verts[:,1]) & (verts[:,1] <= ymax)))
+        outside =  (np.all((xmin >= verts[:,0]) & (verts[:,0] >= xmax) &
+                        (ymin >= verts[:,1]) & (verts[:,1] >= ymax)))
 
         if outside:
             completed_boxes_id_new.append(jid)
