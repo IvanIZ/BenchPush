@@ -32,13 +32,15 @@ def precompute_static_vertices(keep_out, wall_thickness, room_width, room_length
 
     # THIN SIDE-WALLS (present only in partially-closed envs)
     side_vertices = []
+    side_points = []
     if env_type in ("Partially_closed_with_walls", "Partially_closed_with_static"):
         thickness = 0.01                   # half-size in build_xml
-        extra_len = 0.1 if env_type == "Partially_closed_with_walls" else 0.0
-        half_span = half_l + extra_len     # full half-length along Y
+        # extra_len = 0.1 if env_type == "Partially_closed_with_walls" else 0.0
+        # half_span = half_l + extra_len     # full half-length along Y
+        half_span = half_l                  # full half-length along Y
 
         # left thin wall  (negative x)
-        cx = -room_width/2 -wall_clearence_inner
+        cx = -room_width/2 - wall_clearence_inner
         side_vertices.append(
             ["Side_left",
              [(cx-thickness, -half_span),
@@ -46,6 +48,8 @@ def precompute_static_vertices(keep_out, wall_thickness, room_width, room_length
               (cx+thickness,  half_span),
               (cx-thickness,  half_span)]]
         )
+        side_points.append([[cx, -half_span], [cx, half_span]])
+
         # right thin wall (positive x)
         cx = room_width/2 + wall_clearence_inner
         side_vertices.append(
@@ -55,6 +59,7 @@ def precompute_static_vertices(keep_out, wall_thickness, room_width, room_length
               (cx+thickness,  half_span),
               (cx-thickness,  half_span)]]
         )
+        side_points.append([[cx, -half_span], [cx, half_span]])
 
     # Columns and Dividers
     # File_updating.changing_per_configuration returns 'keep_out', a list
@@ -67,7 +72,7 @@ def precompute_static_vertices(keep_out, wall_thickness, room_width, room_length
             out.append([f"Column_{k}", column_coordinates])
         return out
 
-    return wall_vertices, columns_from_keepout(keep_out), side_vertices
+    return wall_vertices, columns_from_keepout(keep_out), side_vertices, side_points
 
 def dynamic_vertices(model, data, qpos_idx_robot: int, joint_ids_boxes: list[int], robot_full, box_half):
     """
@@ -241,8 +246,8 @@ def build_xml(robot_qpos, boxes, stl_model_path, extra_xml, Z_BOX, box_size, ARE
 
     if env_type == "Partially_closed_with_walls" or env_type == "Partially_closed_with_static": 
         extra = 0.0
-        if env_type == "Partially_closed_with_walls":
-            extra = 0.1
+        # if env_type == "Partially_closed_with_walls":
+        #     extra = 0.1
 
         side_walls_code = f"""
     <!-- X-walls: left and right sides -->
@@ -455,14 +460,14 @@ def transport_box_from_recept(model, data, joint_id_boxes, ARENA_X1, ARENA_Y1, c
         yaw = quat_z_yaw(qw, qx, qy, qz)
 
         # world vertices
-        verts = corners_xy(centre_xy, yaw,corners_local_coordinates)
+        verts = corners_xy(centre_xy, yaw, corners_local_coordinates)
 
         # containment test – every vertex must satisfy the four inequalities
-        outside =  (np.all((xmin >= verts[:,0]) & (verts[:,0] >= xmax) &
-                        (ymin >= verts[:,1]) & (verts[:,1] >= ymax)))
+        outside =  not (np.any((xmin <= verts[:,0]) & (verts[:,0] <= xmax) &
+                        (ymin <= verts[:,1]) & (verts[:,1] <= ymax)))
 
         if outside:
-            completed_boxes_id_new.append(jid)
+          completed_boxes_id_new.append(jid)
 
     # number of boxes that are transported
     num_boxes_transported_outside_receptacle=len(completed_boxes_id_new)-len(completed_boxes_id)

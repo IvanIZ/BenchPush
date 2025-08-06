@@ -44,6 +44,7 @@ DISTANCE_SCALE_MAX = 0.5
 OBSTACLE_SEG_INDEX = 0
 FLOOR_SEG_INDEX = 1
 RECEPTACLE_SEG_INDEX = 3
+COMPLETED_BOX_SEG_INDEX = 7
 BOX_SEG_INDEX = 4
 ROBOT_SEG_INDEX = 5
 MAX_SEG_INDEX = 8
@@ -119,8 +120,14 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
         self.num_completed_boxes_new = 0
 
         self.boundary_vertices = receptacle_vertices(self.receptacle_position, self.receptacle_half)
-        self.walls = [] # TODO: if env is not empty, this should be set to the 'line' of each wall (look at pymunk version)
+        self.outer_boundary_vertices = receptacle_vertices(
+            self.receptacle_position, 
+            [self.receptacle_half[0] + self.cfg.env.wall_clearence_outer, 
+             self.receptacle_half[1] + self.cfg.env.wall_clearence_outer]
+        )
+        self.walls = []
         self.boundary_polygon = Polygon(self.boundary_vertices)
+        self.outer_boundary_polygon = Polygon(self.outer_boundary_vertices)
 
         # state
         self.num_channels = 4
@@ -579,8 +586,8 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
                 x, y = self.pixel_indices_to_position(i, j, self.configuration_space.shape)
                 if not self.boundary_polygon.contains(Point(x, y)):
                     global_map[i, j] = 0
-                # if not self.outer_boundary_polygon.contains(Point(x, y)):
-                #     global_map[i, j] = 1
+                if not self.outer_boundary_polygon.contains(Point(x, y)):
+                    global_map[i, j] = 1
 
         return global_map
     
@@ -605,9 +612,9 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
         small_obstacle_map = np.zeros((self.local_map_pixel_width+20, self.local_map_pixel_width+20), dtype=np.float32)
         
         # Precompute static vertices for walls and columns
-        wall_vertices, self.columns_from_keepout, side_vertices = precompute_static_vertices(self.initialization_keepouts, self.wall_thickness, self.room_width, self.room_length, self.cfg.env.wall_clearence_outer, self.cfg.env.wall_clearence_inner, self.cfg.env.area_clearing_version )
+        wall_vertices, self.columns_from_keepout, side_vertices, self.walls = precompute_static_vertices(self.initialization_keepouts, self.wall_thickness, self.room_width, self.room_length, self.cfg.env.wall_clearence_outer, self.cfg.env.wall_clearence_inner, self.cfg.env.area_clearing_version )
 
-        # Iterating through each wall vertice and keepout columns
+        # Iterating through each wall vertex and keepout columns
         for wall_vertices_each_wall in wall_vertices + self.columns_from_keepout + side_vertices:
 
             # get world coordinates of vertices
@@ -668,8 +675,12 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
         draw_object(robot_vertices, ROBOT_SEG_INDEX)
 
         # Draw the boxes
-        for box_vertices in boxes_vertices:
-            draw_object(box_vertices[0], BOX_SEG_INDEX)
+        first_box_id = self.joint_id_boxes[0]
+        for i in range(len(boxes_vertices)):
+            if (i + first_box_id) in self.completed_boxes_id:
+                draw_object(boxes_vertices[i][0], COMPLETED_BOX_SEG_INDEX)
+            else:
+                draw_object(boxes_vertices[i][0], BOX_SEG_INDEX)
 
         # Draw the pillars
         for column in self.columns_from_keepout:
@@ -975,8 +986,7 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
             self.data.qpos[qadr+3:qadr+7] = quat_z(theta)
             self.data.qvel[qadr:qadr+6] = 0
 
-        self._prev_robot_xy = self.data.qpos[self.qpos_index_base:self.qpos_index_base+2]
-        self._prev_robot_xy = self.data.xpos[self.base_body_id][:2].copy()
+        self._prev_robot_xy = get_body_pose_2d(self.model, self.data, 'base')[:2]
         self._prev_robot_heading = quat_z_yaw(*self.data.qpos[self.qpos_index_base+3:self.qpos_index_base+7])
 
         # get the robot and boxes vertices

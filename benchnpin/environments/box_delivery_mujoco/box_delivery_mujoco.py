@@ -422,7 +422,7 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
             self.do_simulation([v_l, v_r], self.frame_skip)
 
             # get new robot pose
-            robot_position = self.data.qpos[self.qpos_index_base:self.qpos_index_base+2]
+            robot_position = get_body_pose_2d(self.model, self.data, 'base')[:2]
             robot_heading = quat_z_yaw(*self.data.qpos[self.qpos_index_base+3:self.qpos_index_base+7])
             prev_heading_diff = heading_diff
             
@@ -1079,7 +1079,7 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
 
         #self.motion_dict = init_motion_dict(self.model, self.data, self.base_body_id, self.joint_id_boxes)
 
-        self._prev_robot_xy = np.array(self.data.qpos[self.qpos_index_base:self.qpos_index_base+2])
+        self._prev_robot_xy = get_body_pose_2d(self.model, self.data, 'base')[:2]
         self._prev_robot_heading = quat_z_yaw(*self.data.qpos[self.qpos_index_base+3:self.qpos_index_base+7])
 
         # get the robot and boxes vertices
