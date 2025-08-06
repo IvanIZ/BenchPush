@@ -333,8 +333,7 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
         robot_boxes = 0
         robot_reward = 0
 
-        robot_initial_position = self.data.qpos[self.qpos_index_base:self.qpos_index_base+2]
-        robot_initial_position = self.data.xpos[self.base_body_id][:2].copy()
+        robot_initial_position = get_body_pose_2d(self.model, self.data, 'base')[:2]
         robot_initial_heading = quat_z_yaw(*self.data.qpos[self.qpos_index_base+3:self.qpos_index_base+7])
 
         # TODO check if move_sign is necessary
@@ -429,8 +428,7 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
             self.do_simulation([v_l, v_r], self.frame_skip)
 
             # get new robot pose
-            robot_initial_position = self.data.qpos[self.qpos_index_base:self.qpos_index_base+2]
-            robot_initial_position = self.data.xpos[self.base_body_id][:2].copy()
+            robot_initial_position = get_body_pose_2d(self.model, self.data, 'base')[:2]
             # robot_position = list(robot_position)
             robot_heading = quat_z_yaw(*self.data.qpos[self.qpos_index_base+3:self.qpos_index_base+7])
             prev_heading_diff = heading_diff
@@ -818,8 +816,7 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
 
         # robot base
         m_robot = self.model.body_mass[self.base_body_id]
-        cx, cy = self.data.qpos[self.qpos_index_base:self.qpos_index_base+2]
-        cx, cy = self.data.xpos[self.base_body_id][:2].copy()
+        cx, cy = get_body_pose_2d(self.model, self.data, 'base')[:2]
         track[self.base_body_id] = [0.0, np.array([cx, cy], dtype=float), float(m_robot)]
 
         # boxes
@@ -860,8 +857,7 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
 
         # robot
         length, last_xy, mass = motion_dict[self.base_body_id]
-        cx, cy = self.data.qpos[self.qpos_index_base:self.qpos_index_base+2]
-        cx, cy = self.data.xpos[self.base_body_id][:2].copy()
+        cx, cy = get_body_pose_2d(self.model, self.data, 'base')[:2]
         dist = np.linalg.norm(np.array([cx, cy]) - last_xy)
         motion_dict[self.base_body_id][0] += dist
         motion_dict[self.base_body_id][1][:] = (cx, cy)
@@ -1005,22 +1001,18 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
 
         observation=self.generate_observation()
 
-
         self.position_controller = PositionController(self.cfg, self.robot_radius, self.room_width, self.room_length, 
                                                       self.configuration_space, self.configuration_space_thin, self.closest_cspace_indices, 
                                                       self.local_map_pixel_width, self.local_map_width, self.local_map_pixels_per_meter,
                                                       TURN_STEP_SIZE, MOVE_STEP_SIZE, WAYPOINT_MOVING_THRESHOLD, WAYPOINT_TURNING_THRESHOLD)
+       
+        return observation
 
+    def _get_reset_info(self):
         info = {
             'cumulative_distance': self.robot_cumulative_distance,
             'cumulative_boxes': self.robot_cumulative_boxes,
             'cumulative_reward': self.robot_cumulative_reward,
             'ministeps': 0,
         }
-        
-        return observation, info
-
-
-    def _get_reset_info(self):
-        return {
-        }
+        return info
