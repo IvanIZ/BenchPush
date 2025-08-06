@@ -236,7 +236,7 @@ def sample_scene(n_boxes, keep_out, ROBOT_R, BOXES_clear, ARENA_X, ARENA_Y, inte
     return robot_qpos, boxes
 
 
-def build_xml(robot_qpos, boxes, stl_model_path, extra_xml, Z_BOX, box_size, ARENA_X1, ARENA_Y1, env_type, wall_clearence_outer, wall_clearence_inner, robot_rgb):
+def build_xml(robot_qpos, boxes, stl_model_path, extra_xml, Z_BOX, box_size, ARENA_X1, ARENA_Y1, env_type, wall_clearence_outer, wall_clearence_inner,bumper_type, robot_rgb):
     """Building data for a different file"""
 
     if env_type == "Partially_closed_with_walls" or env_type == "Partially_closed_with_static": 
@@ -261,6 +261,22 @@ def build_xml(robot_qpos, boxes, stl_model_path, extra_xml, Z_BOX, box_size, ARE
     else:
         side_walls_code = ""
 
+
+    # Bumper type handling
+
+    if bumper_type == 'curved_inwards':
+      bumper_name= "TurtleBot3_Curved_Bumper"
+    
+    elif bumper_type == 'straight':
+        bumper_name = "TurtleBot3_Straight_Bumper"
+    
+    elif bumper_type == 'curved_outwards':
+        bumper_name = "TurtleBot3_Triangular_Bumper"
+    
+    else:
+        raise ValueError(f"Unknown bumper type: {bumper_type}. "
+                         f"Choose from 'curved_inwards', 'straight', 'curved_outwards'.")
+
     header = f"""
 <mujoco model="box_delivery_structured_env">
   <compiler angle="radian" autolimits="true" meshdir="{stl_model_path}" inertiafromgeom="true"/>
@@ -281,7 +297,7 @@ def build_xml(robot_qpos, boxes, stl_model_path, extra_xml, Z_BOX, box_size, ARE
     <mesh name="left_tire"   file="left_tire.stl"  scale="0.001 0.001 0.001"/>
     <mesh name="right_tire"  file="right_tire.stl" scale="0.001 0.001 0.001"/>
     <mesh name="lds"         file="lds.stl"        scale="0.001 0.001 0.001"/>
-    <mesh name="bumper"      file="TurtleBot3 Burger Bumper.STL" scale="0.001 0.001 0.001"/>
+    <mesh name="bumper"      file="{bumper_name}.STL" scale="0.001 0.001 0.001"/>
   </asset>
 
   <visual>
@@ -391,7 +407,7 @@ def build_xml(robot_qpos, boxes, stl_model_path, extra_xml, Z_BOX, box_size, ARE
 
 
 def generate_area_clearing_xml(N, env_type, file_name, ROBOT_clear, BOXES_clear, Z_BOX, ARENA_X, ARENA_Y,
-                  box_half_size, num_pillars, pillar_half, wall_clearence_outer, wall_clearence_inner, internal_clearance_length, robot_radius):
+                  box_half_size, num_pillars, pillar_half, wall_clearence_outer, wall_clearence_inner, internal_clearance_length, robot_radius, bumper_type):
     
     # Name of input and output file otherwise set to default
     XML_OUT = Path(file_name)
@@ -404,7 +420,7 @@ def generate_area_clearing_xml(N, env_type, file_name, ROBOT_clear, BOXES_clear,
     robot_qpos, boxes = sample_scene(N, keep_out, ROBOT_clear, BOXES_clear, ARENA_X, ARENA_Y, internal_clearance_length)
   
     # Building new environemnt and writing it down
-    xml_string = build_xml(robot_qpos, boxes, stl_model_path, extra_xml, Z_BOX, box_half_size, ARENA_X[1], ARENA_Y[1], env_type, wall_clearence_outer, wall_clearence_inner, robot_rgb=(0.1, 0.1, 0.1))
+    xml_string = build_xml(robot_qpos, boxes, stl_model_path, extra_xml, Z_BOX, box_half_size, ARENA_X[1], ARENA_Y[1], env_type, wall_clearence_outer, wall_clearence_inner,bumper_type, robot_rgb=(0.1, 0.1, 0.1))
     XML_OUT.write_text(xml_string)
     
     return XML_OUT, keep_out
