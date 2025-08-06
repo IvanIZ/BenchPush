@@ -41,10 +41,10 @@ evaluate:
   
 ### ENVIRONMENT PARAMS
 env:
-  obstacle_config: small_columns # options are small_empty, small_columns, large_columns, large_divider
+  obstacle_config: large_divider # options are small_empty, small_columns, large_columns, large_divider
   room_length: 2.845
   room_width_small: 1.4225
-  room_width_large: 2.5
+  room_width_large: 1.4225
   shortest_path_channel_scale: 0.25
   local_map_pixel_width: 224
   local_map_pixel_width_sam: 96
@@ -62,13 +62,10 @@ small_pillars:
 large_pillars:
   num_pillars: 8
   adjust_num_pillars: True
-  # pillar_half: [0.16, 0.16, 0.10]
   pillar_half: [0.14225, 0.14225, 0.20]
 
-# NOT WORKING YET
 large_divider:
-  divider_half: 0
-  divider_height: 0
+  divider_thickness: 0.1 # Full thickness of the divider wall not half-thickness
 
 misc:
   ministep_size: 2.5

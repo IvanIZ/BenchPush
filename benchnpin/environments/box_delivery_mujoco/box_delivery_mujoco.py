@@ -6,7 +6,6 @@ import matplotlib.pyplot as plt
 from pathlib import Path
 from typing import Dict, Union
 import numpy as np
-from numpy.typing import NDArray
 import os
 
 # Bench-NPIN imports
@@ -114,6 +113,7 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
         self.pillar_half = None
         self.pillar_type = None
         self.adjust_num_pillars = False
+        self.divider_thickness = self.cfg.large_divider.divider_thickness if env_size.strip() == "large_divider" else 0.0 
         if env_size.strip()=="small_columns":
             self.num_pillars = self.cfg.small_pillars.num_pillars
             self.pillar_half = self.cfg.small_pillars.pillar_half
@@ -122,7 +122,8 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
             self.num_pillars = self.cfg.large_pillars.num_pillars
             self.pillar_half = self.cfg.large_pillars.pillar_half
             self.adjust_num_pillars= self.cfg.large_pillars.adjust_num_pillars
-
+        
+        
         # environment
         self.local_map_pixel_width = self.cfg.env.local_map_pixel_width if self.cfg.train.job_type != 'sam' else self.cfg.env.local_map_pixel_width_sam
         self.local_map_width = max(self.room_length, self.room_width)
@@ -139,7 +140,6 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
         self.configuration_space = None
         self.configuration_space_thin = None
         self.closest_cspace_indices = None
-        self.observation_init = False
         
         # stats
         self.inactivity_counter = None
@@ -168,7 +168,7 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
         xml_file = os.path.join(self.current_dir, 'turtlebot3_burger_updated.xml')
         _, self.initialization_keepouts, self.clearance_poly = generate_boxDelivery_xml(N=self.cfg.boxes.num_boxes, env_type=self.cfg.env.obstacle_config, file_name=xml_file,
                         ROBOT_clear=self.cfg.agent.robot_clear, CLEAR=self.cfg.boxes.clearance, goal_half= self.receptacle_half, goal_center= self.receptacle_position, Z_BOX=self.cfg.boxes.box_half_size, ARENA_X=(0.0, self.room_length), 
-                        ARENA_Y=(0.0, self.room_width), box_half_size=self.cfg.boxes.box_half_size, num_pillars=self.num_pillars, pillar_half=self.pillar_half, adjust_num_pillars=self.adjust_num_pillars, sim_timestep= self.cfg.env.sim_timestep)
+                        ARENA_Y=(0.0, self.room_width), box_half_size=self.cfg.boxes.box_half_size, num_pillars=self.num_pillars, pillar_half=self.pillar_half, adjust_num_pillars=self.adjust_num_pillars, sim_timestep= self.cfg.env.sim_timestep, divider_thickness=self.divider_thickness)
 
         utils.EzPickle.__init__(
             self,
@@ -276,7 +276,7 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
 
         # 2×2 figure
         fig, ax = plt.subplots(2, 2, figsize=(4, 4))
-        titles = ["Static", "Movable", "Goal DT", "Ergocenttric DT"]
+        titles = ["Static", "Movable", "Goal DT", " Ergocenttric DT"]
 
         for k in range(4):
             i, j   = divmod(k, 2)
@@ -299,19 +299,15 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
 
         if self.cfg.render.show_obs and self.show_observation and self.observation is not None:# and self.t % self.cfg.render.frequency == 1:
             self.show_observation = False
+            channel_name = ["Occupancy", "Footprint", "Goal DT", "Egocentric DT"]
             for ax, i in zip(self.state_ax, range(self.num_channels)):
                 ax.clear()
-                ax.set_title(f'Channel {i}')
+                ax.set_title(channel_name[i])
                 ax.set_xticks([])
                 ax.set_yticks([])
                 im = ax.imshow(self.observation[:,:,i], cmap='hot', interpolation='nearest')
-                # if self.colorbars[i] is not None:
-                #     self.colorbars[i].update_normal(im)
-                # else:
-                #     self.colorbars[i] = self.state_fig.colorbar(im, ax=ax)
             
             self.state_plot.draw()
-            # self.state_plot.pause(0.001)
             self.state_plot.pause(0.1)
 
 
@@ -331,39 +327,72 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
         Teleport them in simulation using sim.data.qpos.
         """
         positions = []
+        cfg_obs = self.cfg.env.obstacle_config.strip()
 
-        # pillars
-        active, parked, self.initialization_keepouts = self._sample_pillar_centres()
-        self.observation_init= False
+        if cfg_obs in ("small_columns", "large_columns"):
+
+            # pillars
+            active, parked, self.initialization_keepouts = self._sample_pillar_centres()
+            
+            # float-safe membership test
+            def close(pt1, pt2, tol=1e-6):
+                return abs(pt1[0] - pt2[0]) <= tol and abs(pt1[1] - pt2[1]) <= tol
+
+            def in_list(pt, lst):
+                return any(close(pt, other) for other in lst)
+
+            # place every pillar (active + parked)
+            all_centres = active + parked
+
+            for k, (cx, cy) in enumerate(all_centres):
+                prefix = "small_col" if "small" in self.cfg.env.obstacle_config else "large_col"
+                name   = f"{prefix}{k}"
+
+                j_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_JOINT, f"{name}_joint")
+                if j_id == -1:
+                    print(f"Joint {name}_joint not found in the model.")
+
+                adr = self.model.jnt_qposadr[j_id]
+                if in_list((cx, cy), active):
+                    #active pillar
+                    self.data.qpos[adr:adr+2] = [cx, cy]
+
+                else:
+                    # parked pillar
+                    self.data.qpos[adr:adr+3] = [cx, cy, -self.STANDBY_Z]
         
-        # float-safe membership test
-        def close(pt1, pt2, tol=1e-6):
-            return abs(pt1[0] - pt2[0]) <= tol and abs(pt1[1] - pt2[1]) <= tol
+                self.data.qpos[adr+3:adr+7] = [1, 0, 0, 0]
+                self.data.qvel[adr:adr+6]   = 0
 
-        def in_list(pt, lst):
-            return any(close(pt, other) for other in lst)
+        elif cfg_obs == "large_divider":
+            
+            hx = 0.8 * self.room_length / 2
+            hy = self.divider_thickness / 2
+            hz = 0.1
 
-        # place every pillar (active + parked)
-        all_centres = active + parked
-        for k, (cx, cy) in enumerate(all_centres):
-            prefix = "small_col" if "small" in self.cfg.env.obstacle_config else "large_col"
-            name   = f"{prefix}{k}"
+            # Divider X-centre and Y-centre
+            cx = -0.2 * self.room_length / 2
+            # Left some clearance from corners
+            cy = self.random_state.uniform(-self.room_width/2 + 0.4, self.room_width/2 - 0.4)
 
-            j_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_JOINT, f"{name}_joint")
-            if j_id == -1:
-                print(f"Joint {name}_joint not found in the model.")
+            # Teleporting the divider body (joint) to the new pose
+            joint_name = "large_divider_joint"
+            j_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_JOINT,joint_name)
+            if j_id < 0:
+                raise RuntimeError(f"Joint {joint_name} not found in model")
 
             adr = self.model.jnt_qposadr[j_id]
-            if in_list((cx, cy), active):
-                #active pillar
-                self.data.qpos[adr:adr+2] = [cx, cy]
+            self.data.qpos[adr     : adr+3] = [cx, cy, hz]        # x, y, z
+            self.data.qpos[adr+3   : adr+7] = [1, 0, 0, 0]        # unit quat
+            self.data.qvel[adr     : adr+6] = 0                   # zero velocity
 
-            else:
-                # parked pillar
-                self.data.qpos[adr:adr+3] = [cx, cy, -self.STANDBY_Z]
-    
-            self.data.qpos[adr+3:adr+7] = [1, 0, 0, 0]
-            self.data.qvel[adr:adr+6]   = 0
+            divider_poly = [
+                (cx - hx, cy - hy), (cx + hx, cy - hy),
+                (cx + hx, cy + hy), (cx - hx, cy + hy)
+            ]
+
+            # This is to ensure that that the robot/boxes do not come too close to the divider during initialization
+            self.initialization_keepouts = [divider_poly]
 
         def is_valid(pos, radius,positions):
             # unpack immediately
@@ -811,7 +840,6 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
 
             fillPoly(small_overhead_map, [vertices_px], color=seg_index/MAX_SEG_INDEX)
         
-
         # Draw the receptacle
         receptacle_vertice=receptacle_vertices(self.receptacle_position, self.receptacle_half)
         draw_object(receptacle_vertice, RECEPTACLE_SEG_INDEX)
@@ -999,7 +1027,7 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
 
             if not all(inside_poly(x, y, self.clearance_poly) for x, y in corners):
                 continue
-            # if any(boxes_overlap(cx, cy, px, py) for px, py in active_centres):
+            
             if any(np.hypot(cx-px, cy-py) < 2*hx + 0.30 for px, py in active_centres):
                 continue
 

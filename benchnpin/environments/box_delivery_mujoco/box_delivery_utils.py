@@ -125,7 +125,7 @@ def receptacle_vertices(receptacle_half, receptacle_local_dimension):
     return Receptacle_vertices
 
 def changing_per_configuration(env_type: str, clearance_poly, 
-                               ARENA_X, ARENA_Y, n_pillars, half):
+                               ARENA_X, ARENA_Y, n_pillars, half, divider_thickness):
     """ 
     Based on the configration, it would create code for pillars along with
     polygon to the area where nothing has to be placed.
@@ -204,6 +204,22 @@ def changing_per_configuration(env_type: str, clearance_poly,
             extra_xml += xml
             keep_out.append(poly)
 
+    # large_divider
+    elif env_type == "large_divider":
+      
+      # divider geometry (half-sizes)
+      hx = 0.8 * ARENA_X[1] / 2          # spans  -X/2  …  +0.6·X/2
+      hy = divider_thickness / 2         # 0.1-m total thickness → 0.05 half-thickness
+      hz = 0.1
+
+      # x-centre of the divider strip
+      cx = -0.2 * ARENA_X[1] / 2         # centre of [-X/2 , +0.6·X/2]
+
+      cy = random.uniform(-ARENA_Y[1]/2 + 0.4, ARENA_Y[1]/2 - 0.4)
+      xml, poly = pillar("large_divider", cx, cy, (hx, hy, hz))
+      extra_xml += xml
+      keep_out.append(poly)
+    
     # small_empty
     elif env_type == "small_empty":
         # nothing to add
@@ -456,7 +472,7 @@ def clearance_poly_generator(ARENA_X, ARENA_Y,
             (x_min+corner_clearance,y_max), (x_min+corner_clearance,y_max-corner_clearance), (x_min,y_max-corner_clearance)]
 
 def generate_boxDelivery_xml(N,env_type,file_name,ROBOT_clear,CLEAR,Z_BOX,ARENA_X,ARENA_Y,
-                  box_half_size, goal_half, goal_center,num_pillars, pillar_half, adjust_num_pillars,sim_timestep):
+                  box_half_size, goal_half, goal_center,num_pillars, pillar_half, adjust_num_pillars,sim_timestep,divider_thickness):
     
     # Name of input and output file otherwise set to default
     XML_OUT = Path(file_name)
@@ -467,7 +483,7 @@ def generate_boxDelivery_xml(N,env_type,file_name,ROBOT_clear,CLEAR,Z_BOX,ARENA_
     box_size = f"{box_half_size} {box_half_size} {box_half_size}"
     
     # Changing based on configration type
-    extra_xml, keep_out = changing_per_configuration(env_type,clearance_poly, ARENA_X,ARENA_Y, num_pillars, pillar_half)
+    extra_xml, keep_out = changing_per_configuration(env_type,clearance_poly, ARENA_X,ARENA_Y, num_pillars, pillar_half, divider_thickness)
     
     # Finding the robot's q_pos and boxes's randomized data
     robot_qpos, boxes = sample_scene(N,keep_out,ROBOT_clear,CLEAR,ARENA_X,ARENA_Y, clearance_poly)
