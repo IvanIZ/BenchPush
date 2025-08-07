@@ -240,9 +240,7 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
         self.random_state = np.random.RandomState(self.random_seed)
 
         self.episode_idx = None
-
         self.path = None
-
         self.tries_before_inactive = self.cfg.train.tries_before_inactive
 
         # pillar clearance
