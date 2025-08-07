@@ -63,17 +63,9 @@ def make_controller(curr_pos, curr_yaw, goal_pos):
     goal_head = np.arctan2(vec[1], vec[0])
     err_yaw   = np.arctan2(np.sin(goal_head - curr_yaw), np.cos(goal_head - curr_yaw))
 
-    # Controller characteristics (APPROX CAN BE UPDATED LATER)
-    # k_v, k_w = 4.0,4.0
+    # Controller characteristics
     k_v, k_w = 0.2, 8.0
 
-    # Rotation
-    # if abs(err_yaw) > ANGLE_TOL:
-    #     return 0.0, k_w * err_yaw, dist
-
-    # # Moving to required position
-    # else:
-        # return k_v * dist, 0.0, dist
     return k_v, k_w * err_yaw, dist
 
 
