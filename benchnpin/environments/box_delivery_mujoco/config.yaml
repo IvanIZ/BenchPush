@@ -78,6 +78,7 @@ agent:
   length: 0.138
   width: 0.183
   robot_clear: 0.15
+  type_of_bumper: 'curved_inwards' # Choose from one of them: curved_inwards, straight, curved_outwards
 
 rewards_sam:
   partial_rewards_scale: 0.2

@@ -45,7 +45,6 @@ env:
   local_map_pixel_width_sam: 96
   wall_thickness: 50.0 # Really high wall thickness to ensure nothing in vicinity of local maps
   invert_receptacle_map: false
-  type_of_bumper: 'straight' # Choose from one of them: curved_inwards, straight, curved_outwards
   sim_timestep: 0.01
 
 small_pillars:
@@ -63,6 +62,7 @@ agent:
   length: 0.138
   width: 0.183
   robot_clear: 0.15
+  type_of_bumper: 'straight' # Choose from one of them: curved_inwards, straight, curved_outwards
 
 rewards_sam:
   partial_rewards_scale: 0.2

@@ -278,6 +278,17 @@ def sample_scene(n_boxes, keep_out, ROBOT_R, CLEAR, ARENA_X, ARENA_Y, clearance_
 def build_xml(robot_qpos, boxes, stl_model_path, extra_xml, Z_BOX, box_size, ARENA_X1, ARENA_Y1, goal_half, goal_center, adjust_num_pillars, robot_rgb, sim_timestep):
     """Building data for a different file"""
 
+    # Bumper type handling
+
+    if bumper_type == 'curved_inwards':
+      bumper_name= "TurtleBot3_Curved_Bumper"
+    
+    elif bumper_type == 'straight':
+        bumper_name = "TurtleBot3_Straight_Bumper"
+    
+    elif bumper_type == 'curved_outwards':
+        bumper_name = "TurtleBot3_Triangular_Bumper"
+
     if adjust_num_pillars is True:
         adjust_pillar_plane = f"""
     <!-- Pillars kept -->
@@ -306,7 +317,7 @@ def build_xml(robot_qpos, boxes, stl_model_path, extra_xml, Z_BOX, box_size, ARE
     <mesh name="left_tire"   file="left_tire.stl"   scale="0.001 0.001 0.001"/>
     <mesh name="right_tire"  file="right_tire.stl"  scale="0.001 0.001 0.001"/>
     <mesh name="lds"         file="lds.stl"         scale="0.001 0.001 0.001"/>
-    <mesh name="bumper"      file="TurtleBot3 Burger Bumper.STL" scale="0.001 0.001 0.001"/>
+    <mesh name="bumper"      file="{bumper_name}.STL" scale="0.001 0.001 0.001"/>
     <material name="mat_noreflect" rgba="0 0.3922 0 1" specular="0" shininess="0" reflectance="0"/>
   </asset>
 
