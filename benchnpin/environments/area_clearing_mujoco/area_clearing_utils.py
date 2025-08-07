@@ -246,20 +246,18 @@ def build_xml(robot_qpos, boxes, stl_model_path, extra_xml, Z_BOX, box_size, ARE
 
     if env_type == "Partially_closed_with_walls" or env_type == "Partially_closed_with_static": 
         extra = 0.0
-        # if env_type == "Partially_closed_with_walls":
-        #     extra = 0.1
 
         side_walls_code = f"""
     <!-- X-walls: left and right sides -->
     <geom name="wall_X1" type="box"
       pos="{-ARENA_X1/2 - wall_clearence_inner} 0.0 0.15"
-      size="0.01 {ARENA_Y1 / 2 + extra / 2} 0.15"
+      size="0.01 {ARENA_Y1 / 2} 0.15"
       rgba="0 0 0 1.0" contype="1" conaffinity="1"
       friction="0.45 0.01 0.003"/>
 
     <geom name="wall_X2" type="box"
       pos="{ARENA_X1/2 + wall_clearence_inner} 0.0 0.15"
-      size="0.01 {ARENA_Y1 / 2 + extra / 2} 0.15"
+      size="0.01 {ARENA_Y1 / 2} 0.15"
       rgba="0 0 0 1.0" contype="1" conaffinity="1"
       friction="0.45 0.01 0.003"/>
 """
@@ -287,7 +285,7 @@ def build_xml(robot_qpos, boxes, stl_model_path, extra_xml, Z_BOX, box_size, ARE
   <compiler angle="radian" autolimits="true" meshdir="{stl_model_path}" inertiafromgeom="true"/>
 
   <option integrator="implicitfast" gravity="0 0 -9.81"
-          timestep="{sim_timestep}" iterations="20" viscosity="1.5"/>
+          timestep="{sim_timestep}" iterations="10" viscosity="1.5"/>
 
   <default>
     <joint limited="false" armature="0.01"/>
