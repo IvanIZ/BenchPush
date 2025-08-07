@@ -245,8 +245,7 @@ def build_xml(robot_qpos, boxes, stl_model_path, extra_xml, Z_BOX, box_size, ARE
     """Building data for a different file"""
 
     if env_type == "Partially_closed_with_walls" or env_type == "Partially_closed_with_static": 
-        extra = 0.0
-
+      
         side_walls_code = f"""
     <!-- X-walls: left and right sides -->
     <geom name="wall_X1" type="box"
