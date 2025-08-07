@@ -203,7 +203,7 @@ class AreaClearingMujocoSAM(BasePolicy):
         # create environment
         env = gym.make('area-clearing-mujoco-v0', render_mode='human', cfg=self.cfg)
         env = env.unwrapped
-        env.configure_env_for_SAM()
+        # env.configure_env_for_SAM()
         self.cfg = env.cfg # update cfg with env-specific config
 
         job_id = job_id

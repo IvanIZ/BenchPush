@@ -14,6 +14,10 @@
 # Append is important because otherwise preemption resets the file
 #SBATCH --open-mode=append
 
+job_name=${SLURM_JOB_NAME:-${j:-main}}
+# Set the job name manually
+scontrol update JobName=$job_name JobId=$SLURM_JOB_ID
+
 echo `date`: Job $SLURM_JOB_ID is allocated resource
 
 # the recommendation is to keep everything that defines the workload itself in a separate script

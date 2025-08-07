@@ -241,7 +241,7 @@ def sample_scene(n_boxes, keep_out, ROBOT_R, BOXES_clear, ARENA_X, ARENA_Y, inte
     return robot_qpos, boxes
 
 
-def build_xml(robot_qpos, boxes, stl_model_path, extra_xml, Z_BOX, box_size, ARENA_X1, ARENA_Y1, env_type, wall_clearence_outer, wall_clearence_inner,bumper_type, robot_rgb):
+def build_xml(robot_qpos, boxes, stl_model_path, extra_xml, Z_BOX, box_size, ARENA_X1, ARENA_Y1, env_type, wall_clearence_outer, wall_clearence_inner, bumper_type, robot_rgb, sim_timestep):
     """Building data for a different file"""
 
     if env_type == "Partially_closed_with_walls" or env_type == "Partially_closed_with_static": 
@@ -286,7 +286,8 @@ def build_xml(robot_qpos, boxes, stl_model_path, extra_xml, Z_BOX, box_size, ARE
 <mujoco model="box_delivery_structured_env">
   <compiler angle="radian" autolimits="true" meshdir="{stl_model_path}" inertiafromgeom="true"/>
 
-  <option integrator="implicitfast" gravity="0 0 -9.81" timestep="0.002" iterations="50" viscosity="1.5"/>
+  <option integrator="implicitfast" gravity="0 0 -9.81"
+          timestep="{sim_timestep}" iterations="20" viscosity="1.5"/>
 
   <default>
     <joint limited="false" armature="0.01"/>
@@ -412,7 +413,7 @@ def build_xml(robot_qpos, boxes, stl_model_path, extra_xml, Z_BOX, box_size, ARE
 
 
 def generate_area_clearing_xml(N, env_type, file_name, ROBOT_clear, BOXES_clear, Z_BOX, ARENA_X, ARENA_Y,
-                  box_half_size, num_pillars, pillar_half, wall_clearence_outer, wall_clearence_inner, internal_clearance_length, robot_radius, bumper_type):
+                  box_half_size, num_pillars, pillar_half, wall_clearence_outer, wall_clearence_inner, internal_clearance_length, robot_radius, bumper_type, sim_timestep):
     
     # Name of input and output file otherwise set to default
     XML_OUT = Path(file_name)
@@ -425,7 +426,7 @@ def generate_area_clearing_xml(N, env_type, file_name, ROBOT_clear, BOXES_clear,
     robot_qpos, boxes = sample_scene(N, keep_out, ROBOT_clear, BOXES_clear, ARENA_X, ARENA_Y, internal_clearance_length)
   
     # Building new environemnt and writing it down
-    xml_string = build_xml(robot_qpos, boxes, stl_model_path, extra_xml, Z_BOX, box_half_size, ARENA_X[1], ARENA_Y[1], env_type, wall_clearence_outer, wall_clearence_inner,bumper_type, robot_rgb=(0.1, 0.1, 0.1))
+    xml_string = build_xml(robot_qpos, boxes, stl_model_path, extra_xml, Z_BOX, box_half_size, ARENA_X[1], ARENA_Y[1], env_type, wall_clearence_outer, wall_clearence_inner, bumper_type, robot_rgb=(0.1, 0.1, 0.1), sim_timestep=sim_timestep)
     XML_OUT.write_text(xml_string)
     
     return XML_OUT, keep_out
@@ -434,7 +435,7 @@ def generate_area_clearing_xml(N, env_type, file_name, ROBOT_clear, BOXES_clear,
 def transport_box_from_recept(model, data, joint_id_boxes, ARENA_X1, ARENA_Y1, completed_boxes_id, goal_half, goal_center, box_half_size):
     """To identify if boxes are within the goal region or not."""
     
-    completed_boxes_id_new=[]
+    completed_boxes_id_new = []
     # half-edge of box
     HSIZE = box_half_size
     # local corner coordinates

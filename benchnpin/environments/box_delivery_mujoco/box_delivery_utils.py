@@ -489,7 +489,7 @@ def generate_boxDelivery_xml(N, env_type, file_name, ROBOT_clear, CLEAR, Z_BOX, 
     robot_qpos, boxes = sample_scene(N,keep_out,ROBOT_clear,CLEAR,ARENA_X,ARENA_Y, clearance_poly)
   
     # Building new environemnt and writing it down
-    xml_string = build_xml(robot_qpos, boxes, stl_model_path, extra_xml, Z_BOX, box_size, ARENA_X[1], ARENA_Y[1], goal_half, goal_center, adjust_num_pillars, robot_rgb=(0.1, 0.1, 0.1), sim_timestep=0.01)
+    xml_string = build_xml(robot_qpos, boxes, stl_model_path, extra_xml, Z_BOX, box_size, ARENA_X[1], ARENA_Y[1], goal_half, goal_center, adjust_num_pillars, robot_rgb=(0.1, 0.1, 0.1),  sim_timestep=sim_timestep)
     XML_OUT.write_text(xml_string)
     
     return XML_OUT, keep_out, clearance_poly

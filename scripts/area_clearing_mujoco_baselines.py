@@ -102,12 +102,14 @@ if __name__ == '__main__':
     else:
         # High level configuration for the area clearing task
         cfg={
-            # 'env': 'clear_env', # 'clear_env_small', 'clear_env', walled_env', 'walled_env_with_columns'
             'num_obstacles': 10,
             'render': {
                 'log_obs': False, # log occupancy observations
-                'show': True, # show the environment
-                'show_obs': True, # show the occupancy observation
+                'show': False, # show the environment
+                'show_obs': False, # show the occupancy observation
+            },
+            'env': {
+                'area_clearing_version': "Fully_open_area" # Choose from one of them: Fully_open_area ,Partially_closed_with_walls ,Partially_closed_with_static
             },
             'agent': {
                 # Options: 'position', 'heading', 'velocity'
@@ -116,13 +118,14 @@ if __name__ == '__main__':
                 # action_type: 'velocity', # Use for GTSP
             },
             'train': {
-                'train_mode': False,
+                'train_mode': True,
                 'job_type': 'sam', # 'sam', 'ppo', 'sac'
-                'job_name': 'SAM',
+                'job_name': 'sam_clear_env',
+                'resume_training': False, 
                 'from_model_eps': None,
             },
             'evaluate': {
-                'eval_mode': True,
+                'eval_mode': False,
                 'num_eps': 2,
                 'policy_types': ['sam'], # list of policy types to evaluate
                 'model_names': ['clear_env'], # list of model names to evaluate
