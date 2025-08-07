@@ -173,12 +173,10 @@ class AreaClearingMujocoSAM(BasePolicy):
         next_state_values = torch.zeros(self.batch_size, dtype=torch.float32, device=self.device)
         non_final_mask = torch.tensor(tuple(map(lambda s: s is not None, batch.next_state)), dtype=torch.bool, device=self.device)
 
-        if self.use_double_dqn:
-            with torch.no_grad():
-                best_action = policy_net(non_final_next_states).view(non_final_next_states.size(0), -1).max(1)[1].view(non_final_next_states.size(0), 1)
-                next_state_values[non_final_mask] = target_net(non_final_next_states).view(non_final_next_states.size(0), -1).gather(1, best_action).view(-1)
-        else:
-            next_state_values[non_final_mask] = target_net(non_final_next_states).view(non_final_next_states.size(0), -1).max(1)[0].detach()
+        # Double DQN
+        with torch.no_grad():
+            best_action = policy_net(non_final_next_states).view(non_final_next_states.size(0), -1).max(1)[1].view(non_final_next_states.size(0), 1)
+            next_state_values[non_final_mask] = target_net(non_final_next_states).view(non_final_next_states.size(0), -1).gather(1, best_action).view(-1)
 
         expected_state_action_values = (reward_batch + torch.pow(self.gamma, ministeps_batch) * next_state_values)
         td_error = torch.abs(state_action_values - expected_state_action_values).detach()
@@ -298,7 +296,7 @@ class AreaClearingMujocoSAM(BasePolicy):
                 state, _ = env.reset()
                 episode += 1
                 if truncated:
-                    logging.info(f"Episode {episode} truncated. {info['cumulative_cubes']} in goal. Resetting environment...")
+                    logging.info(f"Episode {episode} truncated. {info['cumulative_boxes']} in goal. Resetting environment...")
                 else:
                     logging.info(f"Episode {episode} completed. Resetting environment...")
             
