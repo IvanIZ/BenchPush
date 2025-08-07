@@ -3,6 +3,14 @@ import gymnasium as gym
 import random
 import numpy as np
 
+############### VVVVVVV Configurable Parameters for Maze Environment VVVVVVV ####################
+cfg = {
+    "output_dir": "logs/",      # Specify directory for loggings
+    "egocentric_obs": True,     # True egocentric observation, False for global observation
+    "render_scale": 30,         # Scalar applied to rendering window to fit the screen. Reducing this value makes rendering window smaller
+}
+############### ^^^^^^^ Configurable Parameters for Maze Environment ^^^^^^^ ####################
+
 env = gym.make('maze-NAMO-mujoco-v0', render_mode = "human", cfg=cfg, disable_env_checker=True)
 
 terminated = truncated = False

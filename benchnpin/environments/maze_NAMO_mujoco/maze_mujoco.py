@@ -111,7 +111,7 @@ class MazeNAMOMujoco(MujocoEnv, utils.EzPickle):
         _, self.maze_walls = generate_maze_xml(N=self.cfg.boxes.num_boxes, maze_version=self.cfg.maze_version, file_name=xml_file,
                         ROBOT_R=self.cfg.agent.robot_r, CLEAR=self.cfg.boxes.clearance, Z_CUBE=0.02, ARENA_X=(0.0, self.cfg.env.width), 
                         ARENA_Y=(0.0, self.cfg.env.length), cube_half_size=0.04, clearance_poly=self.cfg.env.clearance_poly, goal_center=self.cfg.env.goal_position, 
-                        goal_half=self.cfg.env.goal_size)
+                        goal_half=self.cfg.env.goal_size, bumper_type=self.cfg.agent.type_of_bumper)
 
 
         # compute the global distance map
