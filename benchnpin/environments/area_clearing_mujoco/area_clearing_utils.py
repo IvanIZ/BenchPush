@@ -283,7 +283,7 @@ def build_xml(robot_qpos, boxes, stl_model_path, extra_xml, Z_BOX, box_size, ARE
   <compiler angle="radian" autolimits="true" meshdir="{stl_model_path}" inertiafromgeom="true"/>
 
   <option integrator="implicitfast" gravity="0 0 -9.81"
-          timestep="{sim_timestep}" iterations="10" viscosity="1.5"/>
+          timestep="{sim_timestep}" iterations="20" viscosity="1.5"/>
 
   <default>
     <joint limited="false" armature="0.01"/>
