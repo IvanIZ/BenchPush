@@ -482,7 +482,7 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
             robot_heading = quat_z_yaw(*self.data.qpos[self.qpos_index_base+3:self.qpos_index_base+7])
 
             # stop moving if robot collided with obstacle
-            self.robot_hit_obstacle = self.robot_hits_static()
+            self.robot_hit_obstacle = self.check_static_obstacle_collision()
             # if self.distance(robot_prev_waypoint_position, robot_position) > MOVE_STEP_SIZE:
             if self.distance(robot_prev_position, robot_position) < MOVE_STEP_SIZE / 100:
                 if self.robot_hit_obstacle or done_turning:
@@ -719,7 +719,7 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
         # Draw the boxes
         first_box_id = self.joint_id_boxes[0]
         for i in range(len(boxes_vertices)):
-            if (i + first_box_id) in self.completed_boxes_id:
+            if (i + first_box_id) in self.completed_box_ids:
                 draw_object(boxes_vertices[i][0], COMPLETED_BOX_SEG_INDEX)
             else:
                 draw_object(boxes_vertices[i][0], BOX_SEG_INDEX)
