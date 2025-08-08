@@ -342,7 +342,7 @@ def build_xml(robot_qpos, boxes, stl_model_path, extra_xml, Z_BOX, box_size, ARE
 
     <!-- Y-walls: bottom and top -->
     <geom name="Wall_Y1" type="box"
-      pos="0 {-ARENA_X1/2 - wall_clearence_outer - 0.125} 0.15"
+      pos="0 {-ARENA_Y1/2 - wall_clearence_outer - 0.125} 0.15"
       size="{ARENA_X1 / 2 + wall_clearence_outer} 0.125 0.15"
       rgba="0.2 0.2 0.2 0.6" contype="1" conaffinity="1"
       friction="0.45 0.01 0.003"/>
