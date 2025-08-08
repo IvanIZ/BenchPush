@@ -101,8 +101,8 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
 
 
         # Setting up the environment parameters
-        self.room_length = self.cfg.env.room_length
-        self.room_width = self.cfg.env.room_width
+        self.room_length_inner = self.cfg.env.room_length - 2*self.cfg.env.distance_between_inner_goal_and_outer_wall_length
+        self.room_width_inner = self.cfg.env.room_width- 2*self.cfg.env.distance_between_inner_goal_and_outer_wall_width
 
         # Pillar position and size
         self.num_pillars = self.cfg.small_pillars.num_pillars
@@ -110,20 +110,20 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
 
         # environment
         self.local_map_pixel_width = self.cfg.env.local_map_pixel_width if self.cfg.train.job_type != 'sam' else self.cfg.env.local_map_pixel_width_sam
-        self.local_map_width = max(self.room_length+2*self.cfg.env.wall_clearence_outer, self.room_width+2*self.cfg.env.wall_clearence_outer)
+        self.local_map_width = max(self.room_length_inner+2*self.cfg.env.distance_between_inner_goal_and_outer_wall_length, self.room_width_inner+2*self.cfg.env.distance_between_inner_goal_and_outer_wall_width)
         self.local_map_pixels_per_meter = self.local_map_pixel_width / self.local_map_width
         self.wall_thickness = self.cfg.env.wall_thickness
         self.num_boxes = self.cfg.boxes.num_boxes
         self.internal_clearance_length=self.cfg.env.internal_clearance_length
         self.receptacle_position=[0,0] # The center of the plane is assumed to be 0,0
-        self.receptacle_half=[self.room_width/2, self.room_length/2]
+        self.receptacle_half=[self.room_width_inner/2, self.room_length_inner/2]
         self.num_completed_boxes_new = 0
 
         self.boundary_vertices = receptacle_vertices(self.receptacle_position, self.receptacle_half)
         self.outer_boundary_vertices = receptacle_vertices(
             self.receptacle_position, 
-            [self.receptacle_half[0] + self.cfg.env.wall_clearence_outer, 
-             self.receptacle_half[1] + self.cfg.env.wall_clearence_outer]
+            [self.receptacle_half[0] + self.cfg.env.distance_between_inner_goal_and_outer_wall_width, 
+             self.receptacle_half[1] + self.cfg.env.distance_between_inner_goal_and_outer_wall_length]
         )
         self.walls = []
         self.boundary_polygon = Polygon(self.boundary_vertices)
@@ -165,9 +165,9 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
         # generate random environment
         xml_file = os.path.join(self.current_dir, 'turtlebot3_burger_updated.xml')
         _, self.initialization_keepouts = generate_area_clearing_xml(N=self.cfg.boxes.num_boxes, env_type=self.cfg.env.area_clearing_version, file_name=xml_file,
-                        ROBOT_clear=self.cfg.agent.robot_clear, BOXES_clear=self.cfg.boxes.clearance, Z_BOX=self.cfg.boxes.box_half_size, ARENA_X=(0.0, self.room_length), 
-                        ARENA_Y=(0.0, self.room_width), box_half_size=self.cfg.boxes.box_half_size, num_pillars=self.cfg.small_pillars.num_pillars, pillar_half=self.cfg.small_pillars.pillar_half,
-                        wall_clearence_outer=self.cfg.env.wall_clearence_outer, wall_clearence_inner=self.cfg.env.wall_clearence_inner, internal_clearance_length=self.cfg.env.internal_clearance_length, robot_radius=self.robot_radius, bumper_type=self.cfg.agent.type_of_bumper , sim_timestep=self.cfg.env.sim_timestep)
+                        ROBOT_clear=self.cfg.agent.robot_clear, BOXES_clear=self.cfg.boxes.clearance, Z_BOX=self.cfg.boxes.box_half_size, ARENA_X=(0.0, self.room_length_inner), 
+                        ARENA_Y=(0.0, self.room_width_inner), box_half_size=self.cfg.boxes.box_half_size, num_pillars=self.cfg.small_pillars.num_pillars, pillar_half=self.cfg.small_pillars.pillar_half,
+                        wall_clearence_outer=[self.cfg.env.distance_between_inner_goal_and_outer_wall_length, self.cfg.env.distance_between_inner_goal_and_outer_wall_width], wall_clearence_inner=self.cfg.env.wall_clearence_inner, internal_clearance_length=self.cfg.env.internal_clearance_length, robot_radius=self.robot_radius, bumper_type=self.cfg.agent.type_of_bumper , sim_timestep=self.cfg.env.sim_timestep)
 
         utils.EzPickle.__init__(
             self,
@@ -557,8 +557,8 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
         """ Creates a padded room of zeros with the size of the local map."""
 
         return np.zeros((
-            int(2 * np.ceil((self.room_width * self.local_map_pixels_per_meter + self.local_map_pixel_width * np.sqrt(2)) / 2)),
-            int(2 * np.ceil((self.room_length * self.local_map_pixels_per_meter + self.local_map_pixel_width * np.sqrt(2)) / 2))
+            int(2 * np.ceil((self.room_width_inner * self.local_map_pixels_per_meter + self.local_map_pixel_width * np.sqrt(2)) / 2)),
+            int(2 * np.ceil((self.room_length_inner * self.local_map_pixels_per_meter + self.local_map_pixel_width * np.sqrt(2)) / 2))
         ), dtype=np.float32)
     
     def create_global_shortest_path_to_goal_points(self):
@@ -613,7 +613,7 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
         small_obstacle_map = np.zeros((self.local_map_pixel_width+20, self.local_map_pixel_width+20), dtype=np.float32)
         
         # Precompute static vertices for walls and columns
-        wall_vertices, self.columns_from_keepout, side_vertices, self.walls = precompute_static_vertices(self.initialization_keepouts, self.wall_thickness, self.room_width, self.room_length, self.cfg.env.wall_clearence_outer, self.cfg.env.wall_clearence_inner, self.cfg.env.area_clearing_version )
+        wall_vertices, self.columns_from_keepout, side_vertices, self.walls = precompute_static_vertices(self.initialization_keepouts, self.wall_thickness, self.room_width_inner, self.room_length_inner, [self.cfg.env.distance_between_inner_goal_and_outer_wall_length, self.cfg.env.distance_between_inner_goal_and_outer_wall_width], self.cfg.env.wall_clearence_inner, self.cfg.env.area_clearing_version )
 
         # Iterating through each wall vertex and keepout columns
         for wall_vertices_each_wall in wall_vertices + self.columns_from_keepout + side_vertices:
@@ -800,8 +800,8 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
             robot_reward+=self.partial_rewards_scale * boxes_total_distance
 
         # reward for boxes in receptacle
-        self.completed_boxes_id, self.num_completed_boxes_new = transport_box_from_recept(self.model, self.data, self.joint_id_boxes, self.room_width,
-                                                                                          self.room_length, self.completed_boxes_id, goal_half= self.receptacle_half, goal_center= self.receptacle_position, box_half_size=self.cfg.boxes.box_half_size)
+        self.completed_boxes_id, self.num_completed_boxes_new = transport_box_from_recept(self.model, self.data, self.joint_id_boxes, self.room_width_inner,
+                                                                                          self.room_length_inner, self.completed_boxes_id, goal_half= self.receptacle_half, goal_center= self.receptacle_position, box_half_size=self.cfg.boxes.box_half_size)
         if self.num_completed_boxes_new > 0:
             self.inactivity_counter = 0
         robot_reward += self.goal_reward * self.num_completed_boxes_new
@@ -851,9 +851,9 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
         # four “targets” lying on each wall at the same y or x
         targets = [
             (0.0,          y),               # left   edge   (x = 0)
-            (self.room_width,  y),           # right  edge   (x = W)
+            (self.room_width_inner,  y),           # right  edge   (x = W)
             (x,           0.0),              # bottom edge   (y = 0)
-            (x,  self.room_length),          # top    edge   (y = L)
+            (x,  self.room_length_inner),          # top    edge   (y = L)
         ]
         # return the minimum SPFA distance
         return min(self.shortest_path_distance(xy, t) for t in targets)
@@ -864,8 +864,8 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
         Skips boxes that have already been teleported away (their body_id is gone).
         """
         goal_xy = np.array([
-        self.receptacle_position[0] + 0.5 * self.room_width,
-        self.receptacle_position[1] + 0.5 * self.room_length])
+        self.receptacle_position[0] + 0.5 * self.room_width_inner,
+        self.receptacle_position[1] + 0.5 * self.room_length_inner])
 
         # robot
         length, last_xy, mass = motion_dict[self.base_body_id]
@@ -949,10 +949,10 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
             return True
 
         # Define bounds of the placement area (slightly inside the walls)
-        x_min = -self.room_width / 2 + self.internal_clearance_length
-        x_max = self.room_width / 2 - self.internal_clearance_length
-        y_min = -self.room_length / 2 + self.internal_clearance_length
-        y_max = self.room_length / 2 - self.internal_clearance_length
+        y_min = -self.room_width_inner / 2 + self.internal_clearance_length
+        y_max = self.room_width_inner / 2 - self.internal_clearance_length
+        x_min = -self.room_length_inner / 2 + self.internal_clearance_length
+        x_max = self.room_length_inner / 2 - self.internal_clearance_length
 
         # Sample robot pose
         while True:
@@ -987,7 +987,8 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
             self.data.qpos[qadr+3:qadr+7] = quat_z(theta)
             self.data.qvel[qadr:qadr+6] = 0
 
-        self._prev_robot_xy = get_body_pose_2d(self.model, self.data, 'base')[:2]
+        # self._prev_robot_xy = get_body_pose_2d(self.model, self.data, 'base')[:2]
+        self.do_simulation([0, 0], 1)
         self._prev_robot_heading = quat_z_yaw(*self.data.qpos[self.qpos_index_base+3:self.qpos_index_base+7])
 
         # get the robot and boxes vertices
@@ -1012,7 +1013,7 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
 
         observation=self.generate_observation()
 
-        self.position_controller = PositionController(self.cfg, self.robot_radius, self.room_width, self.room_length, 
+        self.position_controller = PositionController(self.cfg, self.robot_radius, self.room_width_inner, self.room_length_inner, 
                                                       self.configuration_space, self.configuration_space_thin, self.closest_cspace_indices, 
                                                       self.local_map_pixel_width, self.local_map_width, self.local_map_pixels_per_meter,
                                                       TURN_STEP_SIZE, MOVE_STEP_SIZE, WAYPOINT_MOVING_THRESHOLD, WAYPOINT_TURNING_THRESHOLD)

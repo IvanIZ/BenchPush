@@ -35,11 +35,12 @@ train:
 ### ENVIRONMENT PARAMS
 env:
   area_clearing_version: "Partially_closed_with_walls" # Choose from one of them: Fully_open_area ,Partially_closed_with_walls ,Partially_closed_with_static
-  room_width: 1.4225
-  room_length: 1.4225
-  wall_clearence_outer: 0.2 # Provides clearance from either of the room length and width
-  wall_clearence_inner: 0.05
-  internal_clearance_length: 0.2
+  room_width: 2.845
+  room_length: 1.575
+  distance_between_inner_goal_and_outer_wall_width: 0.1
+  distance_between_inner_goal_and_outer_wall_length: 0.1
+  wall_clearence_inner: 0.05 # Distance between the goal and inner wall
+  internal_clearance_length: 0.2 
   shortest_path_channel_scale: 0.25
   local_map_pixel_width: 224
   local_map_pixel_width_sam: 96
