@@ -34,17 +34,18 @@ train:
   
 ### ENVIRONMENT PARAMS
 env:
-  area_clearing_version: "Fully_open_area" # Choose from one of them: Fully_open_area ,Partially_closed_with_walls ,Partially_closed_with_static
+  area_clearing_version: "Partially_closed_with_walls" # Choose from one of them: Fully_open_area ,Partially_closed_with_walls ,Partially_closed_with_static
   room_width: 1.4225
   room_length: 1.4225
   wall_clearence_outer: 0.2 # Provides clearance from either of the room length and width
-  wall_clearence_inner: 0.1
+  wall_clearence_inner: 0.05
   internal_clearance_length: 0.2
   shortest_path_channel_scale: 0.25
   local_map_pixel_width: 224
   local_map_pixel_width_sam: 96
   wall_thickness: 50.0 # Really high wall thickness to ensure nothing in vicinity of local maps
   invert_receptacle_map: false
+  sim_timestep: 0.01
 
 small_pillars:
   num_pillars: 4
@@ -61,7 +62,7 @@ agent:
   length: 0.138
   width: 0.183
   robot_clear: 0.15
-  movement_step_size: 0.15 # If action type is heading, this is the distance to move in that heading
+  type_of_bumper: 'straight' # Choose from one of them: curved_inwards, straight, curved_outwards
 
 rewards_sam:
   partial_rewards_scale: 0.2

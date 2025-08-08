@@ -4,7 +4,7 @@ occ:     # occupancy map grid size
   local_height: 1.2     # local moving window height (in meter)
 
 boxes:
-  num_boxes: 10
+  num_boxes: 5
   clearance: 0.2
 
 low_dim_state: false
@@ -58,3 +58,6 @@ env2:
 agent:
   action_type: 'position' # options are velocity, heading, position
   robot_r: 0.15           # robot radius in meter
+  forward_speed: 0.2
+  max_angular_speed: 0.785
+  type_of_bumper: 'curved_inwards' # Choose from one of them: curved_inwards, straight, curved_outwards

@@ -71,7 +71,7 @@ def precompute_static_vertices(keep_out, wall_thickness, room_length, room_width
     return wall_vertices, columns_from_keepout(keep_out), corners
 
 
-def dynamic_vertices(model, data, qpos_idx_robot: int, joint_ids_boxes: list[int], robot_full, box_half, room_length, room_width):
+def dynamic_vertices(model, data, qpos_idx_robot: int, joint_ids_boxes: list[int], robot_full, box_half):
     """
     Returns the vertices of the robot and boxes in the world frame.
     """
@@ -125,7 +125,7 @@ def receptacle_vertices(receptacle_half, receptacle_local_dimension):
     return Receptacle_vertices
 
 def changing_per_configuration(env_type: str, clearance_poly, 
-                               ARENA_X, ARENA_Y, n_pillars, half):
+                               ARENA_X, ARENA_Y, n_pillars, half, divider_thickness):
     """ 
     Based on the configration, it would create code for pillars along with
     polygon to the area where nothing has to be placed.
@@ -204,6 +204,22 @@ def changing_per_configuration(env_type: str, clearance_poly,
             extra_xml += xml
             keep_out.append(poly)
 
+    # large_divider
+    elif env_type == "large_divider":
+      
+      # divider geometry (half-sizes)
+      hx = 0.8 * ARENA_X[1] / 2          # spans  -X/2  …  +0.6·X/2
+      hy = divider_thickness / 2         # 0.1-m total thickness → 0.05 half-thickness
+      hz = 0.1
+
+      # x-centre of the divider strip
+      cx = -0.2 * ARENA_X[1] / 2         # centre of [-X/2 , +0.6·X/2]
+
+      cy = random.uniform(-ARENA_Y[1]/2 + 0.4, ARENA_Y[1]/2 - 0.4)
+      xml, poly = pillar("large_divider", cx, cy, (hx, hy, hz))
+      extra_xml += xml
+      keep_out.append(poly)
+    
     # small_empty
     elif env_type == "small_empty":
         # nothing to add
@@ -217,11 +233,13 @@ def changing_per_configuration(env_type: str, clearance_poly,
     return extra_xml, keep_out  
 
 
-def intersects_keepout(x, y, keep_out):
-    """To ensure that it doesn't lie in the keep out area due to pillars"""
-    
-    return any(inside_poly(x, y, poly) for poly in keep_out)
-  
+def intersects_keepout(x, y, polys, margin=0.0):
+    for poly in polys:                     # poly = list of (px, py)
+        xs, ys = zip(*poly)
+        if (min(xs)-margin <= x <= max(xs)+margin and
+            min(ys)-margin <= y <= max(ys)+margin):
+            return True
+    return False
 
 def sample_scene(n_boxes, keep_out, ROBOT_R, CLEAR, ARENA_X, ARENA_Y, clearance_poly):
     """returns robot pose + list of box poses (x,y,theta)"""
@@ -257,8 +275,19 @@ def sample_scene(n_boxes, keep_out, ROBOT_R, CLEAR, ARENA_X, ARENA_Y, clearance_
     return robot_qpos, boxes
 
 
-def build_xml(robot_qpos, boxes, stl_model_path, extra_xml, Z_BOX, box_size, ARENA_X1, ARENA_Y1, goal_half, goal_center, adjust_num_pillars, robot_rgb, sim_timestep):
+def build_xml(robot_qpos, boxes, stl_model_path, extra_xml, Z_BOX, box_size, ARENA_X1, ARENA_Y1, goal_half, goal_center, adjust_num_pillars,bumper_type, robot_rgb, sim_timestep):
     """Building data for a different file"""
+
+    # Bumper type handling
+
+    if bumper_type == 'curved_inwards':
+      bumper_name= "TurtleBot3_Curved_Bumper"
+    
+    elif bumper_type == 'straight':
+        bumper_name = "TurtleBot3_Straight_Bumper"
+    
+    elif bumper_type == 'curved_outwards':
+        bumper_name = "TurtleBot3_Triangular_Bumper"
 
     if adjust_num_pillars is True:
         adjust_pillar_plane = f"""
@@ -288,13 +317,14 @@ def build_xml(robot_qpos, boxes, stl_model_path, extra_xml, Z_BOX, box_size, ARE
     <mesh name="left_tire"   file="left_tire.stl"   scale="0.001 0.001 0.001"/>
     <mesh name="right_tire"  file="right_tire.stl"  scale="0.001 0.001 0.001"/>
     <mesh name="lds"         file="lds.stl"         scale="0.001 0.001 0.001"/>
-    <mesh name="bumper"      file="TurtleBot3 Burger Bumper.STL" scale="0.001 0.001 0.001"/>
+    <mesh name="bumper"      file="{bumper_name}.STL" scale="0.001 0.001 0.001"/>
     <material name="mat_noreflect" rgba="0 0.3922 0 1" specular="0" shininess="0" reflectance="0"/>
   </asset>
 
   <visual>
     <quality shadowsize="4096"/>
     <headlight ambient="1 1 1" diffuse="1 1 1" specular="0.1 0.1 0.1"/>
+    <global elevation="-10"/>
   </visual>
 
   <worldbody>
@@ -453,8 +483,8 @@ def clearance_poly_generator(ARENA_X, ARENA_Y,
             (x_max,y_max-corner_clearance), (x_max-corner_clearance,y_max-corner_clearance), (x_max-corner_clearance,y_max),
             (x_min+corner_clearance,y_max), (x_min+corner_clearance,y_max-corner_clearance), (x_min,y_max-corner_clearance)]
 
-def generate_boxDelivery_xml(N,env_type,file_name,ROBOT_clear,CLEAR,Z_BOX,ARENA_X,ARENA_Y,
-                  box_half_size, goal_half, goal_center,num_pillars, pillar_half, adjust_num_pillars,sim_timestep):
+def generate_boxDelivery_xml(N, env_type, file_name, ROBOT_clear, CLEAR, Z_BOX, ARENA_X, ARENA_Y,
+                  box_half_size, goal_half, goal_center, num_pillars, pillar_half, adjust_num_pillars, sim_timestep, divider_thickness, bumper_type):
     
     # Name of input and output file otherwise set to default
     XML_OUT = Path(file_name)
@@ -465,13 +495,13 @@ def generate_boxDelivery_xml(N,env_type,file_name,ROBOT_clear,CLEAR,Z_BOX,ARENA_
     box_size = f"{box_half_size} {box_half_size} {box_half_size}"
     
     # Changing based on configration type
-    extra_xml, keep_out = changing_per_configuration(env_type,clearance_poly, ARENA_X,ARENA_Y, num_pillars, pillar_half)
+    extra_xml, keep_out = changing_per_configuration(env_type,clearance_poly, ARENA_X, ARENA_Y, num_pillars, pillar_half, divider_thickness)
     
     # Finding the robot's q_pos and boxes's randomized data
     robot_qpos, boxes = sample_scene(N,keep_out,ROBOT_clear,CLEAR,ARENA_X,ARENA_Y, clearance_poly)
   
     # Building new environemnt and writing it down
-    xml_string = build_xml(robot_qpos, boxes,stl_model_path,extra_xml,Z_BOX, box_size,ARENA_X[1],ARENA_Y[1], goal_half, goal_center, adjust_num_pillars, robot_rgb=(0.1, 0.1, 0.1),sim_timestep=0.01)
+    xml_string = build_xml(robot_qpos, boxes, stl_model_path, extra_xml, Z_BOX, box_size, ARENA_X[1], ARENA_Y[1], goal_half, goal_center, adjust_num_pillars, bumper_type, robot_rgb=(0.1, 0.1, 0.1),  sim_timestep=sim_timestep)
     XML_OUT.write_text(xml_string)
     
     return XML_OUT, keep_out, clearance_poly

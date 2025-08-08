@@ -10,7 +10,7 @@ if render == True:
 else:
     render_mode = None
 
-env = gym.make('area-clearing-mujoco-v0', render_mode =render_mode)
+env = gym.make('area-clearing-mujoco-v0', render_mode =render_mode, disable_env_checker=True)
 env.reset()
 
 terminated = truncated = False

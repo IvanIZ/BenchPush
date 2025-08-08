@@ -6,21 +6,21 @@
 #SBATCH -c 8
 #SBATCH --qos=normal
 #SBATCH --time=12:00:00
-#SBATCH --output=benchnpin/baselines/area_clearing/sam/vector_logs/slurm-%j.out
+#SBATCH --output=benchnpin/baselines/area_clearing_mujoco/sam/vector_logs/slurm-%j.out
 #SBATCH --mail-user=steven.caro@uwaterloo.ca
 #SBATCH --mail-type=ALL
 
 # Append is important because otherwise preemption resets the file
 #SBATCH --open-mode=append
 
-job_name=${j:-main}
+job_name=${SLURM_JOB_NAME:-${j:-main}}
 # Set the job name manually
 scontrol update JobName=$job_name JobId=$SLURM_JOB_ID
 
 echo `date`: Job $SLURM_JOB_ID is allocated resource
 
 # the recommendation is to keep everything that defines the workload itself in a separate script
-bash $PWD/benchnpin/common/vector_files/run_train_ac_sam.sh
+bash $PWD/benchnpin/common/vector_files/run_train_acm_sam.sh
 
 echo `date`: "Job $SLURM_JOB_ID finished running, exit code: $?"
 
@@ -28,5 +28,5 @@ date=$(date '+%Y-%m-%d')
 archive=$HOME/finished_jobs/$date/$SLURM_JOB_ID
 mkdir -p $archive
 
-cp $PWD/benchnpin/baselines/area_clearing/sam/vector_logs/slurm-$SLURM_JOB_ID.out $archive/job.out
-cp $PWD/benchnpin/baselines/area_clearing/sam/vector_logs/slurm-$SLURM_JOB_ID.out $archive/job.err
+cp $PWD/benchnpin/baselines/area_clearing_mujoco/sam/vector_logs/slurm-$SLURM_JOB_ID.out $archive/job.out
+cp $PWD/benchnpin/baselines/area_clearing_mujoco/sam/vector_logs/slurm-$SLURM_JOB_ID.out $archive/job.err

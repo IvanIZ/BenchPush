@@ -270,8 +270,7 @@ class BoxDeliveryMujocoSAM(BasePolicy):
         train_summary_writer = SummaryWriter(log_dir=os.path.join(log_dir, f'{job_id}'))
         meters = Meters()
 
-        obs, _ = env.reset()
-        state, info = obs
+        state, _ = env.reset()
         total_timesteps_with_warmup = total_timesteps + learning_starts
         for timestep in tqdm(range(start_timestep, total_timesteps_with_warmup),
                              initial=start_timestep, total=total_timesteps_with_warmup, file=sys.stdout):
@@ -295,8 +294,7 @@ class BoxDeliveryMujocoSAM(BasePolicy):
 
             # reset if episode ended
             if done:
-                obs, _ = env.reset()
-                state, info = obs
+                state, _ = env.reset()
                 episode += 1
                 if truncated:
                     logging.info(f"Episode {episode} truncated. {info['cumulative_boxes']} in goal. Resetting environment...")
@@ -389,14 +387,13 @@ class BoxDeliveryMujocoSAM(BasePolicy):
         rewards_list = []
         for eps_idx in range(num_eps):
             print("Progress: ", eps_idx, " / ", num_eps, " episodes")
-            obs, _ = env.reset()
-            state, info = obs
+            obs, info = env.reset()
             # metric.reset(info)
             done = truncated = False
             eps_reward = 0.0
             while True:
-                action, _ = self.model.predict(state)
-                state, reward, done, truncated, info = env.step(action)
+                action, _ = self.model.predict(obs)
+                obs, reward, done, truncated, info = env.step(action)
                 # metric.update(info=info, reward=reward, eps_complete=(done or truncated))
                 if done or truncated:
                     break

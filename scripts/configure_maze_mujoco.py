@@ -1,41 +1,34 @@
-"""
-An example script to show configurable parameters for Ship-Ice
-"""
 import benchnpin.environments
 import gymnasium as gym
 import random
 import numpy as np
 
-
-############### VVVVVVV Configurable Parameters for Ship-Ice VVVVVVV ####################
+############### VVVVVVV Configurable Parameters for Maze Environment VVVVVVV ####################
 cfg = {
     "output_dir": "logs/",      # Specify directory for loggings
     "egocentric_obs": True,     # True egocentric observation, False for global observation
-    "concentration": 0.1,       # Ice field concentration, options are 0.1, 0.2, 0.3, 0.4, 0.5
-    "goal_y": 19,                # Initial distance from the goal line
     "render_scale": 30,         # Scalar applied to rendering window to fit the screen. Reducing this value makes rendering window smaller
 }
-############### ^^^^^^^ Configurable Parameters for Ship-Ice ^^^^^^^ ####################
+############### ^^^^^^^ Configurable Parameters for Maze Environment ^^^^^^^ ####################
 
-
-env = gym.make('maze-NAMO-mujoco-v0', render_mode = "human", cfg=cfg)
+env = gym.make('maze-NAMO-mujoco-v0', render_mode = "human", cfg=cfg, disable_env_checker=True)
 
 terminated = truncated = False
-num_epochs = 20
+num_epochs = 10
 num_steps_per_epoch = 40000
 
 for i in range(num_epochs):
 
-    env.reset()
+    _, info = env.reset()
+
     for t in range(num_steps_per_epoch):
 
-        v = 0.1
         w = 0
-
-        goal_pos = [v, w]
-        action = goal_pos
+        action = w
 
         observation, reward, terminated, truncated, info = env.step(action)
+        env.render()
+        print(info['state'])
 
         if terminated or truncated:
             break

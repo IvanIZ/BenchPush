@@ -5,7 +5,7 @@ import trimesh
 try:
     import mujoco
 except ImportError as e:
-    raise error.DependencyNotInstalled(
+    raise ModuleNotFoundError(
         'MuJoCo is not installed, run `pip install "gymnasium[mujoco]"`'
     ) from e
 
@@ -63,8 +63,7 @@ def make_controller(curr_pos, curr_yaw, goal_pos):
     goal_head = np.arctan2(vec[1], vec[0])
     err_yaw   = np.arctan2(np.sin(goal_head - curr_yaw), np.cos(goal_head - curr_yaw))
 
-    # Controller characteristics (APPROX CAN BE UPDATED LATER)
-    # k_v, k_w = 4.0,4.0
+    # Controller characteristics
     k_v, k_w = 0.2, 8.0
 
     # Rotation

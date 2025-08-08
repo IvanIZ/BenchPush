@@ -119,8 +119,23 @@ def sample_scene(n_cubes, keep_out,ROBOT_R,CLEAR,ARENA_X,ARENA_Y, clearance_poly
     return robot_qpos, cubes
 
 
-def build_xml(robot_qpos, cubes, stl_model_path,extra_xml,Z_CUBE, cube_size, maze_width, maze_len, goal_half, goal_center, robot_rgb=(0.3, 0.3, 0.3)):
+def build_xml(robot_qpos, cubes, stl_model_path,extra_xml,Z_CUBE, cube_size, maze_width, maze_len, goal_half, goal_center,bumper_type ,robot_rgb=(0.3, 0.3, 0.3)):
     """Building data for a different file"""
+
+    # Bumper type handling
+
+    if bumper_type == 'curved_inwards':
+      bumper_name= "TurtleBot3_Curved_Bumper"
+    
+    elif bumper_type == 'straight':
+        bumper_name = "TurtleBot3_Straight_Bumper"
+    
+    elif bumper_type == 'curved_outwards':
+        bumper_name = "TurtleBot3_Triangular_Bumper"
+    
+    else:
+        raise ValueError(f"Unknown bumper type: {bumper_type}. "
+                         f"Choose from 'curved_inwards', 'straight', 'curved_outwards'.")
 
     header = f"""
 <mujoco model="box_delivery_structured_env">
@@ -146,7 +161,7 @@ def build_xml(robot_qpos, cubes, stl_model_path,extra_xml,Z_CUBE, cube_size, maz
     <mesh name="left_tire"   file="left_tire.stl"  scale="0.001 0.001 0.001"/>
     <mesh name="right_tire"  file="right_tire.stl" scale="0.001 0.001 0.001"/>
     <mesh name="lds"         file="lds.stl"        scale="0.001 0.001 0.001"/>
-    <mesh name="bumper"      file="Bumper_triangular.STL" scale="0.001 0.001 0.001"/>
+    <mesh name="bumper"      file="{bumper_name}.STL" scale="0.001 0.001 0.001"/>
   </asset>
 
   <visual>
@@ -255,7 +270,7 @@ def build_xml(robot_qpos, cubes, stl_model_path,extra_xml,Z_CUBE, cube_size, maz
 
 
 def generate_maze_xml(N, maze_version, file_name,ROBOT_R,CLEAR,Z_CUBE,ARENA_X,ARENA_Y,
-                  cube_half_size, clearance_poly, goal_half, goal_center):
+                  cube_half_size, clearance_poly, goal_half, goal_center, bumper_type):
     
     #Name of input and output file otherwise set to default
     XML_OUT = Path(file_name)
@@ -271,7 +286,7 @@ def generate_maze_xml(N, maze_version, file_name,ROBOT_R,CLEAR,Z_CUBE,ARENA_X,AR
     robot_qpos, cubes = sample_scene(N, keep_out, ROBOT_R,CLEAR,ARENA_X,ARENA_Y, clearance_poly)
   
     # Building new environemnt and writing it down
-    xml_string = build_xml(robot_qpos, cubes,stl_model_path,extra_xml,Z_CUBE, cube_size, ARENA_X[1], ARENA_Y[1], goal_half, goal_center, robot_rgb=(0.1, 0.1, 0.1))
+    xml_string = build_xml(robot_qpos, cubes,stl_model_path,extra_xml,Z_CUBE, cube_size, ARENA_X[1], ARENA_Y[1], goal_half, goal_center, bumper_type, robot_rgb=(0.1, 0.1, 0.1))
     XML_OUT.write_text(xml_string)
 
     maze_width = ARENA_X[1]
