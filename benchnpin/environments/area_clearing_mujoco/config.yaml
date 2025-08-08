@@ -63,6 +63,7 @@ agent:
   width: 0.183
   robot_clear: 0.15
   type_of_bumper: 'straight' # Choose from one of them: curved_inwards, straight, curved_outwards
+  movement_step_size: 0.1
 
 rewards_sam:
   partial_rewards_scale: 0.2
