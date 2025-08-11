@@ -11,16 +11,16 @@ def precompute_static_vertices(keep_out, wall_thickness, room_width, room_length
     Gives list of static vertices that do not change during the simulation
     """
     
-    half_w, half_l = room_width / 2, room_length / 2
+    half_l, half_w = room_length / 2, room_width / 2
 
     # OUTER WALLS  (thickness = 0.25, exactly what build_xml creates)
     t = wall_thickness                   # wall thickness  (half-size in build_xml)
     c = wall_clearence_outer             # clearance beyond arena edge
 
-    Y0 = -half_w - c[0] - t       # left   face x
-    Y1 = +half_w + c[0] + t       # right  face x
-    X0 = -half_l - c[1] - t       # bottom face y
-    X1 = +half_l + c[1] + t       # top    face y
+    X0 = -half_l - c[1] - t       # bottom face x
+    X1 = +half_l + c[1] + t       # top    face x
+    Y0 = -half_w - c[0] - t       # left   face y
+    Y1 = +half_w + c[0] + t       # right  face y
 
     wall_vertices = [
         ["Wall_left",   [(X0,     Y0), (X0+t,  Y0), (X0+t,  Y1), (X0,     Y1)]],
@@ -112,7 +112,7 @@ def receptacle_vertices(receptacle_position, receptacle_local_dimension):
     Returns the vertices of the receptacle in the world frame.
     """
     # Receptacle vertices
-    x , y = receptacle_position
+    x, y = receptacle_position
 
         # half-width and half-height
     hx, hy = receptacle_local_dimension
@@ -125,9 +125,9 @@ def receptacle_vertices(receptacle_position, receptacle_local_dimension):
         [-hx,  hy],
     ])
 
-    Receptacle_vertices = corners_xy(np.array([x, y]), 0, local).tolist()
+    receptacle_vertices = corners_xy(np.array([x, y]), 0, local).tolist()
 
-    return Receptacle_vertices
+    return receptacle_vertices
 
 def changing_per_configuration(env_type: str, 
                                ARENA_X, ARENA_Y, n_pillars, pillar_half, internal_clearance_length,robot_radius):

@@ -101,8 +101,8 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
 
 
         # Setting up the environment parameters
-        self.room_length_inner = self.cfg.env.room_length - 2*self.cfg.env.distance_between_inner_goal_and_outer_wall_length
-        self.room_width_inner = self.cfg.env.room_width- 2*self.cfg.env.distance_between_inner_goal_and_outer_wall_width
+        self.room_length_inner = self.cfg.env.room_length - 2 * self.cfg.env.distance_between_inner_goal_and_outer_wall_length
+        self.room_width_inner = self.cfg.env.room_width - 2 * self.cfg.env.distance_between_inner_goal_and_outer_wall_width
 
         # Pillar position and size
         self.num_pillars = self.cfg.small_pillars.num_pillars
@@ -110,13 +110,13 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
 
         # environment
         self.local_map_pixel_width = self.cfg.env.local_map_pixel_width if self.cfg.train.job_type != 'sam' else self.cfg.env.local_map_pixel_width_sam
-        self.local_map_width = max(self.room_length_inner+2*self.cfg.env.distance_between_inner_goal_and_outer_wall_length, self.room_width_inner+2*self.cfg.env.distance_between_inner_goal_and_outer_wall_width)
+        self.local_map_width = max(self.room_length_inner + 2 * self.cfg.env.distance_between_inner_goal_and_outer_wall_length, self.room_width_inner + 2 * self.cfg.env.distance_between_inner_goal_and_outer_wall_width)
         self.local_map_pixels_per_meter = self.local_map_pixel_width / self.local_map_width
         self.wall_thickness = self.cfg.env.wall_thickness
         self.num_boxes = self.cfg.boxes.num_boxes
-        self.internal_clearance_length=self.cfg.env.internal_clearance_length
-        self.receptacle_position=[0,0] # The center of the plane is assumed to be 0,0
-        self.receptacle_half=[self.room_width_inner/2, self.room_length_inner/2]
+        self.internal_clearance_length = self.cfg.env.internal_clearance_length
+        self.receptacle_position = [0, 0]  # The center of the plane is assumed to be 0,0
+        self.receptacle_half = [self.room_length_inner / 2, self.room_width_inner / 2]
         self.num_completed_boxes_new = 0
 
         self.boundary_vertices = receptacle_vertices(self.receptacle_position, self.receptacle_half)
@@ -357,7 +357,6 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
 
         # check if episode is done
         terminated = False
-        # print(self.completed_boxes_id)
         if len(self.joint_id_boxes) == len(self.completed_boxes_id):
             terminated = True
         
@@ -579,7 +578,7 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
 
         max_value = np.max(global_map)
         min_value = np.min(global_map)
-        global_map = (global_map - min_value) / (max_value - min_value)  * DISTANCE_SCALE_MAX
+        global_map = (global_map - min_value) / (max_value - min_value) * DISTANCE_SCALE_MAX
 
         # fill points outside boundary polygon with 0
         for i in range(global_map.shape[0]):
