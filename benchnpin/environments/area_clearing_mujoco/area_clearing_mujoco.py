@@ -435,7 +435,7 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
             self.do_simulation([v_l, v_r], self.frame_skip)
 
             # get new robot pose
-            robot_initial_position = get_body_pose_2d(self.model, self.data, 'base')[:2]
+            robot_position = get_body_pose_2d(self.model, self.data, 'base')[:2]
             # robot_position = list(robot_position)
             robot_heading = quat_z_yaw(*self.data.qpos[self.qpos_index_base+3:self.qpos_index_base+7])
             prev_heading_diff = heading_diff
