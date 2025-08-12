@@ -4,7 +4,7 @@ from pathlib import Path
 import os
 import random
 
-from benchnpin.common.utils.mujoco_utils import inside_poly, quat_z, quat_z_yaw, corners_xy
+from benchnpin.common.utils.mujoco_utils import inside_poly, quat_z, quat_z_yaw, corners_xy, generating_box_xml
 
 def precompute_static_vertices(keep_out, wall_thickness, room_width, room_length, wall_clearence_outer, wall_clearence_inner, env_type):
     """
@@ -240,7 +240,7 @@ def sample_scene(n_boxes, keep_out, ROBOT_R, BOXES_clear, ARENA_X, ARENA_Y, inte
     return robot_qpos, boxes
 
 
-def build_xml(robot_qpos, boxes, stl_model_path, extra_xml, Z_BOX, box_size, ARENA_X1, ARENA_Y1, env_type, wall_clearence_outer, wall_clearence_inner, bumper_type, robot_rgb, sim_timestep):
+def build_xml(robot_qpos, boxes, stl_model_path, extra_xml, Z_BOX, box_size, ARENA_X1, ARENA_Y1, env_type, wall_clearence_outer, wall_clearence_inner, bumper_type, bumper_mass, box_xml, robot_rgb, sim_timestep):
     """Building data for a different file"""
 
     if env_type == "Partially_closed_with_walls" or env_type == "Partially_closed_with_static": 
@@ -300,6 +300,9 @@ def build_xml(robot_qpos, boxes, stl_model_path, extra_xml, Z_BOX, box_size, ARE
     <mesh name="right_tire"  file="right_tire.stl" scale="0.001 0.001 0.001"/>
     <mesh name="lds"         file="lds.stl"        scale="0.001 0.001 0.001"/>
     <mesh name="bumper"      file="{bumper_name}.STL" scale="0.001 0.001 0.001"/>
+
+    <mesh name="Wheels"      file="Box_wheels.stl"          scale="0.0001 0.0001 0.0001"/>
+    <mesh name="Wheels_support" file="Box_wheels_support.STL"  scale="0.0001 0.0001 0.0001"/>
   </asset>
 
   <visual>
@@ -363,7 +366,7 @@ def build_xml(robot_qpos, boxes, stl_model_path, extra_xml, Z_BOX, box_size, ARE
       <!-- LDS sensor -->
       <geom name="base_sensor_2" pos="-0.032 0 0.182" quat="1 0 0 0" type="mesh" rgba="{robot_rgb[0]} {robot_rgb[1]} {robot_rgb[2]} 1" mesh="lds" mass="0.131" contype="1" conaffinity="1"/>
       <!-- Bumper -->
-      <geom name="base_bumper" pos="-0.04 -0.09 0.01" quat="1 0 0 0" type="mesh" rgba="0.3 0.13 0.08 1" mesh="bumper" mass="0.100" contype="1" conaffinity="1"/>
+      <geom name="base_bumper" pos="-0.04 -0.09 0.01" quat="1 0 0 0" type="mesh" rgba="0.3 0.13 0.08 1" mesh="bumper" mass="{bumper_mass}" contype="1" conaffinity="1"/>
       
       <!-- Left wheel -->
       <body name="wheel_left_link" pos="0 0.08 0.033" quat="0.707388 -0.706825 0 0">
@@ -381,17 +384,6 @@ def build_xml(robot_qpos, boxes, stl_model_path, extra_xml, Z_BOX, box_size, ARE
     </body>
       
 """
-    
-    #Data to be written for boxes
-    box_xml = ""
-    for i, (x, y, th) in enumerate(boxes):
-        qw, qx, qy, qz = quat_z(th)
-        box_xml += f"""
-    <body name="box{i}" pos="{x:.4f} {y:.4f} {Z_BOX:.3f}">
-      <joint name="box{i}_joint" type="free" />
-      <geom type="box" size="{box_size} {box_size} {box_size}" material="blue_mat" mass="0.075"
-            quat="{qw:.6f} {qx:.6f} {qy:.6f} {qz:.6f}" friction="0.4 0.015 0.002" contype="1" conaffinity="1"/>
-    </body>"""
 
 
     #Data to be written for footers
@@ -409,7 +401,11 @@ def build_xml(robot_qpos, boxes, stl_model_path, extra_xml, Z_BOX, box_size, ARE
 
 
 def generate_area_clearing_xml(N, env_type, file_name, ROBOT_clear, BOXES_clear, Z_BOX, ARENA_X, ARENA_Y,
-                  box_half_size, num_pillars, pillar_half, wall_clearence_outer, wall_clearence_inner, internal_clearance_length, robot_radius, bumper_type, sim_timestep):
+                  box_half_size, num_pillars, pillar_half, wall_clearence_outer, wall_clearence_inner, internal_clearance_length, 
+                  robot_radius, bumper_type, bumper_mass, sim_timestep, wheels_on_boxes,
+                  wheels_mass, wheels_support_mass, wheels_sliding_friction, wheels_torsional_friction, 
+                  wheels_rolling_friction, wheels_support_damping_ratio, box_mass, box_sliding_friction , 
+                  box_torsional_friction , box_rolling_friction):
     
     # Name of input and output file otherwise set to default
     XML_OUT = Path(file_name)
@@ -420,9 +416,13 @@ def generate_area_clearing_xml(N, env_type, file_name, ROBOT_clear, BOXES_clear,
 
     # Finding the robot's q_pos and boxes's randomized data
     robot_qpos, boxes = sample_scene(N, keep_out, ROBOT_clear, BOXES_clear, ARENA_X, ARENA_Y, internal_clearance_length)
-  
+
+    # Generating xml code for boxes
+    box_xml = generating_box_xml(boxes, Z_BOX, wheels_on_boxes, wheels_mass, wheels_support_mass, wheels_sliding_friction, wheels_torsional_friction, wheels_rolling_friction, 
+        wheels_support_damping_ratio, box_mass, box_sliding_friction, box_torsional_friction, box_rolling_friction, box_half_size)
+
     # Building new environemnt and writing it down
-    xml_string = build_xml(robot_qpos, boxes, stl_model_path, extra_xml, Z_BOX, box_half_size, ARENA_X[1], ARENA_Y[1], env_type, wall_clearence_outer, wall_clearence_inner, bumper_type, robot_rgb=(0.1, 0.1, 0.1), sim_timestep=sim_timestep)
+    xml_string = build_xml(robot_qpos, boxes, stl_model_path, extra_xml, Z_BOX, box_half_size, ARENA_X[1], ARENA_Y[1], env_type, wall_clearence_outer, wall_clearence_inner, bumper_type, bumper_mass, box_xml, robot_rgb=(0.1, 0.1, 0.1), sim_timestep=sim_timestep)
     XML_OUT.write_text(xml_string)
     
     return XML_OUT, keep_out

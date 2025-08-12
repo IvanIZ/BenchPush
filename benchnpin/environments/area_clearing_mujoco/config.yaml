@@ -2,11 +2,6 @@ render:
   show: true
   show_obs: true
 
-boxes:
-  num_boxes: 10
-  clearance: 0.1
-  box_half_size: 0.04
-
 train:
   train_mode: false
   job_type: 'sam'
@@ -48,6 +43,25 @@ env:
   invert_receptacle_map: false
   sim_timestep: 0.01
 
+boxes:
+  num_boxes: 10
+  clearance: 0.1
+  box_half_size: 0.04
+  box_mass: 0.075 # mass(kg) for each box without wheels
+  box_sliding_friction: 0.4
+  box_torsional_friction: 0.015
+  box_rolling_friction: 0.002
+
+wheels_on_boxes:
+  # Upon adjusting parameters here all other physics parameters like moment of inertia etc are adjusted automatically
+  wheels_on_boxes: True       # if true, the boxes would have wheels
+  wheels_mass: 0.08           # mass in terms of kg for each wheel on the box
+  wheels_support_mass: 0.10   # mass in terms of kg for each wheel support on the box
+  wheels_sliding_friction: 0.8
+  wheels_torsional_friction: 0.01
+  wheels_rolling_friction: 0.002
+  wheels_support_damping_ratio: 0.001
+
 small_pillars:
   num_pillars: 4
   pillar_half: [0.1, 0.1, 0.20]
@@ -64,6 +78,7 @@ agent:
   width: 0.183
   robot_clear: 0.15
   type_of_bumper: 'straight' # Choose from one of them: curved_inwards, straight, curved_outwards
+  bumper_mass: 0.1 # mass (kg) for the bumper so that can switch between different plastic materials
 
 rewards_sam:
   partial_rewards_scale: 0.2

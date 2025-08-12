@@ -162,12 +162,26 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
                 if (((i + 0.5) - self.local_map_pixel_width / 2)**2 + ((j + 0.5) - self.local_map_pixel_width / 2)**2)**0.5 < robot_pixel_width / 2:
                     self.robot_state_channel[i, j] = 1
 
+        # Box with wheels
+        self.wheels_on_boxes = self.cfg.wheels_on_boxes.wheels_on_boxes
+        self.wheels_mass = self.cfg.wheels_on_boxes.wheels_mass
+        self.wheels_support_mass = self.cfg.wheels_on_boxes.wheels_support_mass
+        self.wheels_sliding_friction = self.cfg.wheels_on_boxes.wheels_sliding_friction
+        self.wheels_torsional_friction = self.cfg.wheels_on_boxes.wheels_torsional_friction
+        self.wheels_rolling_friction = self.cfg.wheels_on_boxes.wheels_rolling_friction
+        self.wheels_support_damping_ratio = self.cfg.wheels_on_boxes.wheels_support_damping_ratio
+
         # generate random environment
         xml_file = os.path.join(self.current_dir, 'turtlebot3_burger_updated.xml')
         _, self.initialization_keepouts = generate_area_clearing_xml(N=self.cfg.boxes.num_boxes, env_type=self.cfg.env.area_clearing_version, file_name=xml_file,
                         ROBOT_clear=self.cfg.agent.robot_clear, BOXES_clear=self.cfg.boxes.clearance, Z_BOX=self.cfg.boxes.box_half_size, ARENA_X=(0.0, self.room_length_inner), 
                         ARENA_Y=(0.0, self.room_width_inner), box_half_size=self.cfg.boxes.box_half_size, num_pillars=self.cfg.small_pillars.num_pillars, pillar_half=self.cfg.small_pillars.pillar_half,
-                        wall_clearence_outer=[self.cfg.env.distance_between_inner_goal_and_outer_wall_length, self.cfg.env.distance_between_inner_goal_and_outer_wall_width], wall_clearence_inner=self.cfg.env.wall_clearence_inner, internal_clearance_length=self.cfg.env.internal_clearance_length, robot_radius=self.robot_radius, bumper_type=self.cfg.agent.type_of_bumper , sim_timestep=self.cfg.env.sim_timestep)
+                        wall_clearence_outer=[self.cfg.env.distance_between_inner_goal_and_outer_wall_length, self.cfg.env.distance_between_inner_goal_and_outer_wall_width], 
+                        wall_clearence_inner=self.cfg.env.wall_clearence_inner, internal_clearance_length=self.cfg.env.internal_clearance_length, robot_radius=self.robot_radius, 
+                        bumper_type=self.cfg.agent.type_of_bumper, bumper_mass= self.cfg.agent.bumper_mass, sim_timestep=self.cfg.env.sim_timestep,
+                        wheels_on_boxes=self.wheels_on_boxes, wheels_mass=self.wheels_mass, wheels_support_mass=self.wheels_support_mass, wheels_sliding_friction=self.wheels_sliding_friction,
+                        wheels_torsional_friction=self.wheels_torsional_friction, wheels_rolling_friction=self.wheels_rolling_friction, wheels_support_damping_ratio=self.wheels_support_damping_ratio, box_mass=self.cfg.boxes.box_mass,
+                        box_sliding_friction= self.cfg.boxes.box_sliding_friction, box_torsional_friction= self.cfg.boxes.box_torsional_friction, box_rolling_friction= self.cfg.boxes.box_rolling_friction)
 
         utils.EzPickle.__init__(
             self,
@@ -972,6 +986,16 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
         # Assume box is square with radius from center to corner (diagonal/2)
         box_r = np.sqrt(self.cfg.boxes.box_half_size ** 2 + self.cfg.boxes.box_half_size ** 2)
 
+        box_half_size = self.cfg.boxes.box_half_size
+
+        if self.wheels_on_boxes:
+
+            z = box_half_size+0.03
+        
+        else:
+
+            z = box_half_size+0.005
+
         for i in range(self.num_boxes):
             while True:
                 x = np.random.uniform(x_min, x_max)
@@ -982,7 +1006,7 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
                     break
             
             qadr = self.model.jnt_qposadr[self.joint_id_boxes[i]]
-            self.data.qpos[qadr:qadr+2] = np.array([x, y])
+            self.data.qpos[qadr:qadr+3] = np.array([x, y, z])
             self.data.qpos[qadr+3:qadr+7] = quat_z(theta)
             self.data.qvel[qadr:qadr+6] = 0
 
