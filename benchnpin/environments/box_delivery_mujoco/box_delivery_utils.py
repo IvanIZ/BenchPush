@@ -276,7 +276,7 @@ def sample_scene(n_boxes, keep_out, ROBOT_R, CLEAR, ARENA_X, ARENA_Y, clearance_
 
 
 def build_xml(robot_qpos, stl_model_path, extra_xml, ARENA_X1, ARENA_Y1, goal_half, goal_center, 
-    adjust_num_pillars,bumper_type, wheels_on_boxes, box_xml, robot_rgb, sim_timestep):
+    adjust_num_pillars, bumper_type, bumper_mass, box_xml, robot_rgb, sim_timestep):
 
     """Building data for a different file"""
 
@@ -423,7 +423,7 @@ def build_xml(robot_qpos, stl_model_path, extra_xml, ARENA_X1, ARENA_Y1, goal_ha
       <!-- LDS sensor -->
       <geom name="base_sensor_2" pos="-0.032 0 0.182" quat="1 0 0 0" type="mesh" rgba="{robot_rgb[0]} {robot_rgb[1]} {robot_rgb[2]} 1" mesh="lds" mass="0.131" contype="1" conaffinity="1"/>
       <!-- Bumper -->
-      <geom name="base_bumper" pos="-0.04 -0.09 0.01" quat="1 0 0 0" type="mesh" rgba="0.3 0.13 0.08 1" mesh="bumper" mass="0.100" contype="1" conaffinity="1"/>
+      <geom name="base_bumper" pos="-0.04 -0.09 0.01" quat="1 0 0 0" type="mesh" rgba="0.3 0.13 0.08 1" mesh="bumper" mass="{bumper_mass}" contype="1" conaffinity="1"/>
       
       <!-- Left wheel -->
       <body name="wheel_left_link" pos="0 0.08 0.033" quat="0.707388 -0.706825 0 0">
@@ -477,7 +477,8 @@ def clearance_poly_generator(ARENA_X, ARENA_Y,
 
 
 def generate_boxDelivery_xml(N, env_type, file_name, ROBOT_clear, CLEAR, Z_BOX, ARENA_X, ARENA_Y,
-                  box_half_size, goal_half, goal_center, num_pillars, pillar_half, adjust_num_pillars, sim_timestep, divider_thickness, bumper_type, wheels_on_boxes,
+                  box_half_size, goal_half, goal_center, num_pillars, pillar_half, adjust_num_pillars, 
+                  sim_timestep, divider_thickness, bumper_type, bumper_mass, wheels_on_boxes,
                   wheels_mass, wheels_support_mass, wheels_sliding_friction, wheels_torsional_friction, 
                   wheels_rolling_friction, wheels_support_damping_ratio, box_mass, box_sliding_friction , box_torsional_friction , box_rolling_friction):
 
@@ -487,7 +488,6 @@ def generate_boxDelivery_xml(N, env_type, file_name, ROBOT_clear, CLEAR, Z_BOX, 
     
     # Clearnaces and box sizes
     clearance_poly= clearance_poly_generator(ARENA_X, ARENA_Y)
-    box_size = f"{box_half_size} {box_half_size} {box_half_size}"
     
     # Changing based on configration type
     extra_xml, keep_out = changing_per_configuration(env_type,clearance_poly, ARENA_X, ARENA_Y, num_pillars, pillar_half, divider_thickness)
@@ -496,12 +496,12 @@ def generate_boxDelivery_xml(N, env_type, file_name, ROBOT_clear, CLEAR, Z_BOX, 
     robot_qpos, boxes = sample_scene(N,keep_out,ROBOT_clear,CLEAR,ARENA_X,ARENA_Y, clearance_poly)
 
     # Generating xml code for boxes
-    box_xml = generating_box_xml(boxes, Z_BOX, box_size, wheels_on_boxes, wheels_mass, wheels_support_mass, wheels_sliding_friction, wheels_torsional_friction, wheels_rolling_friction, 
+    box_xml = generating_box_xml(boxes, Z_BOX, wheels_on_boxes, wheels_mass, wheels_support_mass, wheels_sliding_friction, wheels_torsional_friction, wheels_rolling_friction, 
         wheels_support_damping_ratio, box_mass, box_sliding_friction, box_torsional_friction, box_rolling_friction, box_half_size)
   
     # Building new environemnt and writing it down
     xml_string = build_xml(robot_qpos, stl_model_path, extra_xml, 
-        ARENA_X[1], ARENA_Y[1], goal_half, goal_center, adjust_num_pillars, bumper_type, wheels_on_boxes, box_xml, robot_rgb=(0.1, 0.1, 0.1),  sim_timestep=sim_timestep)
+        ARENA_X[1], ARENA_Y[1], goal_half, goal_center, adjust_num_pillars, bumper_type, bumper_mass, wheels_on_boxes, box_xml, robot_rgb=(0.1, 0.1, 0.1),  sim_timestep=sim_timestep)
 
     XML_OUT.write_text(xml_string)
     

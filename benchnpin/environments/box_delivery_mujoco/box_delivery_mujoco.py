@@ -177,7 +177,8 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
         xml_file = os.path.join(self.current_dir, 'turtlebot3_burger_updated.xml')
         _, self.initialization_keepouts, self.clearance_poly = generate_boxDelivery_xml(N=self.cfg.boxes.num_boxes, env_type=self.cfg.env.obstacle_config, file_name=xml_file,
                         ROBOT_clear=self.cfg.agent.robot_clear, CLEAR=self.cfg.boxes.clearance, goal_half=self.receptacle_half, goal_center=self.receptacle_position, Z_BOX=self.cfg.boxes.box_half_size, ARENA_X=(0.0, self.room_length), 
-                        ARENA_Y=(0.0, self.room_width), box_half_size=self.cfg.boxes.box_half_size, num_pillars=self.num_pillars, pillar_half=self.pillar_half, adjust_num_pillars=self.adjust_num_pillars, sim_timestep=self.cfg.env.sim_timestep, divider_thickness=self.divider_thickness, bumper_type=self.cfg.agent.type_of_bumper,
+                        ARENA_Y=(0.0, self.room_width), box_half_size=self.cfg.boxes.box_half_size, num_pillars=self.num_pillars, pillar_half=self.pillar_half, adjust_num_pillars=self.adjust_num_pillars, sim_timestep=self.cfg.env.sim_timestep,
+                        divider_thickness=self.divider_thickness, bumper_type=self.cfg.agent.type_of_bumper, bumper_mass= self.cfg.agent.bumper_mass,
                         wheels_on_boxes=self.wheels_on_boxes, wheels_mass=self.wheels_mass, wheels_support_mass=self.wheels_support_mass, wheels_sliding_friction=self.wheels_sliding_friction,
                         wheels_torsional_friction=self.wheels_torsional_friction, wheels_rolling_friction=self.wheels_rolling_friction, wheels_support_damping_ratio=self.wheels_support_damping_ratio, box_mass=self.cfg.boxes.box_mass,
                         box_sliding_friction= self.cfg.boxes.box_sliding_friction, box_torsional_friction= self.cfg.boxes.box_torsional_friction, box_rolling_friction= self.cfg.boxes.box_rolling_friction)
