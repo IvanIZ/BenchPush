@@ -2,6 +2,7 @@ import numpy as np
 import shapely.geometry as sg
 import shapely.ops as so
 import trimesh
+import math
 try:
     import mujoco
 except ImportError as e:
@@ -108,6 +109,99 @@ def corners_xy(centre_xy, yaw,corners_local_coordinates) -> np.ndarray:
                   [ np.sin(yaw),  np.cos(yaw)]])
     return centre_xy + corners_local_coordinates @ R.T
 
+def xy_positions_of_wheel_assembly_wrt_center(yaw,corners_local_coordinates) -> np.ndarray:
+    """4 x 2 array with world-space (x,y) vertices of a yawed box."""
+    R = np.array([[ np.cos(yaw), -np.sin(yaw)],
+                  [ np.sin(yaw),  np.cos(yaw)]])
+    return 0.8 * corners_local_coordinates @ R.T
+
+
+def generating_box_xml(boxes, Z_BOX, box_size, wheels_on_boxes, wheels_mass, wheels_support_mass, wheels_sliding_friction, 
+    wheels_torsional_friction, wheels_rolling_friction, wheels_support_damping_ratio, box_mass, box_sliding_friction, box_torsional_friction, box_rolling_friction, box_half_size):
+
+    box_xml = " <!-- Boxes -->\n"
+
+    if not wheels_on_boxes:
+
+        Z_BOX = Z_BOX + 0.005
+
+        for i, (x, y, th) in enumerate(boxes):
+
+            qw, qx, qy, qz = quat_z(th)
+
+            box_xml += f"""
+    <body name="box{i}" pos="{x:.4f} {y:.4f} {Z_BOX:.3f}">
+      <joint name="box{i}_joint" type="free" />
+      <geom type="box" size="{box_size}" material="blue_mat" mass="{box_mass:.2f}"
+            quat="{qw:.6f} {qx:.6f} {qy:.6f} {qz:.6f}" friction="{box_sliding_friction:.2f} {box_torsional_friction:.2f} {box_rolling_friction:.2f}" contype="1" conaffinity="1"/>
+    </body>"""
+
+        return box_xml
+      
+    Z_BOX = Z_BOX + 0.030
+    Z_wheel_support, Z_wheel = -0.0530, 0.0038
+
+    # Wheel support position relative to wheel support assembly
+    Wheel_support_assembly_pos = [-0.008,0.0093,0]
+
+    # Wheel assembly positio relative to wheel support assembly
+    Wheel_assembly_pos = [0,-0.0012,Z_wheel]
+    # Wheel position relative to wheel assembly
+    Wheel_pos = [-0.0016,-0.007,-0.007]
+
+    def caster_block(i, idx, px, py):
+      sx, sy, sz = Wheel_support_assembly_pos
+      ax, ay, az = Wheel_assembly_pos
+      wx, wy, wz = Wheel_pos
+      return f"""
+      <body name="Wheels assembly_{i}_{idx}" pos="{px:.3f} {py:.2f} {Z_wheel_support:.4f}">
+      
+        <joint name="Wheel_support_rotation_{i}_{idx}" type="hinge" axis="0 0 1" damping="{wheels_support_damping_ratio}"/>
+        <geom  name="Wheel_support_{i}_{idx}" type="mesh" mesh="Wheels_support" rgba="0.3 0.13 0.08 1"
+               contype="1" conaffinity="1" euler="1.5708 0 0" pos="{sx:.3f} {sy:.4f} {sz:.0f}" mass="{wheels_support_mass}"/>
+        
+        <body name="Wheels_actual_{i}_{idx}" pos="{ax:.1f} {ay:.4f} {az:.4f}">
+          <joint name="Wheels_actual_joint_{i}_{idx}" type="hinge" axis="1 0 0"/>
+          <geom  name="Wheel_{i}_{idx}" type="mesh" mesh="Wheels" rgba="0.1 0.1 0.1 1"
+                 contype="1" conaffinity="1" pos="{wx:.4f} {wy:.3f} {wz:.3f}"
+                 friction="{wheels_sliding_friction:.2f} {wheels_torsional_friction:.2f} {wheels_rolling_friction:.2f}"
+                 mass="{wheels_mass}"/>
+        </body>
+      </body>"""
+
+    for i, (x, y, th) in enumerate(boxes):
+        
+        qw, qx, qy, qz = quat_z(th)
+        yaw = 2 * math.atan2(qz, qw)
+  
+        corners_local_coordinates = np.array([
+            [-box_half_size, -box_half_size],
+            [-box_half_size,  box_half_size],
+            [ box_half_size,  box_half_size],
+            [ box_half_size, -box_half_size]
+        ])
+
+        # Wheel positions relative to box center
+        Wheel_support_pos = xy_positions_of_wheel_assembly_wrt_center(yaw,corners_local_coordinates)
+
+        # Box header
+        box_xml += f"""
+    <body name="box{i}" pos="{x:.4f} {y:.4f} {Z_BOX:.3f}">
+      <joint name="box{i}_joint" type="free" />
+      <geom type="box" size="{box_size}" material="blue_mat" mass="{box_mass:.2f}"
+            quat="{qw:.6f} {qx:.6f} {qy:.6f} {qz:.6f}"
+            friction="{box_sliding_friction:.2f} {box_torsional_friction:.2f} {box_rolling_friction:.2f}"
+            contype="1" conaffinity="1"/>"""
+
+        # Four identical wheel assemblies (kept same order and names)
+        for idx, (px, py) in enumerate(Wheel_support_pos, start=1):
+            box_xml += caster_block(i, idx, px, py)
+
+        # Close box body
+        box_xml += """
+    </body>"""
+
+    return box_xml
 
 def get_body_pose_2d(model, data, body_name):
     """

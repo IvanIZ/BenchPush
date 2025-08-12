@@ -1,5 +1,5 @@
 """
-Randomly create enviornment type
+Create randomized XML files for the Box Delivery environment in MuJoCo.
 """
 
 import numpy as np
@@ -8,7 +8,7 @@ import os
 import random
 import math
 
-from benchnpin.common.utils.mujoco_utils import inside_poly, quat_z, quat_z_yaw, corners_xy
+from benchnpin.common.utils.mujoco_utils import inside_poly, quat_z, quat_z_yaw, corners_xy, generating_box_xml
 
 def precompute_static_vertices(keep_out, wall_thickness, room_length, room_width):
     """
@@ -275,7 +275,9 @@ def sample_scene(n_boxes, keep_out, ROBOT_R, CLEAR, ARENA_X, ARENA_Y, clearance_
     return robot_qpos, boxes
 
 
-def build_xml(robot_qpos, boxes, stl_model_path, extra_xml, Z_BOX, box_size, ARENA_X1, ARENA_Y1, goal_half, goal_center, adjust_num_pillars,bumper_type, robot_rgb, sim_timestep):
+def build_xml(robot_qpos, stl_model_path, extra_xml, ARENA_X1, ARENA_Y1, goal_half, goal_center, 
+    adjust_num_pillars,bumper_type, wheels_on_boxes, box_xml, robot_rgb, sim_timestep):
+
     """Building data for a different file"""
 
     # Bumper type handling
@@ -300,7 +302,7 @@ def build_xml(robot_qpos, boxes, stl_model_path, extra_xml, Z_BOX, box_size, ARE
         adjust_pillar_plane = ""
     header = f"""
 <mujoco model="box_delivery_structured_env">
-  <compiler angle="radian" autolimits="true" meshdir="{stl_model_path}"/>
+  <compiler angle="radian" autolimits="true" meshdir="{stl_model_path}" inertiafromgeom="true"/>
 
   <option integrator="implicitfast" gravity="0 0 -9.81"
           timestep="{sim_timestep}" iterations="20" viscosity="1.5"/>
@@ -317,7 +319,9 @@ def build_xml(robot_qpos, boxes, stl_model_path, extra_xml, Z_BOX, box_size, ARE
     <mesh name="left_tire"   file="left_tire.stl"   scale="0.001 0.001 0.001"/>
     <mesh name="right_tire"  file="right_tire.stl"  scale="0.001 0.001 0.001"/>
     <mesh name="lds"         file="lds.stl"         scale="0.001 0.001 0.001"/>
-    <mesh name="bumper"      file="{bumper_name}.STL" scale="0.001 0.001 0.001"/>
+    <mesh name="bumper"      file="{bumper_name}.STL"     scale="0.001 0.001 0.001"/>
+    <mesh name="Wheels"      file="Box_wheels.stl"          scale="0.0001 0.0001 0.0001"/>
+    <mesh name="Wheels_support" file="Box_wheels_support.STL"  scale="0.0001 0.0001 0.0001"/>
     <material name="mat_noreflect" rgba="0 0.3922 0 1" specular="0" shininess="0" reflectance="0"/>
   </asset>
 
@@ -439,18 +443,6 @@ def build_xml(robot_qpos, boxes, stl_model_path, extra_xml, Z_BOX, box_size, ARE
     {generate_waypoint_sites(50)}
       
 """
-    
-    #Data to be written for boxes
-    box_xml = ""
-    for i, (x, y, th) in enumerate(boxes):
-        qw, qx, qy, qz = quat_z(th)
-        box_xml += f"""
-    <body name="box{i}" pos="{x:.4f} {y:.4f} {Z_BOX:.3f}">
-      <joint name="box{i}_joint" type="free" />
-      <geom type="box" size="{box_size}" material="blue_mat" mass="0.075"
-            quat="{qw:.6f} {qx:.6f} {qy:.6f} {qz:.6f}" friction="0.4 0.015 0.002" contype="1" conaffinity="1"/>
-    </body>"""
-
         
     #Data to be written for footers
     footer = f"""
@@ -483,9 +475,12 @@ def clearance_poly_generator(ARENA_X, ARENA_Y,
             (x_max,y_max-corner_clearance), (x_max-corner_clearance,y_max-corner_clearance), (x_max-corner_clearance,y_max),
             (x_min+corner_clearance,y_max), (x_min+corner_clearance,y_max-corner_clearance), (x_min,y_max-corner_clearance)]
 
+
 def generate_boxDelivery_xml(N, env_type, file_name, ROBOT_clear, CLEAR, Z_BOX, ARENA_X, ARENA_Y,
-                  box_half_size, goal_half, goal_center, num_pillars, pillar_half, adjust_num_pillars, sim_timestep, divider_thickness, bumper_type):
-    
+                  box_half_size, goal_half, goal_center, num_pillars, pillar_half, adjust_num_pillars, sim_timestep, divider_thickness, bumper_type, wheels_on_boxes,
+                  wheels_mass, wheels_support_mass, wheels_sliding_friction, wheels_torsional_friction, 
+                  wheels_rolling_friction, wheels_support_damping_ratio, box_mass, box_sliding_friction , box_torsional_friction , box_rolling_friction):
+
     # Name of input and output file otherwise set to default
     XML_OUT = Path(file_name)
     stl_model_path = os.path.join(os.path.dirname(__file__), 'models/')
@@ -499,9 +494,15 @@ def generate_boxDelivery_xml(N, env_type, file_name, ROBOT_clear, CLEAR, Z_BOX, 
     
     # Finding the robot's q_pos and boxes's randomized data
     robot_qpos, boxes = sample_scene(N,keep_out,ROBOT_clear,CLEAR,ARENA_X,ARENA_Y, clearance_poly)
+
+    # Generating xml code for boxes
+    box_xml = generating_box_xml(boxes, Z_BOX, box_size, wheels_on_boxes, wheels_mass, wheels_support_mass, wheels_sliding_friction, wheels_torsional_friction, wheels_rolling_friction, 
+        wheels_support_damping_ratio, box_mass, box_sliding_friction, box_torsional_friction, box_rolling_friction, box_half_size)
   
     # Building new environemnt and writing it down
-    xml_string = build_xml(robot_qpos, boxes, stl_model_path, extra_xml, Z_BOX, box_size, ARENA_X[1], ARENA_Y[1], goal_half, goal_center, adjust_num_pillars, bumper_type, robot_rgb=(0.1, 0.1, 0.1),  sim_timestep=sim_timestep)
+    xml_string = build_xml(robot_qpos, stl_model_path, extra_xml, 
+        ARENA_X[1], ARENA_Y[1], goal_half, goal_center, adjust_num_pillars, bumper_type, wheels_on_boxes, box_xml, robot_rgb=(0.1, 0.1, 0.1),  sim_timestep=sim_timestep)
+
     XML_OUT.write_text(xml_string)
     
     return XML_OUT, keep_out, clearance_poly

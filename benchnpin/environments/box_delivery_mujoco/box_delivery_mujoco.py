@@ -13,7 +13,7 @@ from benchnpin.common.controller.position_controller import PositionController
 from benchnpin.common.utils.utils import DotDict
 # from benchnpin.environments.area_clearing.area_clearing import MOVE_STEP_SIZE, STEP_LIMIT, TURN_STEP_SIZE, WAYPOINT_MOVING_THRESHOLD, WAYPOINT_TURNING_THRESHOLD
 from benchnpin.environments.box_delivery_mujoco.box_delivery_utils import generate_boxDelivery_xml, transport_box_from_recept, precompute_static_vertices, dynamic_vertices, receptacle_vertices, intersects_keepout
-from benchnpin.common.utils.mujoco_utils import vw_to_wheels, make_controller, quat_z, inside_poly, quat_z_yaw, corners_xy, get_body_pose_2d
+from benchnpin.common.utils.mujoco_utils import vw_to_wheels, make_controller, quat_z, inside_poly, quat_z_yaw, get_body_pose_2d
 from benchnpin.common.utils.sim_utils import get_color
 
 
@@ -147,6 +147,15 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
         self.robot_cumulative_boxes = None
         self.robot_cumulative_reward = None
 
+        # Box with wheels
+        self.wheels_on_boxes = self.cfg.wheels_on_boxes.wheels_on_boxes
+        self.wheels_mass = self.cfg.wheels_on_boxes.wheels_mass
+        self.wheels_support_mass = self.cfg.wheels_on_boxes.wheels_support_mass
+        self.wheels_sliding_friction = self.cfg.wheels_on_boxes.wheels_sliding_friction
+        self.wheels_torsional_friction = self.cfg.wheels_on_boxes.wheels_torsional_friction
+        self.wheels_rolling_friction = self.cfg.wheels_on_boxes.wheels_rolling_friction
+        self.wheels_support_damping_ratio = self.cfg.wheels_on_boxes.wheels_support_damping_ratio
+
         # robot
         self.robot_hit_obstacle = False
         self.robot_info = self.cfg.agent
@@ -168,7 +177,10 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
         xml_file = os.path.join(self.current_dir, 'turtlebot3_burger_updated.xml')
         _, self.initialization_keepouts, self.clearance_poly = generate_boxDelivery_xml(N=self.cfg.boxes.num_boxes, env_type=self.cfg.env.obstacle_config, file_name=xml_file,
                         ROBOT_clear=self.cfg.agent.robot_clear, CLEAR=self.cfg.boxes.clearance, goal_half=self.receptacle_half, goal_center=self.receptacle_position, Z_BOX=self.cfg.boxes.box_half_size, ARENA_X=(0.0, self.room_length), 
-                        ARENA_Y=(0.0, self.room_width), box_half_size=self.cfg.boxes.box_half_size, num_pillars=self.num_pillars, pillar_half=self.pillar_half, adjust_num_pillars=self.adjust_num_pillars, sim_timestep=self.cfg.env.sim_timestep, divider_thickness=self.divider_thickness, bumper_type=self.cfg.agent.type_of_bumper)
+                        ARENA_Y=(0.0, self.room_width), box_half_size=self.cfg.boxes.box_half_size, num_pillars=self.num_pillars, pillar_half=self.pillar_half, adjust_num_pillars=self.adjust_num_pillars, sim_timestep=self.cfg.env.sim_timestep, divider_thickness=self.divider_thickness, bumper_type=self.cfg.agent.type_of_bumper,
+                        wheels_on_boxes=self.wheels_on_boxes, wheels_mass=self.wheels_mass, wheels_support_mass=self.wheels_support_mass, wheels_sliding_friction=self.wheels_sliding_friction,
+                        wheels_torsional_friction=self.wheels_torsional_friction, wheels_rolling_friction=self.wheels_rolling_friction, wheels_support_damping_ratio=self.wheels_support_damping_ratio, box_mass=self.cfg.boxes.box_mass,
+                        box_sliding_friction= self.cfg.boxes.box_sliding_friction, box_torsional_friction= self.cfg.boxes.box_torsional_friction, box_rolling_friction= self.cfg.boxes.box_rolling_friction)
 
         utils.EzPickle.__init__(
             self,
@@ -1060,6 +1072,16 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
         # Assume box is square with radius from center to corner (diagonal/2)
         box_r = np.sqrt(self.cfg.boxes.box_half_size ** 2 + self.cfg.boxes.box_half_size ** 2)
 
+        box_half_size = self.cfg.boxes.box_half_size
+        
+        if self.wheels_on_boxes:
+
+            z = box_half_size+0.03
+        
+        else:
+
+            z = box_half_size+0.005
+
         for i in range(self.num_boxes):
             while True:
                 x = np.random.uniform(x_min, x_max)
@@ -1070,7 +1092,7 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
                     break
             
             qadr = self.model.jnt_qposadr[self.joint_id_boxes[i]]
-            self.data.qpos[qadr:qadr+2] = np.array([x, y])
+            self.data.qpos[qadr:qadr+3] = np.array([x, y, z])
             # self.data.qpos[qadr:qadr+3] = np.array([x, y,0.05])  # x, y, z
             self.data.qpos[qadr+3:qadr+7] = quat_z(theta)
             self.data.qvel[qadr:qadr+6] = 0
