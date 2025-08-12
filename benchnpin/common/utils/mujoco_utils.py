@@ -116,10 +116,11 @@ def xy_positions_of_wheel_assembly_wrt_center(yaw,corners_local_coordinates) -> 
     return 0.8 * corners_local_coordinates @ R.T
 
 
-def generating_box_xml(boxes, Z_BOX, box_size, wheels_on_boxes, wheels_mass, wheels_support_mass, wheels_sliding_friction, 
+def generating_box_xml(boxes, Z_BOX, wheels_on_boxes, wheels_mass, wheels_support_mass, wheels_sliding_friction, 
     wheels_torsional_friction, wheels_rolling_friction, wheels_support_damping_ratio, box_mass, box_sliding_friction, box_torsional_friction, box_rolling_friction, box_half_size):
 
     box_xml = " <!-- Boxes -->\n"
+    box_size = f"{box_half_size} {box_half_size} {box_half_size}"
 
     if not wheels_on_boxes:
 
