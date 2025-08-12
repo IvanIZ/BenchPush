@@ -204,6 +204,31 @@ def generating_box_xml(boxes, Z_BOX, wheels_on_boxes, wheels_mass, wheels_suppor
 
     return box_xml
 
+
+def large_divider_corner_vertices(cx, cy, hy, half_x):
+    """
+    Return two corner footprints as lists of (x,y) vertices, same format as your earlier 'corners'
+    """
+    corner_coordinates = [
+    (0.0000, 0.0000),
+    (0.3150, 0.0000),
+    (0.1575, 0.0640),
+    (0.0640, 0.1575),
+    (0.0000, 0.3150)]
+
+    def place_on_right_wall(y_anchor):
+        # Mirror across X to the right wall (x -> half_x - x) and shift up to y_anchor (y -> y_anchor + y)
+        return [(half_x - x, y_anchor + y) for (x, y) in corner_coordinates]
+    
+    def place_on_right_wall_mirror_y(y_anchor):
+        return [(half_x - x, y_anchor - y) for (x, y) in corner_coordinates]
+
+    corner_4 = place_on_right_wall(cy + hy)
+    corner_5 = place_on_right_wall_mirror_y(cy - hy)
+
+    return corner_4, corner_5
+
+
 def get_body_pose_2d(model, data, body_name):
     """
     Get (x, y, theta) pose of a 2D body

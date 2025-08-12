@@ -8,7 +8,7 @@ import os
 import random
 import math
 
-from benchnpin.common.utils.mujoco_utils import inside_poly, quat_z, quat_z_yaw, corners_xy, generating_box_xml
+from benchnpin.common.utils.mujoco_utils import inside_poly, quat_z, quat_z_yaw, corners_xy, generating_box_xml, large_divider_corner_vertices
 
 def precompute_static_vertices(keep_out, wall_thickness, room_length, room_width):
     """
@@ -146,6 +146,22 @@ def changing_per_configuration(env_type: str, clearance_poly,
 """
         Coordinates=[(cx-xh, cy-yh),(cx+xh, cy-yh),(cx+xh, cy+yh),(cx-xh, cy+yh)]
         return Text, Coordinates
+
+    def large_divider_corners(ARENA_X, cy, hy):
+      # Adding two corners for the large divider
+
+      heavy_mass = 1e5
+
+      Text=f"""<!-- Corner 4 -->
+    <body name="corner_4" pos="{ARENA_X[1]/2} {cy+hy} 0.06" quat="0 1 1 0">
+      <geom name="corner_4" type="mesh" mesh="corner_full" rgba="0.0 0.3 1.0 1.0"/>
+    </body>
+    
+    <!-- Corner 5 -->
+    <body name="corner_5" pos="{ARENA_X[1]/2} {cy-hy} 0.06" quat="1 0 0 -1">
+      <geom name="corner_5" type="mesh" mesh="corner_full" rgba="0.0 0.3 1.0 1.0"/>
+    </body>"""
+      return Text
     
     extra_xml = ""
     # list of polygons to exclude when sampling
@@ -213,9 +229,17 @@ def changing_per_configuration(env_type: str, clearance_poly,
       hz = 0.1
 
       # x-centre of the divider strip
-      cx = -0.2 * ARENA_X[1] / 2         # centre of [-X/2 , +0.6·X/2]
+      cx = 0.2 * ARENA_X[1] / 2         # centre of [-X/2 , +0.6·X/2]
+      cy = 0
 
-      cy = random.uniform(-ARENA_Y[1]/2 + 0.4, ARENA_Y[1]/2 - 0.4)
+      # large divider corners
+      xml=large_divider_corners(ARENA_X, cy, hy)
+      corner_4_coordinates, corner_5_coordinates= large_divider_corner_vertices(cx, cy, hy, ARENA_X[1]/2)
+      extra_xml += xml
+      keep_out.append(corner_4_coordinates)
+      keep_out.append(corner_5_coordinates)
+
+      # large divider body
       xml, poly = pillar("large_divider", cx, cy, (hx, hy, hz))
       extra_xml += xml
       keep_out.append(poly)
@@ -501,7 +525,7 @@ def generate_boxDelivery_xml(N, env_type, file_name, ROBOT_clear, CLEAR, Z_BOX, 
   
     # Building new environemnt and writing it down
     xml_string = build_xml(robot_qpos, stl_model_path, extra_xml, 
-        ARENA_X[1], ARENA_Y[1], goal_half, goal_center, adjust_num_pillars, bumper_type, bumper_mass, wheels_on_boxes, box_xml, robot_rgb=(0.1, 0.1, 0.1),  sim_timestep=sim_timestep)
+        ARENA_X[1], ARENA_Y[1], goal_half, goal_center, adjust_num_pillars, bumper_type, bumper_mass, box_xml, robot_rgb=(0.1, 0.1, 0.1),  sim_timestep=sim_timestep)
 
     XML_OUT.write_text(xml_string)
     

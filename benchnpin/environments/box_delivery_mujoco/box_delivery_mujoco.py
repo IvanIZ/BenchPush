@@ -13,7 +13,7 @@ from benchnpin.common.controller.position_controller import PositionController
 from benchnpin.common.utils.utils import DotDict
 # from benchnpin.environments.area_clearing.area_clearing import MOVE_STEP_SIZE, STEP_LIMIT, TURN_STEP_SIZE, WAYPOINT_MOVING_THRESHOLD, WAYPOINT_TURNING_THRESHOLD
 from benchnpin.environments.box_delivery_mujoco.box_delivery_utils import generate_boxDelivery_xml, transport_box_from_recept, precompute_static_vertices, dynamic_vertices, receptacle_vertices, intersects_keepout
-from benchnpin.common.utils.mujoco_utils import vw_to_wheels, make_controller, quat_z, inside_poly, quat_z_yaw, get_body_pose_2d
+from benchnpin.common.utils.mujoco_utils import vw_to_wheels, make_controller, quat_z, inside_poly, quat_z_yaw, get_body_pose_2d, large_divider_corner_vertices
 from benchnpin.common.utils.sim_utils import get_color
 
 
@@ -173,7 +173,6 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
                     self.robot_state_channel[i, j] = 1
 
         # generate random environmnt
-        # TODO can robot_radius be used instead of robot_clear?
         xml_file = os.path.join(self.current_dir, 'turtlebot3_burger_updated.xml')
         _, self.initialization_keepouts, self.clearance_poly = generate_boxDelivery_xml(N=self.cfg.boxes.num_boxes, env_type=self.cfg.env.obstacle_config, file_name=xml_file,
                         ROBOT_clear=self.cfg.agent.robot_clear, CLEAR=self.cfg.boxes.clearance, goal_half=self.receptacle_half, goal_center=self.receptacle_position, Z_BOX=self.cfg.boxes.box_half_size, ARENA_X=(0.0, self.room_length), 
@@ -999,20 +998,23 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
             hz = 0.1
 
             # Divider X-centre and Y-centre
-            cx = -0.2 * self.room_length / 2
+            cx = 0.2 * self.room_length / 2
             # Left some clearance from corners
-            cy = self.random_state.uniform(-self.room_width/2 + 0.4, self.room_width/2 - 0.4)
+            cy = 0.0
 
             # Teleporting the divider body (joint) to the new pose
-            joint_name = "large_divider_joint"
-            j_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_JOINT,joint_name)
+
+            j_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_JOINT,"large_divider_joint")
+
             if j_id < 0:
                 raise RuntimeError(f"Joint {joint_name} not found in model")
 
             adr = self.model.jnt_qposadr[j_id]
-            self.data.qpos[adr     : adr+3] = [cx, cy, hz]        # x, y, z
-            self.data.qpos[adr+3   : adr+7] = [1, 0, 0, 0]        # unit quat
-            self.data.qvel[adr     : adr+6] = 0                   # zero velocity
+            self.data.qpos[adr     : adr+3] = [cx, cy, hz]
+            self.data.qpos[adr+3   : adr+7] = [1, 0, 0, 0]
+            self.data.qvel[adr     : adr+6] = 0
+
+            corner_4_coordinates, corner_5_coordinates = large_divider_corner_vertices(cx, cy, hy, self.room_length/2)
 
             divider_poly = [
                 (cx - hx, cy - hy), (cx + hx, cy - hy),
@@ -1020,7 +1022,7 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
             ]
 
             # This is to ensure that that the robot/boxes do not come too close to the divider during initialization
-            self.initialization_keepouts = [divider_poly]
+            self.initialization_keepouts = [divider_poly, corner_4_coordinates, corner_5_coordinates]
 
         def is_valid(pos, radius,positions):
             # unpack immediately
