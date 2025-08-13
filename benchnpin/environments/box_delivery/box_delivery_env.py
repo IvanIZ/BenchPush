@@ -15,7 +15,7 @@ from benchnpin.common.evaluation.metrics import total_work_done
 from benchnpin.common.geometry.polygon import poly_area
 from benchnpin.common.utils.plot_pushing import Plot
 from benchnpin.common.utils.renderer import Renderer
-from benchnpin.common.utils.sim_utils import generate_sim_cubes, generate_sim_bounds, generate_sim_agent, get_color
+from benchnpin.common.utils.sim_utils import generate_sim_boxes, generate_sim_bounds, generate_sim_agent, get_color
 from benchnpin.common.geometry.polygon import poly_centroid
 from benchnpin.common.utils.utils import DotDict
 from benchnpin.common.occupancy_grid.occupancy_map import OccupancyGrid
@@ -46,7 +46,7 @@ SMALL_RIGHT = 7
 OBSTACLE_SEG_INDEX = 0
 FLOOR_SEG_INDEX = 1
 RECEPTACLE_SEG_INDEX = 3
-CUBE_SEG_INDEX = 4
+BOX_SEG_INDEX = 4
 ROBOT_SEG_INDEX = 5
 MAX_SEG_INDEX = 8
 
@@ -112,7 +112,7 @@ class BoxDeliveryEnv(gym.Env):
         # stats
         self.inactivity_counter = None
         self.robot_cumulative_distance = None
-        self.robot_cumulative_cubes = None
+        self.robot_cumulative_boxes = None
         self.robot_cumulative_reward = None
         
         # robot
@@ -139,6 +139,7 @@ class BoxDeliveryEnv(gym.Env):
         self.goal_reward = rewards.goal_reward
         self.collision_penalty = rewards.collision_penalty
         self.non_movement_penalty = rewards.non_movement_penalty
+        self.correct_direction_reward_scale = rewards.correct_direction_reward_scale
 
         # misc
         self.ministep_size = self.cfg.misc.ministep_size
@@ -165,10 +166,7 @@ class BoxDeliveryEnv(gym.Env):
         self.low_dim_state = self.cfg.low_dim_state
         if self.low_dim_state:
             self.fixed_trial_idx = self.cfg.fixed_trial_idx
-            if self.cfg.randomize_cubes:
-                self.observation_space = spaces.Box(low=-10, high=30, shape=(self.cfg.num_cubes * 2,), dtype=np.float32)
-            else:
-                self.observation_space = spaces.Box(low=-10, high=30, shape=(6,), dtype=np.float32)
+            self.observation_space = spaces.Box(low=-10, high=30, shape=(self.num_boxes * 2,), dtype=np.float32)
 
         else:
             self.observation_shape = (self.local_map_pixel_width, self.local_map_pixel_width, self.num_channels)
@@ -211,7 +209,7 @@ class BoxDeliveryEnv(gym.Env):
             self.robot_hit_obstacle = self.prevent_boundary_intersection(arbiter)
             return True
         
-        def cube_boundary_pre_solve(arbiter, space, data):
+        def box_boundary_pre_solve(arbiter, space, data):
             self.prevent_boundary_intersection(arbiter)
             return True
         
@@ -221,14 +219,14 @@ class BoxDeliveryEnv(gym.Env):
         self.robot_boundary_handler = self.space.add_collision_handler(1, 3)
         self.robot_boundary_handler.pre_solve = robot_boundary_pre_solve
         
-        self.cube_boundary_handler = self.space.add_collision_handler(2, 3)
-        self.cube_boundary_handler.pre_solve = cube_boundary_pre_solve
+        self.box_boundary_handler = self.space.add_collision_handler(2, 3)
+        self.box_boundary_handler.pre_solve = box_boundary_pre_solve
 
         self.robot_recept_handler = self.space.add_collision_handler(1, 4)
         self.robot_recept_handler.begin = recept_collision_begin
 
-        self.cube_recept_handler = self.space.add_collision_handler(2, 4)
-        self.cube_recept_handler.pre_solve = recept_collision_begin
+        self.box_recept_handler = self.space.add_collision_handler(2, 4)
+        self.box_recept_handler.pre_solve = recept_collision_begin
 
         if self.cfg.render.show:
             if self.renderer is None:
@@ -256,7 +254,7 @@ class BoxDeliveryEnv(gym.Env):
         # initialize sim objects
         self.robot = generate_sim_agent(self.space, self.robot_info, label='robot',
                                         body_type=pymunk.Body.KINEMATIC, wheel_vertices_list=self.robot_info['wheel_vertices'])
-        self.boxes = generate_sim_cubes(self.space, self.boxes_dicts, self.cfg.boxes.box_density)
+        self.boxes = generate_sim_boxes(self.space, self.boxes_dicts, self.cfg.boxes.box_density)
         self.boundaries = generate_sim_bounds(self.space, self.boundary_dicts)
         self.robot.collision_type = 1
         for p in self.boxes:
@@ -285,7 +283,7 @@ class BoxDeliveryEnv(gym.Env):
         # run initial simulation steps to let environment settle
         for _ in range(1000):
             self.space.step(self.dt / self.steps)
-        self.prev_cubes = CostMap.get_obs_from_poly(self.boxes)
+        self.prev_boxes = CostMap.get_obs_from_poly(self.boxes)
 
         self.position_controller = PositionController(self.cfg, self.robot_radius, self.room_width, self.room_length, 
                                                       self.configuration_space, self.configuration_space_thin, self.closest_cspace_indices,
@@ -513,14 +511,14 @@ class BoxDeliveryEnv(gym.Env):
         boxes = []          # a list storing non-overlapping box centers
 
         total_boxes_required = self.num_boxes
-        cube_min_dist = self.cfg.boxes.min_box_dist
+        box_min_dist = self.cfg.boxes.min_box_dist
         min_x = -self.room_length / 2 + box_size
         max_x = self.room_length / 2 - box_size
         min_y = -self.room_width / 2 + box_size
         max_y = self.room_width / 2 - box_size
 
-        cube_count = 0
-        while cube_count < total_boxes_required:
+        box_count = 0
+        while box_count < total_boxes_required:
             center_x = self.random_state.uniform(min_x, max_x)
             center_y = self.random_state.uniform(min_y, max_y)
             heading = self.random_state.uniform(0, 2 * np.pi)
@@ -532,26 +530,26 @@ class BoxDeliveryEnv(gym.Env):
                     continue
                 elif obstacle['type'] == 'divider':
                     # just check y distance
-                    if abs(center_y - obstacle['position'][1]) <= (cube_min_dist / 2 + obstacle['width'] / 2) * 1.2:
+                    if abs(center_y - obstacle['position'][1]) <= (box_min_dist / 2 + obstacle['width'] / 2) * 1.2:
                         overlapped = True
                         break
-                elif ((center_x - obstacle['position'][0])**2 + (center_y - obstacle['position'][1])**2)**(0.5) <= (cube_min_dist / 2 + obstacle['width'] / 2) * 1.2:
+                elif ((center_x - obstacle['position'][0])**2 + (center_y - obstacle['position'][1])**2)**(0.5) <= (box_min_dist / 2 + obstacle['width'] / 2) * 1.2:
                     overlapped = True
                     break
-            for prev_cube_x, pre_cube_y, _ in boxes:
-                if ((center_x - prev_cube_x)**2 + (center_y - pre_cube_y)**2)**(0.5) <= cube_min_dist:
+            for prev_box_x, prev_box_y, _ in boxes:
+                if ((center_x - prev_box_x)**2 + (center_y - prev_box_y)**2)**(0.5) <= box_min_dist:
                     overlapped = True
                     break
             
             if not overlapped:
                 boxes.append([center_x, center_y, heading])
-                cube_count += 1
+                box_count += 1
         
         # convert to boxes dict
         boxes_dict = []
         for i, [box_x, boxes, box_heading] in enumerate(boxes):
             boxes_info = {}
-            boxes_info['type'] = 'cube'
+            boxes_info['type'] = 'box'
             boxes_info['position'] = np.array([box_x, boxes])
             boxes_info['vertices'] = np.array([[box_x + box_size, boxes + box_size], 
                                     [box_x - box_size, boxes + box_size], 
@@ -563,12 +561,19 @@ class BoxDeliveryEnv(gym.Env):
             boxes_dict.append(boxes_info)
         return boxes_dict
 
-    def cube_position_in_receptacle(self, cube_vertices):
-        for vertex in cube_vertices:
+    def box_position_in_receptacle(self, box_vertices):
+        for vertex in box_vertices:
             query_info = self.space.point_query(vertex, 0, pymunk.ShapeFilter())
             if not any(query.shape.label == 'receptacle' for query in query_info):
                 return False
         return True
+    
+    def box_position_in_obstacle(self, box_vertices):
+        for vertex in box_vertices:
+            query_info = self.space.point_query(vertex, 0, pymunk.ShapeFilter())
+            if any(query.shape.label in ['wall', 'divider', 'column', 'corner'] for query in query_info):
+                return True
+        return False
 
     def reset(self, seed=None, options=None):
         """Resets the environment to the initial state and returns the initial observation."""
@@ -587,19 +592,19 @@ class BoxDeliveryEnv(gym.Env):
 
         self.t = 0
 
-        # get updated cubes
-        updated_cubes = CostMap.get_obs_from_poly(self.boxes)
+        # get updated boxes
+        updated_boxes = CostMap.get_obs_from_poly(self.boxes)
 
         # reset stats
         self.inactivity_counter = 0
         self.boxes_cumulative_distance = 0
         self.robot_cumulative_distance = 0
-        self.robot_cumulative_cubes = 0
+        self.robot_cumulative_boxes = 0
         self.robot_cumulative_reward = 0
 
-        updated_cubes = CostMap.get_obs_from_poly(self.boxes)
+        updated_boxes = CostMap.get_obs_from_poly(self.boxes)
         if self.low_dim_state:
-            self.observation = self.generate_observation_low_dim(updated_cubes=updated_cubes)
+            self.observation = self.generate_observation_low_dim(updated_boxes=updated_boxes)
 
         else:
             self.observation = self.generate_observation()
@@ -613,10 +618,10 @@ class BoxDeliveryEnv(gym.Env):
                       round(self.robot.body.position.y, 2),
                       round(self.robot.body.angle, 2)),
             'cumulative_distance': self.robot_cumulative_distance,
-            'cumulative_cubes': self.robot_cumulative_cubes,
+            'cumulative_boxes': self.robot_cumulative_boxes,
             'cumulative_reward': self.robot_cumulative_reward,
             'total_work': self.total_work[0],
-            'obs': updated_cubes,
+            'obs': updated_boxes,
             'box_completed_statuses': self.box_clearance_statuses,
             'goal_positions': self.goal_points,
             'ministeps': 0,
@@ -633,7 +638,7 @@ class BoxDeliveryEnv(gym.Env):
         self.dp = None
 
         self.robot_hit_obstacle = False
-        robot_cubes = 0
+        robot_boxes = 0
         robot_reward = 0
 
         # get initial state
@@ -642,12 +647,12 @@ class BoxDeliveryEnv(gym.Env):
         robot_initial_position, robot_initial_heading = self.robot.body.position, self.restrict_heading_range(self.robot.body.angle)
         robot_initial_position = list(robot_initial_position)  
 
-        # store initial cube distances for partial reward calculation
-        initial_cube_distances = {}
-        for cube in self.boxes:
-            cube_position = cube.body.position
-            dist = self.shortest_path_distance(cube_position, self.receptacle_position)
-            initial_cube_distances[cube.idx] = dist
+        # store initial box distances for partial reward calculation
+        initial_box_distances = {}
+        for box in self.boxes:
+            box_position = box.body.position
+            dist = self.shortest_path_distance(box_position, self.receptacle_position)
+            initial_box_distances[box.idx] = dist
 
         if self.cfg.teleop_mode:
             self.demo_control(action)
@@ -727,39 +732,39 @@ class BoxDeliveryEnv(gym.Env):
 
         # step the simulation until everything is still
         self.step_simulation_until_still()
-        # get new cube positions
-        final_cube_distances = {}
-        for cube in self.boxes:
-            cube_position = cube.body.position
-            dist = self.shortest_path_distance(cube_position, self.receptacle_position)
-            final_cube_distances[cube.idx] = dist
+        # get new box positions
+        final_box_distances = {}
+        for box in self.boxes:
+            box_position = box.body.position
+            dist = self.shortest_path_distance(box_position, self.receptacle_position)
+            final_box_distances[box.idx] = dist
 
         ############################################################################################################
         # Rewards
 
-        # partial reward for moving cubes towards receptacle
-        cubes_distance = 0
+        # partial reward for moving boxes towards receptacle
+        boxes_distance = 0
         to_remove = []
-        for cube in self.boxes:
-            dist_moved = initial_cube_distances[cube.idx] - final_cube_distances[cube.idx]
-            cubes_distance += abs(dist_moved)
+        for box in self.boxes:
+            dist_moved = initial_box_distances[box.idx] - final_box_distances[box.idx]
+            boxes_distance += abs(dist_moved)
             if self.cfg.train.use_correct_direction_reward and dist_moved > 0:
-                dist_moved *= self.cfg.rewards.correct_direction_reward_scale
+                dist_moved *= self.correct_direction_reward_scale
             robot_reward += self.partial_rewards_scale * dist_moved
 
-            # reward for cubes in receptacle
+            # reward for boxes in receptacle
             # to_remove = []
-            # for cube in self.boxes:
-            cube_vertices = [cube.body.local_to_world(v) for v in cube.get_vertices()]
-            if self.cube_position_in_receptacle(cube_vertices):
-                to_remove.append(cube)
-                self.box_clearance_statuses[cube.idx] = True
+            # for box in self.boxes:
+            box_vertices = [box.body.local_to_world(v) for v in box.get_vertices()]
+            if self.box_position_in_receptacle(box_vertices):
+                to_remove.append(box)
+                self.box_clearance_statuses[box.idx] = True
                 self.inactivity_counter = 0
-                robot_cubes += 1
+                robot_boxes += 1
                 robot_reward += self.goal_reward
-        for cube in to_remove:
-            self.space.remove(cube.body, cube)
-            self.boxes.remove(cube)
+        for box in to_remove:
+            self.space.remove(box.body, box)
+            self.boxes.remove(box)
 
         # penalty for hitting obstacles
         if self.robot_hit_obstacle:
@@ -774,23 +779,23 @@ class BoxDeliveryEnv(gym.Env):
         ############################################################################################################
         # Compute stats
         self.robot_cumulative_distance += robot_distance
-        self.robot_cumulative_cubes += robot_cubes
+        self.robot_cumulative_boxes += robot_boxes
         self.robot_cumulative_reward += robot_reward
 
         # work
-        updated_cubes = CostMap.get_obs_from_poly(self.boxes)
-        work = total_work_done(self.prev_cubes, updated_cubes)
+        updated_boxes = CostMap.get_obs_from_poly(self.boxes)
+        work = total_work_done(self.prev_boxes, updated_boxes)
         self.total_work[0] += work
         self.total_work[1].append(work)
-        self.prev_cubes = updated_cubes
+        self.prev_boxes = updated_boxes
 
-        # increment inactivity counter, which measures steps elapsed since the previus cube was stashed
-        if robot_cubes == 0:
+        # increment inactivity counter, which measures steps elapsed since the previous box was stashed
+        if robot_boxes == 0:
             self.inactivity_counter += 1
         
         # check if episode is done
         terminated = False
-        if self.robot_cumulative_cubes == self.num_boxes:
+        if self.robot_cumulative_boxes == self.num_boxes:
             terminated = True
         
         truncated = False
@@ -807,10 +812,10 @@ class BoxDeliveryEnv(gym.Env):
                       round(self.robot.body.position.y, 2),
                       round(self.robot.body.angle, 2)),
             'cumulative_distance': self.robot_cumulative_distance,
-            'cumulative_cubes': self.robot_cumulative_cubes,
+            'cumulative_boxes': self.robot_cumulative_boxes,
             'cumulative_reward': self.robot_cumulative_reward,
             'total_work': self.total_work[0],
-            'obs': updated_cubes,
+            'obs': updated_boxes,
             'box_completed_statuses': self.box_clearance_statuses,
             'goal_positions': self.goal_points,
             'ministeps': ministeps,
@@ -987,6 +992,18 @@ class BoxDeliveryEnv(gym.Env):
         sim_steps = 0
         done = False
         while not done:
+            # check if any box is stuck in a wall
+            for box in self.boxes:
+                box_vertices = [box.body.local_to_world(v) for v in box.get_vertices()]
+                if self.box_position_in_obstacle(box_vertices):
+                    # move to nearest free space
+                    box_position = box.body.position
+                    pixel_i, pixel_j = self.position_to_pixel_indices(box_position.x, box_position.y, self.configuration_space.shape)
+                    nearest_i, nearest_j = self.closest_valid_cspace_indices(pixel_i, pixel_j)
+                    new_x, new_y = self.pixel_indices_to_position(nearest_i, nearest_j, self.configuration_space.shape)
+                    box.body.position = (new_x, new_y)
+                    box.body.velocity = (0, 0)
+                    
             # check whether anything moved since last step
             positions = []
             for poly in self.boxes + [self.robot]:
@@ -1005,14 +1022,14 @@ class BoxDeliveryEnv(gym.Env):
             if sim_steps > STEP_LIMIT:
                 break
 
-    def generate_observation_low_dim(self, updated_cubes):
+    def generate_observation_low_dim(self, updated_boxes):
         """
-        The observation is a vector of shape (num_cubes * 2) specifying the 2d position of the cubes
+        The observation is a vector of shape (num_boxes * 2) specifying the 2d position of the boxes
         <obs1_x, obs1_y, obs2_x, obs2_y, ..., obsn_x, obsn_y>
         """
-        observation = np.zeros((len(updated_cubes) * 2))
-        for i in range(len(updated_cubes)):
-            obs = updated_cubes[i]
+        observation = np.zeros((len(updated_boxes) * 2))
+        for i in range(len(updated_boxes)):
+            obs = updated_boxes[i]
             center = np.abs(poly_centroid(obs))
             observation[i * 2] = center[0]
             observation[i * 2 + 1] = center[1]
@@ -1090,6 +1107,12 @@ class BoxDeliveryEnv(gym.Env):
             int(2 * np.ceil((self.room_width * self.local_map_pixels_per_meter + self.local_map_pixel_width * np.sqrt(2)) / 2)),
             int(2 * np.ceil((self.room_length * self.local_map_pixels_per_meter + self.local_map_pixel_width * np.sqrt(2)) / 2))
         ), dtype=np.float32)
+    
+    def create_padded_room_ones(self):
+        return np.ones((
+            int(2 * np.ceil((self.room_width * self.local_map_pixels_per_meter + self.local_map_pixel_width * np.sqrt(2)) / 2)),
+            int(2 * np.ceil((self.room_length * self.local_map_pixels_per_meter + self.local_map_pixel_width * np.sqrt(2)) / 2))
+        ), dtype=np.float32)
 
     def create_global_shortest_path_to_receptacle_map(self):
         """ Creates a global shortest path map to the receptacle."""
@@ -1121,7 +1144,8 @@ class BoxDeliveryEnv(gym.Env):
         Obstacles are dilated based on the robot's radius to define a collision-free space
         """
 
-        obstacle_map = self.create_padded_room_zeros()
+        # obstacle_map = self.create_padded_room_zeros()
+        obstacle_map = self.create_padded_room_ones()
         small_obstacle_map = np.zeros((self.local_map_pixel_width+20, self.local_map_pixel_width+20), dtype=np.float32)
 
         for poly in self.boundaries:
@@ -1176,8 +1200,8 @@ class BoxDeliveryEnv(gym.Env):
             small_overhead_map[small_overhead_map == 1] = FLOOR_SEG_INDEX / MAX_SEG_INDEX
             if poly.label == 'receptacle':
                 fillPoly(small_overhead_map, [vertices_px], color=RECEPTACLE_SEG_INDEX/MAX_SEG_INDEX)
-            elif poly.label == 'cube':
-                fillPoly(small_overhead_map, [vertices_px], color=CUBE_SEG_INDEX/MAX_SEG_INDEX)
+            elif poly.label == 'box':
+                fillPoly(small_overhead_map, [vertices_px], color=BOX_SEG_INDEX/MAX_SEG_INDEX)
             elif poly.label == 'robot':
                 fillPoly(small_overhead_map, [vertices_px], color=ROBOT_SEG_INDEX/MAX_SEG_INDEX)
 
