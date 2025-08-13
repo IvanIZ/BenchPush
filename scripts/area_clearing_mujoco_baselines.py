@@ -108,8 +108,8 @@ if __name__ == '__main__':
                 'num_boxes': 3,
             },
             'render': {
-                'log_obs': False, # log occupancy observations
-                'show': True, # show the environment
+                'log_obs': True, # log occupancy observations
+                'show': False, # show the environment
                 'show_obs': False, # show the occupancy observation
             },
             'agent': {
@@ -119,20 +119,20 @@ if __name__ == '__main__':
                 # action_type: 'velocity', # Use for GTSP
             },
             'train': {
-                'train_mode': False,
-                'resume_training': False,
+                'train_mode': True,
                 'job_type': 'ppo', # 'sam', 'ppo', 'sac'
-                'job_name': 'PPO',
+                'job_name': 'ppo_clear_env',
+                'resume_training': False, 
                 'from_model_eps': None,
                 'total_timesteps': 1e6,
                 'checkpoint_freq': 10000,
                 'job_id_to_resume': None, # job id to resume training from
             },
             'evaluate': {
-                'eval_mode': True,
+                'eval_mode': False,
                 'num_eps': 2,
-                'policy_types': ['sam'], # list of policy types to evaluate
-                'model_names': ['clear_env_sam'], # list of model names to evaluate
+                'policy_types': ['ppo'], # list of policy types to evaluate
+                'model_names': ['clear_env_ppo'], # list of model names to evaluate
                 'model_path': 'models/area_clearing', # path to the models
                 'obs_configs': [None], # list of obstacle configurations to evaluate
             },
