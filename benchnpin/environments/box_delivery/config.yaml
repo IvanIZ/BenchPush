@@ -136,7 +136,7 @@ train:
   resume_training: false
   target_update_freq: 1000
   total_timesteps: 60000
-  use_correct_direction_reward: false
+  use_correct_direction_reward: true
   verbose: 2
   weight_decay: 0.0001
 

@@ -85,7 +85,7 @@ class ReplayBuffer:
         return len(self.buffer)
     
 class DenseActionSpacePolicy:
-    def __init__(self, action_space, num_input_channels, final_exploration, train=False, checkpoint_path='', resume_training=False, evaluate=False, job_id_to_resume=None, random_seed=None, model_name='sam_model', model_dir=None):
+    def __init__(self, action_space, num_input_channels, final_exploration, train=False, checkpoint_path='', resume_training=False, evaluate=False, job_id_to_resume=None, random_seed=None, model_name='sam_model'):
         self.action_space = action_space
         self.num_input_channels = num_input_channels
         self.final_exploration = final_exploration
@@ -95,15 +95,12 @@ class DenseActionSpacePolicy:
         self.policy_net = self.build_network()
         self.transform = transforms.ToTensor()
 
-        if model_dir is None:
-            model_dir = os.path.join(os.path.dirname(__file__), 'models/')
-
         # Resume from checkpoint if applicable
         if os.path.exists(checkpoint_path) or resume_training or evaluate:
             if resume_training:
                 model_path = os.path.join(os.path.dirname(__file__), f'checkpoint/{job_id_to_resume}/model-{model_name}.pt')
             elif evaluate:
-                model_path = os.path.join(model_dir, f'{model_name}.pt')
+                model_path = os.path.join(os.path.dirname(__file__), f'models/{model_name}.pt')
             else:
                 checkpoint_dir = os.path.dirname(checkpoint_path)
                 model_path = f'{checkpoint_dir}/model-{self.model_name}.pt'
@@ -295,7 +292,7 @@ class BoxDeliverySAM(BasePolicy):
                 state, _ = env.reset()
                 episode += 1
                 if truncated:
-                    logging.info(f"Episode {episode} truncated. {info['cumulative_boxes']} in goal. Resetting environment...")
+                    logging.info(f"Episode {episode} truncated. {info['cumulative_cubes']} in goal. Resetting environment...")
                 else:
                     logging.info(f"Episode {episode} completed. Resetting environment...")
             
@@ -327,7 +324,7 @@ class BoxDeliverySAM(BasePolicy):
                 train_summary_writer.add_scalar('episodes', episode, timestep + 1)
                 train_summary_writer.add_scalar('eta_hours', eta_seconds / 3600, timestep + 1)
 
-                for name in ['cumulative_boxes', 'cumulative_distance', 'cumulative_reward']:
+                for name in ['cumulative_cubes', 'cumulative_distance', 'cumulative_reward']:
                     train_summary_writer.add_scalar(name, info[name], timestep + 1)
 
             ################################################################################
@@ -373,11 +370,11 @@ class BoxDeliverySAM(BasePolicy):
 
         if model_eps == 'latest':
             self.model = DenseActionSpacePolicy(env.action_space.high, env.num_channels, 0.0,
-                                                train=False, evaluate=True, model_name=self.model_name, model_dir=self.model_path)
+                                                train=False, evaluate=True, model_name=self.model_name)
         else:
             model_checkpoint = self.model_name + '_' + model_eps + '_steps'
             self.model = DenseActionSpacePolicy(env.action_space.high, env.num_channels, 0.0,
-                                                train=False, evaluate=True, model_name=model_checkpoint, model_dir=self.model_path)
+                                                train=False, evaluate=True, model_name=model_checkpoint)
         
         metric = TaskDrivenMetric(alg_name="SAM", robot_mass=env.cfg.agent.mass)
 
@@ -409,11 +406,11 @@ class BoxDeliverySAM(BasePolicy):
             
             if model_eps == 'latest':
                 self.model = DenseActionSpacePolicy(action_space, num_channels, 0.0,
-                                                    train=False, evaluate=True, model_name=self.model_name, model_dir=self.model_path)
+                                                    train=False, evaluate=True, model_name=self.model_name)
             else:
                 model_checkpoint = self.model_name + '_' + model_eps + '_steps'
                 self.model = DenseActionSpacePolicy(action_space.high, num_channels, 0.0,
-                                                    train=False, evaluate=True, model_name=model_checkpoint, model_dir=self.model_path)
+                                                    train=False, evaluate=True, model_name=model_checkpoint)
 
         action, _ = self.model.predict(observation)
         return action
