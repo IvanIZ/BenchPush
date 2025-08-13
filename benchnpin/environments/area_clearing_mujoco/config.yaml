@@ -34,7 +34,7 @@ train:
   
 ### ENVIRONMENT PARAMS
 env:
-  area_clearing_version: "Partially_closed_with_walls" # Choose from one of them: Fully_open_area, Partially_closed_with_walls, Partially_closed_with_static
+  area_clearing_version: "Fully_open_area" # Choose from one of them: Fully_open_area, Partially_closed_with_walls, Partially_closed_with_static
   room_width: 2.845 # From inside of wall to inside of wall
   room_length: 1.575 # From inside of wall to inside of wall
   distance_between_inner_goal_and_outer_wall_width: 0.25

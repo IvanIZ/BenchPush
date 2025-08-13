@@ -119,6 +119,7 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
         self.receptacle_position = [0, 0]  # The center of the plane is assumed to be 0,0
         self.receptacle_half = [self.room_length_inner / 2, self.room_width_inner / 2]
         self.num_completed_boxes_new = 0
+        self.num_completed_boxes = 0
 
         self.boundary_vertices = receptacle_vertices(self.receptacle_position, self.receptacle_half)
         self.outer_boundary_vertices = receptacle_vertices(
@@ -387,7 +388,7 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
 
         # check if episode is done
         terminated = False
-        if len(self.joint_id_boxes) == len(self.completed_boxes_id):
+        if len(self.joint_id_boxes) == len(self.completed_box_ids):
             terminated = True
         
         self.inactivity_counter += 1
@@ -841,13 +842,15 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
             robot_reward+=self.partial_rewards_scale * boxes_total_distance
 
         # reward for boxes in receptacle
-        self.completed_boxes_id, self.num_completed_boxes_new = transport_box_from_recept(self.model, self.data, self.joint_id_boxes, self.room_width_inner,
-                                                                                          self.room_length_inner, self.completed_boxes_id, goal_half= self.receptacle_half, goal_center= self.receptacle_position, box_half_size=self.cfg.boxes.box_half_size)
+        self.completed_box_ids, self.num_completed_boxes_new = transport_box_from_recept(self.model, self.data, self.joint_id_boxes, self.room_width_inner,
+                                                                                          self.room_length_inner, self.completed_box_ids, goal_half= self.receptacle_half, goal_center= self.receptacle_position, box_half_size=self.cfg.boxes.box_half_size)
         if self.num_completed_boxes_new > 0:
             self.inactivity_counter = 0
-        robot_reward += self.goal_reward * completed_boxes_diff
+        robot_reward += self.goal_reward * self.num_completed_boxes_new
 
         self.num_completed_boxes = len(self.completed_box_ids)
+        if(self.num_completed_boxes_new != 0):
+            print('Num of completed boxes:', self.num_completed_boxes)
 
         if not(self.cfg.train.job_type == 'sam') and self.num_completed_boxes == self.num_boxes:
             robot_reward += self.terminal_reward
@@ -1063,7 +1066,11 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
                                                       self.configuration_space, self.configuration_space_thin, self.closest_cspace_indices, 
                                                       self.local_map_pixel_width, self.local_map_width, self.local_map_pixels_per_meter,
                                                       TURN_STEP_SIZE, MOVE_STEP_SIZE, WAYPOINT_MOVING_THRESHOLD, WAYPOINT_TURNING_THRESHOLD)
-       
+
+        self.num_completed_boxes = 0
+        self.num_completed_boxes_new = 0
+        self.completed_box_ids=[]
+
         return observation
 
     def _get_reset_info(self):
