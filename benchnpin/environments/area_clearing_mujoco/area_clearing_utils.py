@@ -291,7 +291,8 @@ def build_xml(robot_qpos, boxes, stl_model_path, extra_xml, Z_BOX, box_size, ARE
   </default>
 
   <asset>
-    
+  
+    <texture type="skybox" builtin="gradient" width="512" height="512"/>
     <material name="blue_mat" rgba="0.4 0.3 0.2 1"/>
 
     <mesh name="corner_full" file="corner_full.stl" scale="0.001 0.001 0.001"/>
