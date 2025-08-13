@@ -11,22 +11,22 @@ def precompute_static_vertices(keep_out, wall_thickness, room_width, room_length
     Gives list of static vertices that do not change during the simulation
     """
     
-    half_w, half_l = room_width / 2, room_length / 2
+    half_l, half_w = room_length / 2, room_width / 2
 
     # OUTER WALLS  (thickness = 0.25, exactly what build_xml creates)
     t = wall_thickness                   # wall thickness  (half-size in build_xml)
-    c = wall_clearence_outer   # clearance beyond arena edge
+    c = wall_clearence_outer             # clearance beyond arena edge
 
-    X0 = -half_w - c - t       # left   face x
-    X1 = +half_w + c + t       # right  face x
-    Y0 = -half_l - c - t       # bottom face y
-    Y1 = +half_l + c + t       # top    face y
+    X0 = -half_l - c[1] - t       # bottom face x
+    X1 = +half_l + c[1] + t       # top    face x
+    Y0 = -half_w - c[0] - t       # left   face y
+    Y1 = +half_w + c[0] + t       # right  face y
 
     wall_vertices = [
         ["Wall_left",   [(X0,     Y0), (X0+t,  Y0), (X0+t,  Y1), (X0,     Y1)]],
         ["Wall_right",  [(X1-t,   Y0), (X1,    Y0), (X1,    Y1), (X1-t,   Y1)]],
-        ["Wall_bottom", [(-half_w-c, Y0), (+half_w+c, Y0), (+half_w+c, Y0+t), (-half_w-c, Y0+t)]],
-        ["Wall_top",    [(-half_w-c, Y1-t), (+half_w+c, Y1-t), (+half_w+c, Y1), (-half_w-c, Y1)]],
+        ["Wall_bottom", [(X0,     Y0), (X1,     Y0), (X1,     Y0 + t), (X0,     Y0 + t)]],
+        ["Wall_top",    [(X0,     Y1 - t), (X1, Y1 - t), (X1, Y1), (X0, Y1)]]
     ]
 
     # THIN SIDE-WALLS (present only in partially-closed envs)
@@ -112,7 +112,7 @@ def receptacle_vertices(receptacle_position, receptacle_local_dimension):
     Returns the vertices of the receptacle in the world frame.
     """
     # Receptacle vertices
-    x , y = receptacle_position
+    x, y = receptacle_position
 
         # half-width and half-height
     hx, hy = receptacle_local_dimension
@@ -125,9 +125,9 @@ def receptacle_vertices(receptacle_position, receptacle_local_dimension):
         [-hx,  hy],
     ])
 
-    Receptacle_vertices = corners_xy(np.array([x, y]), 0, local).tolist()
+    receptacle_vertices = corners_xy(np.array([x, y]), 0, local).tolist()
 
-    return Receptacle_vertices
+    return receptacle_vertices
 
 def changing_per_configuration(env_type: str, 
                                ARENA_X, ARENA_Y, n_pillars, pillar_half, internal_clearance_length,robot_radius):
@@ -316,7 +316,7 @@ def build_xml(robot_qpos, boxes, stl_model_path, extra_xml, Z_BOX, box_size, ARE
   
     <!-- Floor -->
     <body pos="0 0 0">
-      <geom name="floor" type="box" size="{ARENA_X1 / 2 + wall_clearence_outer + 0.25} {ARENA_Y1 / 2 + wall_clearence_outer + 0.25} 0.01" friction="0.5 0.05 0.0001" contype="1" conaffinity="1"/>
+      <geom name="floor" type="box" size="{ARENA_X1 / 2 + wall_clearence_outer[0] + 0.25} {ARENA_Y1 / 2 + wall_clearence_outer[1] + 0.25} 0.01" friction="0.5 0.05 0.0001" contype="1" conaffinity="1"/>
     </body>
     
     <!-- Marked area -->
@@ -334,27 +334,27 @@ def build_xml(robot_qpos, boxes, stl_model_path, extra_xml, Z_BOX, box_size, ARE
       
     <!-- X-walls: left and right sides -->
     <geom name="Wall_X1" type="box"
-      pos="{-ARENA_X1/2 - wall_clearence_outer - 0.125} 0 0.15"
-      size="0.125 {ARENA_Y1 / 2 + wall_clearence_outer + 0.25} 0.15"
+      pos="{-ARENA_X1/2 - wall_clearence_outer[0] - 0.125} 0 0.15"
+      size="0.125 {ARENA_Y1 / 2 + wall_clearence_outer[1] + 0.25} 0.15"
       rgba="0.2 0.2 0.2 0.6" contype="1" conaffinity="1"
       friction="0.45 0.01 0.003"/>
 
     <geom name="Wall_X2" type="box"
-      pos="{ARENA_X1/2 + wall_clearence_outer + 0.125} 0 0.15"
-      size="0.125 {ARENA_Y1 / 2 + wall_clearence_outer + 0.25} 0.15"
+      pos="{ARENA_X1/2 + wall_clearence_outer[0] + 0.125} 0 0.15"
+      size="0.125 {ARENA_Y1 / 2 + wall_clearence_outer[1] + 0.25} 0.15"
       rgba="0.2 0.2 0.2 0.6" contype="1" conaffinity="1"
       friction="0.45 0.01 0.003"/>
 
     <!-- Y-walls: bottom and top -->
     <geom name="Wall_Y1" type="box"
-      pos="0 {-ARENA_X1/2 - wall_clearence_outer - 0.125} 0.15"
-      size="{ARENA_X1 / 2 + wall_clearence_outer} 0.125 0.15"
+      pos="0 {-ARENA_Y1/2 - wall_clearence_outer[1] - 0.125} 0.15"
+      size="{ARENA_X1 / 2 + wall_clearence_outer[0]} 0.125 0.15"
       rgba="0.2 0.2 0.2 0.6" contype="1" conaffinity="1"
       friction="0.45 0.01 0.003"/>
 
     <geom name="Wall_Y2" type="box"
-      pos="0 {ARENA_Y1/2 + wall_clearence_outer + 0.125} 0.15"
-      size="{ARENA_X1 / 2 + wall_clearence_outer} 0.125 0.15"
+      pos="0 {ARENA_Y1/2 + wall_clearence_outer[1] + 0.125} 0.15"
+      size="{ARENA_X1 / 2 + wall_clearence_outer[0]} 0.125 0.15"
       rgba="0.2 0.2 0.2 0.6" contype="1" conaffinity="1"
       friction="0.45 0.01 0.003"/>
     
