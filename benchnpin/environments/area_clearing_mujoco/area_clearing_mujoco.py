@@ -526,9 +526,6 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
     def generate_observation(self, done=False):
         """ Generates the observation for the environment."""
 
-        if done:
-            return None
-        
         # Getting the robot and boxes vertices
         robot_properties, boxes_vertices = dynamic_vertices(self.model, self.data, self.qpos_index_base, self.joint_id_boxes, self.robot_dimen, self.cfg.boxes.box_half_size)
 
