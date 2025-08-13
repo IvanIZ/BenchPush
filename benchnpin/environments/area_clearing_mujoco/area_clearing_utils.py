@@ -319,17 +319,13 @@ def build_xml(robot_qpos, boxes, stl_model_path, extra_xml, Z_BOX, box_size, ARE
     </body>
     
     <!-- Marked area -->
-    <site name="clearance_outline" 
-      pos="0 0 0.001" 
-      type="box"
-      size="{ARENA_X1 / 2} {ARENA_Y1 / 2} 0.01" 
-      rgba="0 1 0 1"/>
+    <body pos="0 0 0.001">
+      <geom name="clearance_outline" type="box" size="{ARENA_X1 / 2} {ARENA_Y1 / 2} 0.01" friction="0.5 0.05 0.0001" contype="1" conaffinity="1" rgba="0 1 0 1"/>
+    </body>
 
-    <site name="clearance_outline_2" 
-      pos="0 0 0.001" 
-      type="box"
-      size="{ARENA_X1 / 2 - 0.02} {ARENA_Y1 / 2 - 0.02} 0.012" 
-      rgba="1 1 1 1"/>
+    <body pos="0 0 0.001">
+      <geom name="clearance_outline_2" type="box" size="{ARENA_X1 / 2 - 0.02} {ARENA_Y1 / 2 - 0.02} 0.012" friction="0.5 0.05 0.0001" contype="1" conaffinity="1" rgba="1 1 1 1"/>
+    </body>
       
     <!-- X-walls: left and right sides -->
     <geom name="Wall_X1" type="box"
