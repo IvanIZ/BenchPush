@@ -117,26 +117,38 @@ def xy_positions_of_wheel_assembly_wrt_center(yaw,corners_local_coordinates) -> 
 
 
 def generating_box_xml(boxes, Z_BOX, wheels_on_boxes, wheels_mass, wheels_support_mass, wheels_sliding_friction, 
-    wheels_torsional_friction, wheels_rolling_friction, wheels_support_damping_ratio, box_mass, box_sliding_friction, box_torsional_friction, box_rolling_friction, box_half_size):
+    wheels_torsional_friction, wheels_rolling_friction, wheels_support_damping_ratio, box_mass, box_sliding_friction, 
+    box_torsional_friction, box_rolling_friction, box_half_size, num_boxes_with_wheels):
 
     box_xml = " <!-- Boxes -->\n"
     box_size = f"{box_half_size} {box_half_size} {box_half_size}"
 
     if not wheels_on_boxes:
+        num_boxes_without_wheels = len(boxes)
+    else:
+        num_boxes_without_wheels = len(boxes) - num_boxes_with_wheels
+    
+    box_number=0
+        
+    while num_boxes_without_wheels > 0:
 
         Z_BOX = Z_BOX + 0.005
+        (x, y, th)= boxes[box_number]
 
-        for i, (x, y, th) in enumerate(boxes):
+        qw, qx, qy, qz = quat_z(th)
 
-            qw, qx, qy, qz = quat_z(th)
-
-            box_xml += f"""
-    <body name="box{i}" pos="{x:.4f} {y:.4f} {Z_BOX:.3f}">
-      <joint name="box{i}_joint" type="free" />
+        box_xml += f"""
+    <body name="box{box_number}" pos="{x:.4f} {y:.4f} {Z_BOX:.3f}">
+      <joint name="box{box_number}_joint" type="free" />
       <geom type="box" size="{box_size}" material="blue_mat" mass="{box_mass:.2f}"
             quat="{qw:.6f} {qx:.6f} {qy:.6f} {qz:.6f}" friction="{box_sliding_friction:.2f} {box_torsional_friction:.2f} {box_rolling_friction:.2f}" contype="1" conaffinity="1"/>
     </body>"""
 
+        box_number += 1
+
+        num_boxes_without_wheels -= 1
+
+    if not wheels_on_boxes:
         return box_xml
       
     Z_BOX = Z_BOX + 0.030
@@ -170,7 +182,10 @@ def generating_box_xml(boxes, Z_BOX, wheels_on_boxes, wheels_mass, wheels_suppor
         </body>
       </body>"""
 
-    for i, (x, y, th) in enumerate(boxes):
+    boxes_with_wheels = boxes[box_number:]
+
+
+    for i, (x, y, th) in enumerate(boxes_with_wheels, start=box_number):
         
         qw, qx, qy, qz = quat_z(th)
         yaw = 2 * math.atan2(qz, qw)
@@ -189,7 +204,7 @@ def generating_box_xml(boxes, Z_BOX, wheels_on_boxes, wheels_mass, wheels_suppor
         box_xml += f"""
     <body name="box{i}" pos="{x:.4f} {y:.4f} {Z_BOX:.3f}">
       <joint name="box{i}_joint" type="free" />
-      <geom type="box" size="{box_size}" material="blue_mat" mass="{box_mass:.2f}"
+      <geom type="box" size="{box_size}" rgba="0.36 0.25 0.20 1" mass="{box_mass:.2f}"
             quat="{qw:.6f} {qx:.6f} {qy:.6f} {qz:.6f}"
             friction="{box_sliding_friction:.2f} {box_torsional_friction:.2f} {box_rolling_friction:.2f}"
             contype="1" conaffinity="1"/>"""
@@ -201,6 +216,7 @@ def generating_box_xml(boxes, Z_BOX, wheels_on_boxes, wheels_mass, wheels_suppor
         # Close box body
         box_xml += """
     </body>"""
+
 
     return box_xml
 

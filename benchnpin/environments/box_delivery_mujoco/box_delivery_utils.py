@@ -504,7 +504,8 @@ def generate_boxDelivery_xml(N, env_type, file_name, ROBOT_clear, CLEAR, Z_BOX, 
                   box_half_size, goal_half, goal_center, num_pillars, pillar_half, adjust_num_pillars, 
                   sim_timestep, divider_thickness, bumper_type, bumper_mass, wheels_on_boxes,
                   wheels_mass, wheels_support_mass, wheels_sliding_friction, wheels_torsional_friction, 
-                  wheels_rolling_friction, wheels_support_damping_ratio, box_mass, box_sliding_friction , box_torsional_friction , box_rolling_friction):
+                  wheels_rolling_friction, wheels_support_damping_ratio, box_mass, box_sliding_friction , 
+                  box_torsional_friction , box_rolling_friction, num_boxes_with_wheels):
 
     # Name of input and output file otherwise set to default
     XML_OUT = Path(file_name)
@@ -521,7 +522,7 @@ def generate_boxDelivery_xml(N, env_type, file_name, ROBOT_clear, CLEAR, Z_BOX, 
 
     # Generating xml code for boxes
     box_xml = generating_box_xml(boxes, Z_BOX, wheels_on_boxes, wheels_mass, wheels_support_mass, wheels_sliding_friction, wheels_torsional_friction, wheels_rolling_friction, 
-        wheels_support_damping_ratio, box_mass, box_sliding_friction, box_torsional_friction, box_rolling_friction, box_half_size)
+        wheels_support_damping_ratio, box_mass, box_sliding_friction, box_torsional_friction, box_rolling_friction, box_half_size, num_boxes_with_wheels)
   
     # Building new environemnt and writing it down
     xml_string = build_xml(robot_qpos, stl_model_path, extra_xml, 

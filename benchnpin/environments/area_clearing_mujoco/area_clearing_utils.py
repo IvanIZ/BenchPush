@@ -405,7 +405,7 @@ def generate_area_clearing_xml(N, env_type, file_name, ROBOT_clear, BOXES_clear,
                   robot_radius, bumper_type, bumper_mass, sim_timestep, wheels_on_boxes,
                   wheels_mass, wheels_support_mass, wheels_sliding_friction, wheels_torsional_friction, 
                   wheels_rolling_friction, wheels_support_damping_ratio, box_mass, box_sliding_friction , 
-                  box_torsional_friction , box_rolling_friction):
+                  box_torsional_friction , box_rolling_friction, num_boxes_with_wheels):
     
     # Name of input and output file otherwise set to default
     XML_OUT = Path(file_name)
@@ -419,7 +419,7 @@ def generate_area_clearing_xml(N, env_type, file_name, ROBOT_clear, BOXES_clear,
 
     # Generating xml code for boxes
     box_xml = generating_box_xml(boxes, Z_BOX, wheels_on_boxes, wheels_mass, wheels_support_mass, wheels_sliding_friction, wheels_torsional_friction, wheels_rolling_friction, 
-        wheels_support_damping_ratio, box_mass, box_sliding_friction, box_torsional_friction, box_rolling_friction, box_half_size)
+        wheels_support_damping_ratio, box_mass, box_sliding_friction, box_torsional_friction, box_rolling_friction, box_half_size, num_boxes_with_wheels)
 
     # Building new environemnt and writing it down
     xml_string = build_xml(robot_qpos, boxes, stl_model_path, extra_xml, Z_BOX, box_half_size, ARENA_X[1], ARENA_Y[1], env_type, wall_clearence_outer, wall_clearence_inner, bumper_type, bumper_mass, box_xml, robot_rgb=(0.1, 0.1, 0.1), sim_timestep=sim_timestep)
