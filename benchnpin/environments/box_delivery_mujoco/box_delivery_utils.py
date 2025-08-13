@@ -158,7 +158,7 @@ def changing_per_configuration(env_type: str, clearance_poly,
     </body>
     
     <!-- Corner 5 -->
-    <body name="corner_5" pos="{ARENA_X[1]/2} {cy-hy} 0.06" quat="1 0 0 -1">
+    <body name="corner_5" pos="{ARENA_X[1]/2} {cy-hy} 0.00" quat="1 0 0 -1">
       <geom name="corner_5" type="mesh" mesh="corner_full" rgba="0.0 0.3 1.0 1.0"/>
     </body>"""
       return Text
@@ -388,7 +388,7 @@ def build_xml(robot_qpos, stl_model_path, extra_xml, ARENA_X1, ARENA_Y1, goal_ha
       friction="0.5 0.05 0.0001"/>
       
     <!-- transporting area -->
-    <geom name="transporting_area" type="box" pos="{ARENA_X1/2+0.05} {ARENA_Y1/2+0.07} 0.01" size="0.05 0.05 0.05" rgba="0.5 1 0.5 1"/>
+    <geom name="transporting_area" type="box" pos="{ARENA_X1/2+0.05} {ARENA_Y1/2+0.07} 0.01" size="0.05 0.05 0.05" rgba="0.33 0.39 0.46 1.0"/>
       
     <!-- transporting area Y-walls -->
     <geom name="transporting_wall_y1" type="box"
