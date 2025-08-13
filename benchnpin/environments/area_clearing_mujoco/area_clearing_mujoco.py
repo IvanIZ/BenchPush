@@ -98,7 +98,10 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
                         self.cfg[cfg_type][param] = cfg[cfg_type][param]
                 else:
                     self.cfg[cfg_type] = cfg[cfg_type]
-
+        
+        # Checking if the configuration is valid
+        if self.cfg.wheels_on_boxes.wheels_on_boxes and self.cfg.wheels_on_boxes.num_boxes_with_wheels > self.cfg.boxes.num_boxes:
+            raise ValueError("Number of boxes with wheels cannot be more than the total number of boxes.")
 
         # Setting up the environment parameters
         self.room_length_inner = self.cfg.env.room_length - 2 * self.cfg.env.distance_between_inner_goal_and_outer_wall_length
