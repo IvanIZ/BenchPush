@@ -204,7 +204,7 @@ def generating_box_xml(boxes, Z_BOX, wheels_on_boxes, wheels_mass, wheels_suppor
         box_xml += f"""
     <body name="box{i}" pos="{x:.4f} {y:.4f} {Z_BOX:.3f}">
       <joint name="box{i}_joint" type="free" />
-      <geom type="box" size="{box_size}" rgba="0.36 0.25 0.20 1" mass="{box_mass:.2f}"
+      <geom type="box" size="{box_size}" rgba="0.36 0.20 0.09 1" mass="{box_mass:.2f}"
             quat="{qw:.6f} {qx:.6f} {qy:.6f} {qz:.6f}"
             friction="{box_sliding_friction:.2f} {box_torsional_friction:.2f} {box_rolling_friction:.2f}"
             contype="1" conaffinity="1"/>"""
