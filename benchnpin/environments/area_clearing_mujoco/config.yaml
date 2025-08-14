@@ -1,6 +1,6 @@
 render:
   show: true
-  show_obs: false
+  show_obs: true
 
 train:
   train_mode: false
@@ -16,7 +16,7 @@ train:
   learning_rate: 0.01
   learning_starts: 1000
   n_epochs: 10
-  n_steps: 256
+  n_steps: 256s
   replay_buffer_size: 10000
   resume_training: false
   target_update_freq: 1000
@@ -29,7 +29,7 @@ train:
   
 ### ENVIRONMENT PARAMS
 env:
-  area_clearing_version: "Partially_closed_with_static" # Choose from one of them: Fully_open_area, Partially_closed_with_walls, Partially_closed_with_static
+  area_clearing_version: "Fully_open_area" # Choose from one of them: Fully_open_area, Partially_closed_with_walls, Partially_closed_with_static
   room_width: 2.845 # From inside of wall to inside of wall
   room_length: 1.575 # From inside of wall to inside of wall
   distance_between_inner_goal_and_outer_wall_width: 0.25
@@ -55,13 +55,14 @@ boxes:
 wheels_on_boxes:
   # Upon adjusting parameters here all other physics parameters like moment of inertia etc are adjusted automatically
   wheels_on_boxes: True       # if true, the boxes would have wheels
-  num_boxes_with_wheels: 5    # this cannot be more than num_boxes (num_boxes_without_wheels= num_boxes - num_boxes_with_wheels)
-  wheels_mass: 0.08           # mass in terms of kg for each wheel on the box
-  wheels_support_mass: 0.10   # mass in terms of kg for each wheel support on the box
-  wheels_sliding_friction: 0.8
-  wheels_torsional_friction: 0.01
-  wheels_rolling_friction: 0.002
-  wheels_support_damping_ratio: 0.001
+  num_boxes_with_wheels: 6    # this cannot be more than num_boxes (num_boxes_without_wheels= num_boxes - num_boxes_with_wheels)
+  wheels_mass: 0.02           # mass in terms of kg for each wheel on the box
+  wheels_support_mass: 0.02   # mass in terms of kg for each wheel support on the box
+  wheels_sliding_friction: 0.85
+  wheels_torsional_friction: 0.02
+  wheels_rolling_friction: 0.5
+  wheels_axle_damping_ratio: 0.5
+  wheels_support_damping_ratio: 1.0
 
 small_pillars:
   num_pillars: 4

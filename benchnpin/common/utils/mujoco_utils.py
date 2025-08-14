@@ -118,7 +118,7 @@ def xy_positions_of_wheel_assembly_wrt_center(yaw,corners_local_coordinates) -> 
 
 def generating_box_xml(boxes, Z_BOX, wheels_on_boxes, wheels_mass, wheels_support_mass, wheels_sliding_friction, 
     wheels_torsional_friction, wheels_rolling_friction, wheels_support_damping_ratio, box_mass, box_sliding_friction, 
-    box_torsional_friction, box_rolling_friction, box_half_size, num_boxes_with_wheels):
+    box_torsional_friction, box_rolling_friction, box_half_size, num_boxes_with_wheels, wheels_axle_damping_ratio):
 
     box_xml = " <!-- Boxes -->\n"
     box_size = f"{box_half_size} {box_half_size} {box_half_size}"
@@ -174,7 +174,7 @@ def generating_box_xml(boxes, Z_BOX, wheels_on_boxes, wheels_mass, wheels_suppor
                contype="1" conaffinity="1" euler="1.5708 0 0" pos="{sx:.3f} {sy:.4f} {sz:.0f}" mass="{wheels_support_mass}"/>
         
         <body name="Wheels_actual_{i}_{idx}" pos="{ax:.1f} {ay:.4f} {az:.4f}">
-          <joint name="Wheels_actual_joint_{i}_{idx}" type="hinge" axis="1 0 0"/>
+          <joint name="Wheels_actual_joint_{i}_{idx}" type="hinge" axis="1 0 0" damping="{wheels_axle_damping_ratio}"/>
           <geom  name="Wheel_{i}_{idx}" type="mesh" mesh="Wheels" rgba="0.1 0.1 0.1 1"
                  contype="1" conaffinity="1" pos="{wx:.4f} {wy:.3f} {wz:.3f}"
                  friction="{wheels_sliding_friction:.2f} {wheels_torsional_friction:.2f} {wheels_rolling_friction:.2f}"

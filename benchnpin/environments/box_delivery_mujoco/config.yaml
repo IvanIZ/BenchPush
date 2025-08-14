@@ -68,6 +68,7 @@ wheels_on_boxes:
   wheels_sliding_friction: 0.8
   wheels_torsional_friction: 0.01
   wheels_rolling_friction: 0.002
+  wheels_axle_damping_ratio: 0.5 # damping ratio for the axle joint of the wheel
   wheels_support_damping_ratio: 0.001
 
 small_pillars:
