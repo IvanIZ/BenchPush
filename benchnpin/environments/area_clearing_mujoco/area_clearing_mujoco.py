@@ -43,10 +43,12 @@ DISTANCE_SCALE_MAX = 0.5
 #Image segmentation indices
 OBSTACLE_SEG_INDEX = 0
 FLOOR_SEG_INDEX = 1
-RECEPTACLE_SEG_INDEX = 3
-COMPLETED_BOX_SEG_INDEX = 7
-BOX_SEG_INDEX = 4
+WHEELED_BOX_SEG_INDEX = 2
+NON_WHEELED_BOX_SEG_INDEX = 3
+RECEPTACLE_SEG_INDEX = 4
 ROBOT_SEG_INDEX = 5
+COMPLETED_NON_WHEELED_BOX_SEG_INDEX = 7
+COMPLETED_WHEELED_BOX_SEG_INDEX = 8
 MAX_SEG_INDEX = 8
 
 scale_factor = (2.845/10) # scales thresholds to be proportionately the same as in the 2d environment
@@ -173,6 +175,8 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
         self.wheels_torsional_friction = self.cfg.wheels_on_boxes.wheels_torsional_friction
         self.wheels_rolling_friction = self.cfg.wheels_on_boxes.wheels_rolling_friction
         self.wheels_support_damping_ratio = self.cfg.wheels_on_boxes.wheels_support_damping_ratio
+        self.num_boxes_with_wheels = self.cfg.wheels_on_boxes.num_boxes_with_wheels
+        self.num_boxes_without_wheels = self.num_boxes - self.num_boxes_with_wheels
 
         # generate random environment
         xml_file = os.path.join(self.current_dir, 'turtlebot3_burger_updated.xml')
@@ -688,20 +692,24 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
         receptacle_vertice=receptacle_vertices(self.receptacle_position, self.receptacle_half)
         draw_object(receptacle_vertice, RECEPTACLE_SEG_INDEX)
 
+        # Draw the pillars
+        for column in self.columns_from_keepout:
+            draw_object(column[1], 0)
+
         # Draw the robot
         draw_object(robot_vertices, ROBOT_SEG_INDEX)
 
         # Draw the boxes
         first_box_id = self.joint_id_boxes[0]
         for i in range(len(boxes_vertices)):
-            if (i + first_box_id) in self.completed_boxes_id:
-                draw_object(boxes_vertices[i][0], COMPLETED_BOX_SEG_INDEX)
+            if (i + first_box_id) in self.completed_boxes_id and not self.wheels_on_boxes:
+                draw_object(boxes_vertices[i][0], COMPLETED_NON_WHEELED_BOX_SEG_INDEX)
+            elif (i + first_box_id) in self.completed_boxes_id and self.wheels_on_boxes and i>=(self.num_boxes_without_wheels):
+                draw_object(boxes_vertices[i][0], COMPLETED_WHEELED_BOX_SEG_INDEX)
+            elif not self.wheels_on_boxes or i<(self.num_boxes_without_wheels):
+                draw_object(boxes_vertices[i][0], NON_WHEELED_BOX_SEG_INDEX)
             else:
-                draw_object(boxes_vertices[i][0], BOX_SEG_INDEX)
-
-        # Draw the pillars
-        for column in self.columns_from_keepout:
-            draw_object(column[1], 0)
+                draw_object(boxes_vertices[i][0], WHEELED_BOX_SEG_INDEX)
 
         start_i, start_j = int(self.global_overhead_map.shape[0] / 2 - small_overhead_map.shape[0] / 2), int(self.global_overhead_map.shape[1] / 2 - small_overhead_map.shape[1] / 2)
         self.global_overhead_map[start_i:start_i + small_overhead_map.shape[0], start_j:start_j + small_overhead_map.shape[1]] = small_overhead_map
