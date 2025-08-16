@@ -7,6 +7,7 @@ from pathlib import Path
 import os
 import random
 import math
+import mujoco
 
 from benchnpin.common.utils.mujoco_utils import inside_poly, quat_z, quat_z_yaw, corners_xy, generating_box_xml, large_divider_corner_vertices
 
@@ -71,7 +72,7 @@ def precompute_static_vertices(keep_out, wall_thickness, room_length, room_width
     return wall_vertices, columns_from_keepout(keep_out), corners
 
 
-def dynamic_vertices(model, data, qpos_idx_robot: int, joint_ids_boxes: list[int], robot_full, box_half):
+def dynamic_vertices(model, data, qpos_idx_robot: int, joint_ids_boxes: list[int], robot_full, box_half, names_boxes_without_wheels):
     """
     Returns the vertices of the robot and boxes in the world frame.
     """
@@ -94,16 +95,27 @@ def dynamic_vertices(model, data, qpos_idx_robot: int, joint_ids_boxes: list[int
                           [ box_half,  box_half],
                           [-box_half,  box_half]])
 
-    boxes_vertices = []
+    names_no_wheels = set(names_boxes_without_wheels or [])
+    wheeled_boxes_vertices = []
+    non_wheeled_boxes_vertices = []
+
     for jid in joint_ids_boxes:
         adr = model.jnt_qposadr[jid]
         bx, by = data.qpos[adr:adr+2]
         qw, qx, qy, qz = data.qpos[adr+3:adr+7]
         yaw = quat_z_yaw(qw, qx, qy, qz)
-        verts = corners_xy(np.array([bx, by]), yaw, local_box).tolist()
-        boxes_vertices.append([verts])
 
-    return robot_vertices, boxes_vertices
+        # body name
+        body_id = model.jnt_bodyid[jid]
+        body_name = mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_BODY, body_id)
+        verts = corners_xy(np.array([bx, by]), yaw, local_box).tolist()
+
+        if body_name in names_no_wheels:
+            non_wheeled_boxes_vertices.append([verts])
+        else:
+            wheeled_boxes_vertices.append([verts])
+
+    return robot_vertices, wheeled_boxes_vertices, non_wheeled_boxes_vertices
 
 def receptacle_vertices(receptacle_half, receptacle_local_dimension):
     """
@@ -506,7 +518,7 @@ def generate_boxDelivery_xml(N, env_type, file_name, ROBOT_clear, CLEAR, Z_BOX, 
                   sim_timestep, divider_thickness, bumper_type, bumper_mass, wheels_on_boxes,
                   wheels_mass, wheels_support_mass, wheels_sliding_friction, wheels_torsional_friction, 
                   wheels_rolling_friction, wheels_support_damping_ratio, box_mass, box_sliding_friction , 
-                  box_torsional_friction , box_rolling_friction, num_boxes_with_wheels):
+                  box_torsional_friction , box_rolling_friction, num_boxes_with_wheels,wheels_axle_damping_ratio):
 
     # Name of input and output file otherwise set to default
     XML_OUT = Path(file_name)

@@ -1,6 +1,6 @@
 render:
   show: true # Also, in configure_box_delivery_mujoco.py, set render_mode to "human" to see the rendering else None
-  show_obs: false 
+  show_obs: true 
 
 train:
   train_mode: false

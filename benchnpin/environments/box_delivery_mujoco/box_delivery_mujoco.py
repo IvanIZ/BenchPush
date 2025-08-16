@@ -15,6 +15,7 @@ from benchnpin.common.utils.utils import DotDict
 from benchnpin.environments.box_delivery_mujoco.box_delivery_utils import generate_boxDelivery_xml, transport_box_from_recept, precompute_static_vertices, dynamic_vertices, receptacle_vertices, intersects_keepout
 from benchnpin.common.utils.mujoco_utils import vw_to_wheels, make_controller, quat_z, inside_poly, quat_z_yaw, get_body_pose_2d, large_divider_corner_vertices
 from benchnpin.common.utils.sim_utils import get_color
+import mujoco
 
 
 # SAM imports
@@ -37,12 +38,13 @@ DEFAULT_CAMERA_CONFIG = {
     "distance": 4.0,
 }
 
-#Image segmentation indices
+# Image segmentation indices
 OBSTACLE_SEG_INDEX = 0
 FLOOR_SEG_INDEX = 1
-RECEPTACLE_SEG_INDEX = 3
-BOX_SEG_INDEX = 4
-ROBOT_SEG_INDEX = 5
+WHEELED_BOX_SEG_INDEX = 2
+NON_WHEELED_BOX_SEG_INDEX = 4
+RECEPTACLE_SEG_INDEX = 6
+ROBOT_SEG_INDEX = 8
 MAX_SEG_INDEX = 8
 
 scale_factor = (2.845/10) # NOTE: this scales thresholds to be proportionately the same as in the 2d environment
@@ -159,6 +161,9 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
         self.wheels_torsional_friction = self.cfg.wheels_on_boxes.wheels_torsional_friction
         self.wheels_rolling_friction = self.cfg.wheels_on_boxes.wheels_rolling_friction
         self.wheels_support_damping_ratio = self.cfg.wheels_on_boxes.wheels_support_damping_ratio
+        self.num_boxes_with_wheels = self.cfg.wheels_on_boxes.num_boxes_with_wheels
+        self.num_boxes_without_wheels = self.num_boxes - self.num_boxes_with_wheels
+        self.names_boxes_without_wheels = [f"box{i}" for i in range(self.num_boxes_without_wheels)]
 
         # robot
         self.robot_hit_obstacle = False
@@ -489,10 +494,10 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
             return None
         
         # Getting the robot and boxes vertices
-        robot_properties, boxes_vertices=dynamic_vertices(self.model,self.data, self.qpos_index_base,self.joint_id_boxes, self.robot_dimen, self.cfg.boxes.box_half_size)
+        robot_properties, wheeled_boxes_vertices, non_wheeled_boxes_vertices =dynamic_vertices(self.model,self.data, self.qpos_index_base,self.joint_id_boxes, self.robot_dimen, self.cfg.boxes.box_half_size, self.names_boxes_without_wheels)
 
         # Update the global overhead map with the current robot and boundaries
-        self.update_global_overhead_map(robot_properties[1], boxes_vertices)
+        self.update_global_overhead_map(robot_properties[1], wheeled_boxes_vertices, non_wheeled_boxes_vertices)
 
         robot_postition = robot_properties[3]
         robot_angle = robot_properties[2]
@@ -641,7 +646,7 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
         # Converting the value as in 1 for obstacle and 0 for free space
         self.small_obstacle_map = 1 - small_obstacle_map
 
-    def update_global_overhead_map(self, robot_vertices, boxes_vertices):
+    def update_global_overhead_map(self, robot_vertices, wheeled_boxes_vertices, non_wheeled_boxes_vertices):
         """Updates the global overhead map with the current robot and boundaries."""
 
         # Makes a copy of immovable obstacles
@@ -670,9 +675,12 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
         # Draw the robot
         draw_object(robot_vertices, ROBOT_SEG_INDEX)
         
-        # Draw the boxes
-        for box_vertices in boxes_vertices:
-            draw_object(box_vertices[0], BOX_SEG_INDEX)
+        # Draw the wheeled and non-wheeled boxes
+        for box_vertices in wheeled_boxes_vertices:
+            draw_object(box_vertices[0], WHEELED_BOX_SEG_INDEX)
+
+        for box_vertices in non_wheeled_boxes_vertices:
+            draw_object(box_vertices[0], NON_WHEELED_BOX_SEG_INDEX)
 
         start_i, start_j = int(self.global_overhead_map.shape[0] / 2 - small_overhead_map.shape[0] / 2), int(self.global_overhead_map.shape[1] / 2 - small_overhead_map.shape[1] / 2)
         self.global_overhead_map[start_i:start_i + small_overhead_map.shape[0], start_j:start_j + small_overhead_map.shape[1]] = small_overhead_map
@@ -1111,7 +1119,7 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
         self._prev_robot_heading = quat_z_yaw(*self.data.qpos[self.qpos_index_base+3:self.qpos_index_base+7])
 
         # get the robot and boxes vertices
-        robot_properties, boxes_vertices=dynamic_vertices(self.model,self.data, self.qpos_index_base,self.joint_id_boxes, self.robot_dimen, self.cfg.boxes.box_half_size)
+        robot_properties, wheeled_boxes_vertices, non_wheeled_boxes_vertices =dynamic_vertices(self.model,self.data, self.qpos_index_base,self.joint_id_boxes, self.robot_dimen, self.cfg.boxes.box_half_size, self.names_boxes_without_wheels)
 
         self.motion_dict = self.init_motion_dict()
 
@@ -1125,7 +1133,7 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
 
         # reset map
         self.global_overhead_map = self.create_padded_room_zeros()
-        self.update_global_overhead_map(robot_properties[1], boxes_vertices)
+        self.update_global_overhead_map(robot_properties[1], wheeled_boxes_vertices, non_wheeled_boxes_vertices)
 
         observation = self.generate_observation()
 
