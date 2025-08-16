@@ -1,6 +1,6 @@
 render:
   show: true
-  show_obs: true
+  show_obs: false
 
 train:
   train_mode: false
@@ -56,12 +56,12 @@ wheels_on_boxes:
   # Upon adjusting parameters here all other physics parameters like moment of inertia etc are adjusted automatically
   wheels_on_boxes: True       # if true, the boxes would have wheels
   num_boxes_with_wheels: 6    # this cannot be more than num_boxes (num_boxes_without_wheels= num_boxes - num_boxes_with_wheels)
-  wheels_mass: 0.02           # mass in terms of kg for each wheel on the box
+  wheels_mass: 0.04           # mass in terms of kg for each wheel on the box
   wheels_support_mass: 0.02   # mass in terms of kg for each wheel support on the box
   wheels_sliding_friction: 0.85
   wheels_torsional_friction: 0.02
-  wheels_rolling_friction: 0.5
-  wheels_axle_damping_ratio: 0.5
+  wheels_rolling_friction: 0.002
+  wheels_axle_damping_ratio: 0.001
   wheels_support_damping_ratio: 1.0
 
 small_pillars:
