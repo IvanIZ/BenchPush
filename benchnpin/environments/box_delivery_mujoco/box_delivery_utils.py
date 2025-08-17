@@ -9,7 +9,7 @@ import random
 import math
 import mujoco
 
-from benchnpin.common.utils.mujoco_utils import inside_poly, quat_z, quat_z_yaw, corners_xy, generating_box_xml, large_divider_corner_vertices
+from benchnpin.common.utils.mujoco_utils import inside_poly, quat_z, quat_z_yaw, corners_xy, generating_box_xml, large_divider_corner_vertices, generating_agent_xml
 
 def precompute_static_vertices(keep_out, wall_thickness, room_length, room_width):
     """
@@ -312,20 +312,9 @@ def sample_scene(n_boxes, keep_out, ROBOT_R, CLEAR, ARENA_X, ARENA_Y, clearance_
 
 
 def build_xml(robot_qpos, stl_model_path, extra_xml, ARENA_X1, ARENA_Y1, goal_half, goal_center, 
-    adjust_num_pillars, bumper_type, bumper_mass, box_xml, robot_rgb, sim_timestep):
+    adjust_num_pillars, agent_xml, actuator_xml, box_xml, sim_timestep):
 
     """Building data for a different file"""
-
-    # Bumper type handling
-
-    if bumper_type == 'curved_inwards':
-      bumper_name= "TurtleBot3_Curved_Bumper"
-    
-    elif bumper_type == 'straight':
-        bumper_name = "TurtleBot3_Straight_Bumper"
-    
-    elif bumper_type == 'curved_outwards':
-        bumper_name = "TurtleBot3_Triangular_Bumper"
 
     if adjust_num_pillars is True:
         adjust_pillar_plane = f"""
@@ -356,9 +345,23 @@ def build_xml(robot_qpos, stl_model_path, extra_xml, ARENA_X1, ARENA_Y1, goal_ha
     <mesh name="left_tire"   file="left_tire.stl"   scale="0.001 0.001 0.001"/>
     <mesh name="right_tire"  file="right_tire.stl"  scale="0.001 0.001 0.001"/>
     <mesh name="lds"         file="lds.stl"         scale="0.001 0.001 0.001"/>
-    <mesh name="bumper"      file="{bumper_name}.STL"     scale="0.001 0.001 0.001"/>
+
+    <mesh name="TurtleBot3_Straight_Bumper"      file="TurtleBot3_Straight_Bumper.STL"   scale="0.001 0.001 0.001"/>
+    <mesh name="TurtleBot3_Curved_Bumper"        file="TurtleBot3_Curved_Bumper.STL"     scale="0.001 0.001 0.001"/>
+    <mesh name="TurtleBot3_Triangular_Bumper"    file="TurtleBot3_Triangular_Bumper.STL" scale="0.001 0.001 0.001"/>
+
     <mesh name="Wheels"      file="Box_wheels.stl"          scale="0.0001 0.0001 0.0001"/>
     <mesh name="Wheels_support" file="Box_wheels_support.STL"  scale="0.0001 0.0001 0.0001"/>
+
+    <mesh name="jackal_base"         file="jackal-base.stl"    scale="1 1 1"/>
+    <mesh name="jackal_wheel"        file="jackal-wheel.stl"   scale="1 1 1"/>
+    <mesh name="jackal_fenders"      file="jackal-fenders.stl" scale="1 1 1"/>
+    <mesh name="antenna_bracket"     file="antenna_bracket.stl"scale="1 1 1"/>
+    <mesh name="Antenna"             file="Antenna.stl"        scale="0.001 0.001 0.001"/>
+    <mesh name="jackal_straight_bumper"       file="Jackal_straight_bumper.stl"      scale="0.001 0.001 0.001"/>
+    <mesh name="jackal_bumper_curved"         file="jackal_bumper_curved.stl"        scale="0.001 0.001 0.001"/>
+    <mesh name="jackal_bumper_curved_inwards" file="jackal_bumper_curved_inwards.stl"scale="0.001 0.001 0.001"/>
+
     <material name="mat_noreflect" rgba="0 0.3922 0 1" specular="0" shininess="0" reflectance="0"/>
   </asset>
 
@@ -449,34 +452,7 @@ def build_xml(robot_qpos, stl_model_path, extra_xml, ARENA_X1, ARENA_Y1, goal_ha
       size="{ARENA_X1/2} 0.01 0.15"
       rgba="1 1 1 0.1" contype="1" conaffinity="1"
       friction="0.45 0.01 0.003"/>
-      
-    <!-- robot -->
-    <body name="base" pos="{robot_qpos}" euler="0 0 3.141592653589793">
-      <joint type="free" name="base_joint"/>
-      <!-- chassis -->
-      <geom name="base_chasis" pos="-0.032 0 0.01" type="mesh" rgba="{robot_rgb[0]} {robot_rgb[1]} {robot_rgb[2]} 1" mesh="burger_base" friction="0.1 0.02 0.0001" mass="0.8" contype="1" conaffinity="1"/>
-      <!-- small box sensor -->
-      <geom name="base_sensor_1" size="0.015 0.0045 0.01" pos="-0.081 7.96327e-07 0.005" quat="0.707388 -0.706825 0 0" type="box" rgba="{robot_rgb[0]} {robot_rgb[1]} {robot_rgb[2]} 1" mass="0.05" contype="1" conaffinity="1"/>
-      <!-- LDS sensor -->
-      <geom name="base_sensor_2" pos="-0.032 0 0.182" quat="1 0 0 0" type="mesh" rgba="{robot_rgb[0]} {robot_rgb[1]} {robot_rgb[2]} 1" mesh="lds" mass="0.131" contype="1" conaffinity="1"/>
-      <!-- Bumper -->
-      <geom name="base_bumper" pos="-0.04 -0.09 0.01" quat="1 0 0 0" type="mesh" rgba="0.3 0.13 0.08 1" mesh="bumper" mass="{bumper_mass}" contype="1" conaffinity="1"/>
-      
-      <!-- Left wheel -->
-      <body name="wheel_left_link" pos="0 0.08 0.033" quat="0.707388 -0.706825 0 0">
-        <inertial pos="0 0 0" quat="-0.000890159 0.706886 0.000889646 0.707326" mass="0.0284989" diaginertia="2.07126e-05 1.11924e-05 1.11756e-05"/>
-        <joint name="wheel_left_joint" pos="0 0 0" axis="0 0 1"/>
-        <geom quat="0.707388 0.706825 0 0" type="mesh" rgba="{robot_rgb[0]+0.1} {robot_rgb[1]+0.1} {robot_rgb[2]+0.1} 1" mesh="left_tire" friction="1.2 0.01 0.001"/>
-      </body>
-      
-      <!-- Right wheel -->
-      <body name="wheel_right_link" pos="0 -0.08 0.033" quat="0.707388 -0.706825 0 0">
-        <inertial pos="0 0 0" quat="-0.000890159 0.706886 0.000889646 0.707326" mass="0.0284989" diaginertia="2.07126e-05 1.11924e-05 1.11756e-05"/>
-        <joint name="wheel_right_joint" pos="0 0 0" axis="0 0 1"/>
-        <geom quat="0.707388 0.706825 0 0" type="mesh" rgba="{robot_rgb[0]+0.1} {robot_rgb[1]+0.1} {robot_rgb[2]+0.1} 1" mesh="right_tire" friction="1.2 0.01 0.001"/>
-      </body>
-    </body>
-
+    
     {generate_waypoint_sites(50)}
       
 """
@@ -484,15 +460,8 @@ def build_xml(robot_qpos, stl_model_path, extra_xml, ARENA_X1, ARENA_Y1, goal_ha
     #Data to be written for footers
     footer = f"""
   </worldbody>
-
-  <!-- Actuator -->
-  <actuator>
-    <velocity name="wheel_left_actuator" ctrllimited="true" ctrlrange="-22.0 22.0" gear="1" kv="1.0" joint="wheel_left_joint" />
-    <velocity name="wheel_right_actuator" ctrllimited="true" ctrlrange="-22.0 22.0" gear="1" kv="1.0" joint="wheel_right_joint" />
-  </actuator>
-</mujoco>
 """
-    return header + box_xml + extra_xml +adjust_pillar_plane+ footer
+    return header + agent_xml + box_xml + extra_xml + adjust_pillar_plane + footer + actuator_xml
 
 def clearance_poly_generator(ARENA_X, ARENA_Y,
                              wall_clearance=0.1,
@@ -518,7 +487,7 @@ def generate_boxDelivery_xml(N, env_type, file_name, ROBOT_clear, CLEAR, Z_BOX, 
                   sim_timestep, divider_thickness, bumper_type, bumper_mass, wheels_on_boxes,
                   wheels_mass, wheels_support_mass, wheels_sliding_friction, wheels_torsional_friction, 
                   wheels_rolling_friction, wheels_support_damping_ratio, box_mass, box_sliding_friction , 
-                  box_torsional_friction , box_rolling_friction, num_boxes_with_wheels,wheels_axle_damping_ratio):
+                  box_torsional_friction , box_rolling_friction, num_boxes_with_wheels,wheels_axle_damping_ratio,agent_type):
 
     # Name of input and output file otherwise set to default
     XML_OUT = Path(file_name)
@@ -536,10 +505,13 @@ def generate_boxDelivery_xml(N, env_type, file_name, ROBOT_clear, CLEAR, Z_BOX, 
     # Generating xml code for boxes
     box_xml = generating_box_xml(boxes, Z_BOX, wheels_on_boxes, wheels_mass, wheels_support_mass, wheels_sliding_friction, wheels_torsional_friction, wheels_rolling_friction, 
         wheels_support_damping_ratio, box_mass, box_sliding_friction, box_torsional_friction, box_rolling_friction, box_half_size, num_boxes_with_wheels, wheels_axle_damping_ratio)
+
+    # robot xml code
+    agent_xml, actuator_xml = generating_agent_xml(agent_type, bumper_type, bumper_mass, robot_qpos)
   
     # Building new environment and writing it down
     xml_string = build_xml(robot_qpos, stl_model_path, extra_xml, 
-        ARENA_X[1], ARENA_Y[1], goal_half, goal_center, adjust_num_pillars, bumper_type, bumper_mass, box_xml, robot_rgb=(0.1, 0.1, 0.1),  sim_timestep=sim_timestep)
+        ARENA_X[1], ARENA_Y[1], goal_half, goal_center, adjust_num_pillars, agent_xml, actuator_xml, box_xml,  sim_timestep=sim_timestep)
 
     XML_OUT.write_text(xml_string)
     

@@ -36,7 +36,7 @@ evaluate:
   
 ### ENVIRONMENT PARAMS
 env:
-  obstacle_config: large_divider # options are small_empty, small_columns, large_columns, large_divider
+  obstacle_config: small_empty # options are small_empty, small_columns, large_columns, large_divider
   room_length: 2.845
   room_width_small: 1.575      # size of the test bed
   room_width_large: 1.575
@@ -91,6 +91,7 @@ misc:
   random_seed: 42
 
 agent:
+  agent_type: 'turtlebot_3' # options are turtlebot_3 or jackal
   action_type: 'position' # options are velocity, heading, position
   length: 0.138
   width: 0.183
