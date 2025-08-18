@@ -182,12 +182,12 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
                     self.robot_state_channel[i, j] = 1
 
         if self.cfg.agent.agent_type == 'turtlebot_3':
-            robot_name_in_xml = "base"
-            joint_name_in_xml = "base_joint"
+            self.robot_name_in_xml = "base"
+            self.joint_name_in_xml = "base_joint"
             self.placement_height = 0.01  # height of the robot base in the xml file
         else:
-            robot_name_in_xml = "jackal_base"
-            joint_name_in_xml = "base_joint_jackal"
+            self.robot_name_in_xml = "jackal_base"
+            self.joint_name_in_xml = "base_joint_jackal"
             self.placement_height = 0.015
 
 
@@ -242,10 +242,10 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
             self.action_space = spaces.Box(low=0, high=self.local_map_pixel_width * self.local_map_pixel_width, dtype=np.float32)
 
         # get robot body & joint addresses
-        self.base_body_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_BODY, robot_name_in_xml)
+        self.base_body_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_BODY, self.robot_name_in_xml)
         joint_adr = self.model.body_jntadr[self.base_body_id]
         self.qpos_index_base = self.model.jnt_qposadr[joint_adr]
-        self.base_joint_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_JOINT, joint_name_in_xml)
+        self.base_joint_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_JOINT, self.joint_name_in_xml)
 
         # Box joint addresses
         joint_id_boxes=[]
@@ -357,7 +357,7 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
         robot_boxes = 0
         robot_reward = 0
 
-        robot_initial_position = get_body_pose_2d(self.model, self.data, robot_name_in_xml)[:2]
+        robot_initial_position = get_body_pose_2d(self.model, self.data, self.robot_name_in_xml)[:2]
         robot_initial_heading = quat_z_yaw(*self.data.qpos[self.qpos_index_base+3:self.qpos_index_base+7])
 
         # TODO check if move_sign is necessary
@@ -452,7 +452,7 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
             self.do_simulation([v_l, v_r], self.frame_skip)
 
             # get new robot pose
-            robot_position = get_body_pose_2d(self.model, self.data, robot_name_in_xml)[:2]
+            robot_position = get_body_pose_2d(self.model, self.data, self.robot_name_in_xml)[:2]
             robot_heading = quat_z_yaw(*self.data.qpos[self.qpos_index_base+3:self.qpos_index_base+7])
             prev_heading_diff = heading_diff
             
@@ -891,7 +891,7 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
 
         # robot base
         m_robot = self.model.body_mass[self.base_body_id]
-        cx, cy = get_body_pose_2d(self.model, self.data, robot_name_in_xml)[:2]
+        cx, cy = get_body_pose_2d(self.model, self.data, self.robot_name_in_xml)[:2]
         track[self.base_body_id] = [0.0, np.array([cx, cy], dtype=float), float(m_robot)]
 
         # boxes
@@ -915,7 +915,7 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
 
         # robot
         length, last_xy, mass = motion_dict[self.base_body_id]
-        cx, cy = get_body_pose_2d(self.model, self.data, robot_name_in_xml)[:2]
+        cx, cy = get_body_pose_2d(self.model, self.data, self.robot_name_in_xml)[:2]
         dist = np.linalg.norm(np.array([cx, cy]) - last_xy)
         motion_dict[self.base_body_id][0] += dist
         motion_dict[self.base_body_id][1][:] = (cx, cy)
@@ -1124,7 +1124,7 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
 
         #self.motion_dict = init_motion_dict(self.model, self.data, self.base_body_id, self.joint_id_boxes)
 
-        self._prev_robot_xy = get_body_pose_2d(self.model, self.data, robot_name_in_xml)[:2]
+        self._prev_robot_xy = get_body_pose_2d(self.model, self.data, self.robot_name_in_xml)[:2]
         self._prev_robot_heading = quat_z_yaw(*self.data.qpos[self.qpos_index_base+3:self.qpos_index_base+7])
 
         # get the robot and boxes vertices
