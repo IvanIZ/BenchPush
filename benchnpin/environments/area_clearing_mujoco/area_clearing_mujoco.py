@@ -1062,12 +1062,12 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
                     # apply to MuJoCo state
                     adr = int(self.model.jnt_qposadr[jid])
                     self.data.qpos[adr:adr+2] = [nx, ny]           # keep z, quat as-is
-                    self.data.qvel[adr:adr+2] = [0.0, 0.0]         # zero planar vels
 
                     # update local centers list so subsequent checks see the move
                     centers[k] = (i, jid, nx, ny)
+                    return True  # moved box i
                 else:
-                    print(f"Warning: During initialization Box {i} overlaps robot position during random placement at reset but cannot shift ±{shift}m within bounds; left as-is.")
+                    return False
 
         # Define bounds of the placement area (slightly inside the walls)
         y_min_robot, y_max_robot = -self.room_width_inner / 2 + self.edges_space_left_for_robot, self.room_width_inner / 2 - self.edges_space_left_for_robot
@@ -1080,8 +1080,6 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
             theta = np.random.uniform(-np.pi, np.pi)
             if is_valid((x, y, theta), self.cfg.agent.robot_clear):
                 positions.append(((x, y, theta), self.cfg.agent.robot_clear))
-                proposed_x_y = (x, y)
-                resolve_robot_box_overlaps(proposed_x_y, 1.0)
                 break
 
         # Set robot pose
