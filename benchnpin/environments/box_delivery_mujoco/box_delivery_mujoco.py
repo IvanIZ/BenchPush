@@ -180,15 +180,18 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
                 # Circular robot mask
                 if (((i + 0.5) - self.local_map_pixel_width / 2)**2 + ((j + 0.5) - self.local_map_pixel_width / 2)**2)**0.5 < robot_pixel_width / 2:
                     self.robot_state_channel[i, j] = 1
+        self.agent_type = self.cfg.agent.agent_type
 
-        if self.cfg.agent.agent_type == 'turtlebot_3':
+        if self.agent_type == 'turtlebot_3':
             self.robot_name_in_xml = "base"
             self.joint_name_in_xml = "base_joint"
-            self.placement_height = 0.01  # height of the robot base in the xml file
+            self.placement_height = 0.01
+            self.edges_space_left_for_robot = 0.1
         else:
             self.robot_name_in_xml = "jackal_base"
             self.joint_name_in_xml = "base_joint_jackal"
             self.placement_height = 0.015
+            self.edges_space_left_for_robot = 0.4
 
 
         # generate random environmnt
@@ -1068,13 +1071,13 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
             return True
         
         # Define bounds of the placement area (slightly inside the walls)
-        y_min, y_max = -self.room_width / 2 + 0.1, self.room_width / 2 - 0.1
-        x_min, x_max = -self.room_length / 2 + 0.1, self.room_length / 2 - 0.1
+        y_min_robot, y_max_robot = -self.room_width / 2 + self.edges_space_left_for_robot, self.room_width / 2 - self.edges_space_left_for_robot
+        x_min_robot, x_max_robot = -self.room_length / 2 + self.edges_space_left_for_robot, self.room_length / 2 - self.edges_space_left_for_robot
 
         # Sample robot pose
         while True:
-            x = np.random.uniform(x_min, x_max)
-            y = np.random.uniform(y_min, y_max)
+            x = np.random.uniform(x_min_robot, x_max_robot)
+            y = np.random.uniform(y_min_robot, y_max_robot)
             theta = np.random.uniform(-np.pi, np.pi)
             if is_valid((x, y, theta), self.cfg.agent.robot_clear,positions):
                 positions.append(((x, y, theta), self.cfg.agent.robot_clear))
@@ -1106,6 +1109,10 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
         else:
 
             z = box_half_size+0.005
+        
+        # Define bounds of the placement area (slightly inside the walls)
+        y_min, y_max = -self.room_width / 2 + 0.1, self.room_width / 2 - 0.1
+        x_min, x_max = -self.room_length / 2 + 0.1, self.room_length / 2 - 0.1
 
         for i in range(self.num_boxes):
             while True:
