@@ -15,8 +15,6 @@ from benchnpin.common.utils.utils import DotDict
 from benchnpin.environments.box_delivery_mujoco.box_delivery_utils import generate_boxDelivery_xml, transport_box_from_recept, precompute_static_vertices, dynamic_vertices, receptacle_vertices, intersects_keepout
 from benchnpin.common.utils.mujoco_utils import vw_to_wheels, make_controller, quat_z, inside_poly, quat_z_yaw, get_body_pose_2d, large_divider_corner_vertices
 from benchnpin.common.utils.sim_utils import get_color
-import mujoco
-
 
 # SAM imports
 from scipy.ndimage import distance_transform_edt, rotate as rotate_image
@@ -41,10 +39,10 @@ DEFAULT_CAMERA_CONFIG = {
 # Image segmentation indices
 OBSTACLE_SEG_INDEX = 0
 FLOOR_SEG_INDEX = 1
-WHEELED_BOX_SEG_INDEX = 2
+RECEPTACLE_SEG_INDEX = 3
 NON_WHEELED_BOX_SEG_INDEX = 4
-RECEPTACLE_SEG_INDEX = 6
-ROBOT_SEG_INDEX = 8
+WHEELED_BOX_SEG_INDEX = 5
+ROBOT_SEG_INDEX = 6
 MAX_SEG_INDEX = 8
 
 scale_factor = (2.845/10) # NOTE: this scales thresholds to be proportionately the same as in the 2d environment
@@ -161,7 +159,7 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
         self.wheels_torsional_friction = self.cfg.wheels_on_boxes.wheels_torsional_friction
         self.wheels_rolling_friction = self.cfg.wheels_on_boxes.wheels_rolling_friction
         self.wheels_support_damping_ratio = self.cfg.wheels_on_boxes.wheels_support_damping_ratio
-        self.num_boxes_with_wheels = self.cfg.wheels_on_boxes.num_boxes_with_wheels
+        self.num_boxes_with_wheels = self.cfg.wheels_on_boxes.num_boxes_with_wheels if self.wheels_on_boxes else 0
         self.num_boxes_without_wheels = self.num_boxes - self.num_boxes_with_wheels
         self.names_boxes_without_wheels = [f"box{i}" for i in range(self.num_boxes_without_wheels)]
 
@@ -404,7 +402,7 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
         # render environment
         if self.cfg.render.show:
             self.show_observation = True
-            self.render()
+            self.render_env()
 
         return self.observation, reward, terminated, truncated, info
     
@@ -448,7 +446,7 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
             # change robot pose (use controller)
             v, w, _ = make_controller(robot_prev_position, robot_prev_heading, robot_waypoint_position)
             if not done_turning:
-                v=0
+                v = 0
             v_l, v_r = vw_to_wheels(v, w)
 
             # apply the control 'frame_skip' steps
@@ -806,7 +804,7 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
         self.motion_dict, boxes_total_distance= self.update_motion_dict(self.motion_dict)
 
         if boxes_total_distance<-0.01 or 0.01<boxes_total_distance:
-            robot_reward += self.partial_rewards_scale * boxes_total_distance
+            robot_reward += self.partial_rewards_scale * boxes_total_distance / scale_factor
 
         # reward for boxes in receptacle
         self.joint_id_boxes, self.num_completed_boxes_new = transport_box_from_recept(self.model, self.data, self.joint_id_boxes, self.room_length,
@@ -1030,6 +1028,7 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
 
             # Teleporting the divider body (joint) to the new pose
 
+            # FIXME: What happened to the joint_name variable?
             j_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_JOINT,"large_divider_joint")
 
             if j_id < 0:

@@ -613,7 +613,7 @@ class BoxDeliveryEnv(gym.Env):
                       round(self.robot.body.position.y, 2),
                       round(self.robot.body.angle, 2)),
             'cumulative_distance': self.robot_cumulative_distance,
-            'cumulative_cubes': self.robot_cumulative_cubes
+            'cumulative_cubes': self.robot_cumulative_cubes,
             'cumulative_reward': self.robot_cumulative_reward,
             'total_work': self.total_work[0],
             'obs': updated_cubes,
