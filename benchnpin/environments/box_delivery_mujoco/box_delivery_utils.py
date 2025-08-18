@@ -368,7 +368,6 @@ def build_xml(robot_qpos, stl_model_path, extra_xml, ARENA_X1, ARENA_Y1, goal_ha
   <visual>
     <quality shadowsize="4096"/>
     <headlight ambient="1 1 1" diffuse="1 1 1" specular="0.1 0.1 0.1"/>
-    <global elevation="-10"/>
   </visual>
 
   <worldbody>
@@ -511,7 +510,7 @@ def generate_boxDelivery_xml(N, env_type, file_name, ROBOT_clear, CLEAR, Z_BOX, 
   
     # Building new environment and writing it down
     xml_string = build_xml(robot_qpos, stl_model_path, extra_xml, 
-        ARENA_X[1], ARENA_Y[1], goal_half, goal_center, adjust_num_pillars, agent_xml, actuator_xml, box_xml,  sim_timestep=sim_timestep)
+        ARENA_X[1], ARENA_Y[1], goal_half, goal_center, adjust_num_pillars, agent_xml, actuator_xml, box_xml, sim_timestep)
 
     XML_OUT.write_text(xml_string)
     
