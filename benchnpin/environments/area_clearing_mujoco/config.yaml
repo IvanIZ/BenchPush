@@ -75,10 +75,14 @@ misc:
   random_seed: 42
 
 agent:
+  # Recommended values for the agent
+  # Turlebot 3: length=0.138, width=0.183, robot_clear=0.15
+  # Jackal: length=0.51, width=0.43, robot_clear=0.75
+  agent_type: 'turtlebot_3' # options are turtlebot_3 or jackal
   action_type: 'position' # options are velocity, heading, position
-  length: 0.138
-  width: 0.183
-  robot_clear: 0.15
+  length: 0.51
+  width: 0.43
+  robot_clear: 0.75
   type_of_bumper: 'straight' # Choose from one of them: curved_inwards, straight, curved_outwards
   bumper_mass: 0.1 # mass (kg) for the bumper so that can switch between different plastic materials
 
