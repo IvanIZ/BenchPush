@@ -231,6 +231,9 @@ def generating_agent_xml(agent_type, bumper_type, bumper_mass, robot_qpos, robot
         
         elif bumper_type == 'curved_outwards':
             bumper_name = "TurtleBot3_Triangular_Bumper"
+        
+        else:
+            raise ValueError("Invalid bumper type for Turtlebot3. Choose from 'curved_inwards', 'straight', or 'curved_outwards'.")
 
         agent_xml = f"""   <!-- Turtlebot3 robot -->\n
     <!-- robot -->
@@ -280,6 +283,9 @@ def generating_agent_xml(agent_type, bumper_type, bumper_mass, robot_qpos, robot
         elif bumper_type == 'curved_outwards':
             bumper_name = "jackal_bumper_curved"
             bumper_pos = "-0.2075 0.026 -0.283"
+        
+        else:
+            raise ValueError("Invalid bumper type for Jackal. Choose from 'curved_inwards', 'straight', or 'curved_outwards'.")
         
         robot_qpos_x, robot_qpos_y = robot_qpos.split(" ")[0:2]
 
