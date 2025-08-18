@@ -187,14 +187,15 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
             self.joint_name_in_xml = "base_joint"
             self.placement_height = 0.01
             self.edges_space_left_for_robot = 0.1
+            xml_file = os.path.join(self.current_dir, 'turtlebot3_burger_xml_file.xml')
         else:
             self.robot_name_in_xml = "jackal_base"
             self.joint_name_in_xml = "base_joint_jackal"
             self.placement_height = 0.02
-            self.edges_space_left_for_robot = 0.3
+            self.edges_space_left_for_robot = 0.5
+            xml_file = os.path.join(self.current_dir, 'jackal_xml_file.xml')
 
         # generate random environmnt
-        xml_file = os.path.join(self.current_dir, 'turtlebot3_burger_updated.xml')
         _, self.initialization_keepouts, self.clearance_poly = generate_boxDelivery_xml(N=self.cfg.boxes.num_boxes, env_type=self.cfg.env.obstacle_config, file_name=xml_file,
                         ROBOT_clear=self.cfg.agent.robot_clear, CLEAR=self.cfg.boxes.clearance, goal_half=self.receptacle_half, goal_center=self.receptacle_position, Z_BOX=self.cfg.boxes.box_half_size, ARENA_X=(0.0, self.room_length), 
                         ARENA_Y=(0.0, self.room_width), box_half_size=self.cfg.boxes.box_half_size, num_pillars=self.num_pillars, pillar_half=self.pillar_half, adjust_num_pillars=self.adjust_num_pillars, sim_timestep=self.cfg.env.sim_timestep,
