@@ -312,7 +312,7 @@ def generating_agent_xml(agent_type, bumper_type, bumper_mass, robot_qpos, robot
         
         <site name="wheel_1" pos="0 0 0" size="0.02" type="sphere"/>
         
-        <joint name="wheel_left_jackal" axis="0 0 1"/>
+        <joint name="wheel_left_jackal" axis="0 0 -1"/>
         <geom type="mesh" rgba="0.1 0.1 0.1 1" mesh="jackal_wheel" friction="1.2 0.01 0.001" mass="0.5"/>
       </body>
       
@@ -320,7 +320,7 @@ def generating_agent_xml(agent_type, bumper_type, bumper_mass, robot_qpos, robot
       <body name="wheel_left_back" pos="-0.19 0.1 0.13" euler="0 1.5707963267948966 1.5707963267948966">
         
         <site name="wheel_2" pos="0 0 0" size="0.02" type="sphere"/>
-        <joint name="wheel_left_jackal_back" axis="0 0 1"/>
+        <joint name="wheel_left_jackal_back" axis="0 0 -1"/>
         <geom type="mesh" rgba="0.1 0.1 0.1 1" mesh="jackal_wheel" friction="1.2 0.01 0.001" mass="0.5"/>
       </body>
       
@@ -328,7 +328,7 @@ def generating_agent_xml(agent_type, bumper_type, bumper_mass, robot_qpos, robot
       <body name="wheel_right_front" pos="0.19 0.1 -0.13" euler="0 1.5707963267948966 1.5707963267948966">
         
         <site name="wheel_3" pos="0 0 0" size="0.02" type="sphere"/>
-        <joint name="wheel_right_jackal" axis="0 0 1"/>
+        <joint name="wheel_right_jackal" axis="0 0 -1"/>
         <geom type="mesh" rgba="0.1 0.1 0.1 1" mesh="jackal_wheel" friction="1.2 0.01 0.001" mass="0.5"/>
         
       </body>
@@ -337,7 +337,7 @@ def generating_agent_xml(agent_type, bumper_type, bumper_mass, robot_qpos, robot
       <body name="wheel_right_back" pos="0.19 0.1 0.13" euler="0 1.5707963267948966 1.5707963267948966">
         
         <site name="wheel_4" pos="0 0 0" size="0.02" type="sphere"/>
-        <joint name="wheel_right_jackal_back" axis="0 0 1"/>
+        <joint name="wheel_right_jackal_back" axis="0 0 -1"/>
         <geom type="mesh" rgba="0.1 0.1 0.1 1" mesh="jackal_wheel" friction="1.2 0.01 0.001" mass="0.5"/>
         
       </body>
