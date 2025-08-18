@@ -271,7 +271,7 @@ def generating_agent_xml(agent_type, bumper_type, bumper_mass, robot_qpos, robot
 
         if bumper_type == 'curved_inwards':
             bumper_name= "jackal_bumper_curved_inwards"
-            bumper_pos = "-0.2075 0.025 -0.252"
+            bumper_pos = "-0.2075 0.026 -0.283"
         
         elif bumper_type == 'straight':
             bumper_name = "jackal_straight_bumper"
