@@ -56,7 +56,7 @@ NOT_MOVING_THRESHOLD = 0.005 * scale_factor
 NOT_TURNING_THRESHOLD = np.radians(0.05)
 NONMOVEMENT_DIST_THRESHOLD = 0.05 * scale_factor
 NONMOVEMENT_TURN_THRESHOLD = np.radians(0.05)
-STEP_LIMIT = 5000
+STEP_LIMIT = 1000
 
 
 class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
@@ -459,9 +459,10 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
             
             # stop moving if robot collided with obstacle
             self.robot_hit_obstacle = self.robot_hits_static()
-            # if self.distance(robot_prev_waypoint_position, robot_position) > MOVE_STEP_SIZE:
-            if self.distance(robot_prev_position, robot_position) < MOVE_STEP_SIZE / 100:
-                if self.robot_hit_obstacle or done_turning:
+            if self.distance(robot_prev_waypoint_position, robot_position) > MOVE_STEP_SIZE:
+            # if self.distance(robot_prev_position, robot_position) < MOVE_STEP_SIZE / 100:
+                # if self.robot_hit_obstacle or done_turning:
+                if self.robot_hit_obstacle:
                     robot_is_moving = False
                     break   # Note: self.robot_distance does not get updated
 
