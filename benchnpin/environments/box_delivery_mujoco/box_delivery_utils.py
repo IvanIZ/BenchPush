@@ -164,14 +164,19 @@ def changing_per_configuration(env_type: str, clearance_poly,
 
       heavy_mass = 1e5
 
-      Text=f"""<!-- Corner 4 -->
-    <body name="corner_4" pos="{ARENA_X[1]/2} {cy+hy} 0.06" quat="0 1 1 0">
-      <geom name="corner_4" type="mesh" mesh="corner_full" rgba="0.0 0.3 1.0 1.0"/>
+      Text=f"""
+    <!-- Corner 4 -->
+    <body name="corner_4" pos="{ARENA_X[1]/2} {cy+hy} 0.00" euler="-3.14 3.14 0">
+      <geom name="corner_4_1" type="mesh" mesh="corner_1" rgba="0.0 0.3 1.0 1.0" contype="1" conaffinity="1"/>
+      <geom name="corner_4_2" type="mesh" mesh="corner_2" rgba="0.0 0.3 1.0 1.0" contype="1" conaffinity="1"/>
+      <geom name="corner_4_3" type="mesh" mesh="corner_3" rgba="0.0 0.3 1.0 1.0" contype="1" conaffinity="1"/>
     </body>
-    
+
     <!-- Corner 5 -->
-    <body name="corner_5" pos="{ARENA_X[1]/2} {cy-hy} 0.00" quat="1 0 0 -1">
-      <geom name="corner_5" type="mesh" mesh="corner_full" rgba="0.0 0.3 1.0 1.0"/>
+    <body name="corner_5" pos="{ARENA_X[1]/2} {cy-hy} 0.06" euler="0.0 3.14 0">
+      <geom name="corner_5_1" type="mesh" mesh="corner_1" rgba="0.0 0.3 1.0 1.0" contype="1" conaffinity="1"/>
+      <geom name="corner_5_2" type="mesh" mesh="corner_2" rgba="0.0 0.3 1.0 1.0" contype="1" conaffinity="1"/>
+      <geom name="corner_5_3" type="mesh" mesh="corner_3" rgba="0.0 0.3 1.0 1.0" contype="1" conaffinity="1"/>
     </body>"""
       return Text
     
@@ -340,7 +345,9 @@ def build_xml(robot_qpos, stl_model_path, extra_xml, ARENA_X1, ARENA_Y1, goal_ha
   <asset>
     <texture type="skybox" builtin="gradient" width="512" height="512"/>
     <material name="blue_mat" rgba="0.4 0.3 0.2 1"/>
-    <mesh name="corner_full" file="corner_full.stl" scale="0.001 0.001 0.001"/>
+    <mesh name="corner_1" file="corner1.stl" scale="0.001 0.001 0.001"/>
+    <mesh name="corner_2" file="corner2.stl" scale="0.001 0.001 0.001"/>
+    <mesh name="corner_3" file="corner3.stl" scale="0.001 0.001 0.001"/>
     <mesh name="burger_base" file="burger_base.stl" scale="0.001 0.001 0.001"/>
     <mesh name="left_tire"   file="left_tire.stl"   scale="0.001 0.001 0.001"/>
     <mesh name="right_tire"  file="right_tire.stl"  scale="0.001 0.001 0.001"/>
@@ -376,20 +383,26 @@ def build_xml(robot_qpos, stl_model_path, extra_xml, ARENA_X1, ARENA_Y1, goal_ha
     <body pos="0 0 0">
       <geom name="floor" type="box" size="{ARENA_X1/2} {ARENA_Y1/2} 0.01" friction="0.5 0.05 0.0001" contype="1" conaffinity="1"/>
     </body>
-    
+
     <!-- Corner 1 -->
-    <body name="corner_1" pos="{-ARENA_X1/2} {-ARENA_Y1/2} 0.05" quat="0 1 0 0">
-      <geom name="corner_1" type="mesh" mesh="corner_full" rgba="0.0 0.3 1.0 1.0" contype="1" conaffinity="1"/>
+    <body name="corner_1" pos="{-ARENA_X1/2} {-ARENA_Y1/2} 0.06" euler="-3.14 0.0 0">
+      <geom name="corner_1_1" type="mesh" mesh="corner_1" rgba="0.0 0.3 1.0 1.0" contype="1" conaffinity="1"/>
+      <geom name="corner_1_2" type="mesh" mesh="corner_2" rgba="0.0 0.3 1.0 1.0" contype="1" conaffinity="1"/>
+      <geom name="corner_1_3" type="mesh" mesh="corner_3" rgba="0.0 0.3 1.0 1.0" contype="1" conaffinity="1"/>
     </body>
     
     <!-- Corner 2 -->
-    <body name="corner_2" pos="{ARENA_X1/2} {-ARENA_Y1/2} 0.05" quat="0 1 1 0">
-      <geom name="corner_2" type="mesh" mesh="corner_full" rgba="0.0 0.3 1.0 1.0" contype="1" conaffinity="1"/>
+    <body name="corner_2" pos="{ARENA_X1/2} {-ARENA_Y1/2} 0.00" euler="-3.14 3.14 0">
+      <geom name="corner_2_1" type="mesh" mesh="corner_1" rgba="0.0 0.3 1.0 1.0" contype="1" conaffinity="1"/>
+      <geom name="corner_2_2" type="mesh" mesh="corner_2" rgba="0.0 0.3 1.0 1.0" contype="1" conaffinity="1"/>
+      <geom name="corner_2_3" type="mesh" mesh="corner_3" rgba="0.0 0.3 1.0 1.0" contype="1" conaffinity="1"/>
     </body>
     
     <!-- Corner 3 -->
-    <body name="corner_3" pos="{-ARENA_X1/2} {ARENA_Y1/2} -0.01" quat="1 0 0 0">
-      <geom name="corner_3" type="mesh" mesh="corner_full" rgba="0.0 0.3 1.0 1.0" contype="1" conaffinity="1"/>
+    <body name="corner_3" pos="{-ARENA_X1/2} {ARENA_Y1/2} 0.00" euler="0 0.0 0">
+      <geom name="corner_3_1" type="mesh" mesh="corner_1" rgba="0.0 0.3 1.0 1.0" contype="1" conaffinity="1"/>
+      <geom name="corner_3_2" type="mesh" mesh="corner_2" rgba="0.0 0.3 1.0 1.0" contype="1" conaffinity="1"/>
+      <geom name="corner_3_3" type="mesh" mesh="corner_3" rgba="0.0 0.3 1.0 1.0" contype="1" conaffinity="1"/>
     </body>
         
     <!-- Marked area -->
