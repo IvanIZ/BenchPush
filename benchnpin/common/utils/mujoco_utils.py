@@ -224,13 +224,13 @@ def generating_agent_xml(agent_type, bumper_type, bumper_mass, robot_qpos, robot
 
     if agent_type == "turtlebot_3":
         if bumper_type == 'curved_inwards':
-            bumper_name= "TurtleBot3_Curved_Bumper"
+            bumper_name= "TurtleBot3_Curved_Bumper_base"
         
         elif bumper_type == 'straight':
-            bumper_name = "TurtleBot3_Straight_Bumper"
+            bumper_name = "TurtleBot3_Straight_Bumper_base"
         
         elif bumper_type == 'curved_outwards':
-            bumper_name = "TurtleBot3_Triangular_Bumper"
+            bumper_name = "TurtleBot3_Triangular_Bumper_base"
         
         else:
             raise ValueError("Invalid bumper type for Turtlebot3. Choose from 'curved_inwards', 'straight', or 'curved_outwards'.")
@@ -249,14 +249,14 @@ def generating_agent_xml(agent_type, bumper_type, bumper_mass, robot_qpos, robot
       <geom name="{bumper_name}" pos="-0.04 -0.09 0.01" quat="1 0 0 0" type="mesh" rgba="0.3 0.13 0.08 1" mesh="{bumper_name}" mass="{bumper_mass}" contype="1" conaffinity="1" friction="0.1 0.02 0.0001"/>
       
       <!-- Left wheel -->
-      <body name="wheel_left_link" pos="0 0.08 0.033" quat="0.707388 -0.706825 0 0">
+      <body name="wheel_left_link_base" pos="0 0.08 0.033" quat="0.707388 -0.706825 0 0">
         <inertial pos="0 0 0" quat="-0.000890159 0.706886 0.000889646 0.707326" mass="0.0284989" diaginertia="2.07126e-05 1.11924e-05 1.11756e-05"/>
         <joint name="wheel_left_joint" pos="0 0 0" axis="0 0 1"/>
         <geom quat="0.707388 0.706825 0 0" type="mesh" rgba="{robot_rgb[0]+0.1} {robot_rgb[1]+0.1} {robot_rgb[2]+0.1} 1" mesh="left_tire" friction="1.2 0.01 0.001"/>
       </body>
       
       <!-- Right wheel -->
-      <body name="wheel_right_link" pos="0 -0.08 0.033" quat="0.707388 -0.706825 0 0">
+      <body name="wheel_right_link_base" pos="0 -0.08 0.033" quat="0.707388 -0.706825 0 0">
         <inertial pos="0 0 0" quat="-0.000890159 0.706886 0.000889646 0.707326" mass="0.0284989" diaginertia="2.07126e-05 1.11924e-05 1.11756e-05"/>
         <joint name="wheel_right_joint" pos="0 0 0" axis="0 0 1"/>
         <geom quat="0.707388 0.706825 0 0" type="mesh" rgba="{robot_rgb[0]+0.1} {robot_rgb[1]+0.1} {robot_rgb[2]+0.1} 1" mesh="right_tire" friction="1.2 0.01 0.001"/>

@@ -353,9 +353,9 @@ def build_xml(robot_qpos, stl_model_path, extra_xml, ARENA_X1, ARENA_Y1, goal_ha
     <mesh name="right_tire"  file="right_tire.stl"  scale="0.001 0.001 0.001"/>
     <mesh name="lds"         file="lds.stl"         scale="0.001 0.001 0.001"/>
 
-    <mesh name="TurtleBot3_Straight_Bumper"      file="TurtleBot3_Straight_Bumper.STL"   scale="0.001 0.001 0.001"/>
-    <mesh name="TurtleBot3_Curved_Bumper"        file="TurtleBot3_Curved_Bumper.STL"     scale="0.001 0.001 0.001"/>
-    <mesh name="TurtleBot3_Triangular_Bumper"    file="TurtleBot3_Triangular_Bumper.STL" scale="0.001 0.001 0.001"/>
+    <mesh name="TurtleBot3_Straight_Bumper_base"      file="TurtleBot3_Straight_Bumper.STL"   scale="0.001 0.001 0.001"/>
+    <mesh name="TurtleBot3_Curved_Bumper_base"        file="TurtleBot3_Curved_Bumper.STL"     scale="0.001 0.001 0.001"/>
+    <mesh name="TurtleBot3_Triangular_Bumper_base"    file="TurtleBot3_Triangular_Bumper.STL" scale="0.001 0.001 0.001"/>
 
     <mesh name="Wheels"      file="Box_wheels.stl"          scale="0.0001 0.0001 0.0001"/>
     <mesh name="Wheels_support" file="Box_wheels_support.STL"  scale="0.0001 0.0001 0.0001"/>

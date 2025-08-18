@@ -950,8 +950,9 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
     # contacts
     def robot_hits_static(self) -> bool:
 
-        ROBOT_PREFIX    = "base"
-        STATIC_PREFIXES = ("wall", "small_col", "large_col", "divider", "corner")
+        ROBOT_PREFIX    = ("base","jackal")
+        STATIC_PREFIXES = ("wall", "small_col", "large_col", "large_divider", "corner")
+        SKIP_GEOMS = {"floor", "pillars_kept"}
 
         for k in range(self.data.ncon):
             c   = self.data.contact[k]
@@ -960,13 +961,14 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
             n1 = mujoco.mj_id2name(self.model, mujoco.mjtObj.mjOBJ_GEOM, g1)
             n2 = mujoco.mj_id2name(self.model, mujoco.mjtObj.mjOBJ_GEOM, g2)
 
-            # skip any unnamed geoms
-            if not n1 or not n2:
+            # skip any unnamed geoms or if no names
+            if not n1 or not n2 or n1 in SKIP_GEOMS or n2 in SKIP_GEOMS:
                 continue
+            print(f"Contact: {n1} vs {n2}")
 
             # check robot vs any static prefix
-            hit1 = ROBOT_PREFIX in n1.lower() and any(pref in n2.lower() for pref in STATIC_PREFIXES)
-            hit2 = ROBOT_PREFIX in n2.lower() and any(pref in n1.lower() for pref in STATIC_PREFIXES)
+            hit1 = any(pref in n1.lower() for pref in ROBOT_PREFIX) and any(pref in n2.lower() for pref in STATIC_PREFIXES)
+            hit2 = any(pref in n2.lower() for pref in ROBOT_PREFIX) and any(pref in n1.lower() for pref in STATIC_PREFIXES)
 
             if hit1 or hit2:
                 return True
