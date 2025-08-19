@@ -489,9 +489,13 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
                 self.render_env()
 
             # break if robot is stuck
-            if sim_steps > STEP_LIMIT:
+            # if done_turning:
+            #     print(f'distance: {self.distance(robot_prev_position, robot_position)}, notmoving threshold: {NOT_MOVING_THRESHOLD*0.25}')
+            if sim_steps > STEP_LIMIT:# or (self.distance(robot_prev_position, robot_position) < NOT_MOVING_THRESHOLD * 0.25 and done_turning):
+                print(f"Robot is stuck after {sim_steps} steps.")
                 break
 
+        print(f"Simulated {sim_steps} steps to execute action.")
         robot_angle = quat_z_yaw(*self.data.qpos[self.qpos_index_base+3:self.qpos_index_base+7])
         robot_heading = self.restrict_heading_range(robot_angle)
         robot_turn_angle = self.heading_difference(robot_initial_heading, robot_heading)
@@ -811,15 +815,19 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
         self.joint_id_boxes, self.num_completed_boxes_new = transport_box_from_recept(self.model, self.data, self.joint_id_boxes, self.room_length,
                                                                          self.room_width, goal_half=self.receptacle_half, goal_center=self.receptacle_position, box_half_size=self.cfg.boxes.box_half_size)
         if self.num_completed_boxes_new > 0:
+            print(f'Delivered {self.num_completed_boxes_new} boxes!')
+            print(f'reward: {self.goal_reward * self.num_completed_boxes_new}')
             self.inactivity_counter = 0
         robot_reward += self.goal_reward * self.num_completed_boxes_new
         
         # penalty for hitting obstacles
         if self.robot_hit_obstacle:
+            print('Robot hit an obstacle!')
             robot_reward -= self.collision_penalty
         
         # penalty for small movements
         if self._step_dx < NONMOVEMENT_DIST_THRESHOLD and self._step_dyaw < NONMOVEMENT_TURN_THRESHOLD:
+            print('Robot not moving enough!')
             robot_reward -= self.non_movement_penalty
         
         # self.robot_cumulative_reward += robot_reward
@@ -965,7 +973,6 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
             # skip any unnamed geoms or if no names
             if not n1 or not n2 or n1 in SKIP_GEOMS or n2 in SKIP_GEOMS:
                 continue
-            print(f"Contact: {n1} vs {n2}")
 
             # check robot vs any static prefix
             hit1 = any(pref in n1.lower() for pref in ROBOT_PREFIX) and any(pref in n2.lower() for pref in STATIC_PREFIXES)
