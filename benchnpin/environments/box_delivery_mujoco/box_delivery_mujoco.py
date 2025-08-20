@@ -510,7 +510,7 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
             return None
         
         # Getting the robot and boxes vertices
-        robot_properties, wheeled_boxes_vertices, non_wheeled_boxes_vertices =dynamic_vertices(self.model,self.data, self.qpos_index_base,self.joint_id_boxes, self.robot_dimen, self.cfg.boxes.box_half_size, self.names_boxes_without_wheels)
+        robot_properties, self.wheeled_boxes_vertices, self.non_wheeled_boxes_vertices =dynamic_vertices(self.model,self.data, self.qpos_index_base,self.joint_id_boxes, self.robot_dimen, self.cfg.boxes.box_half_size, self.names_boxes_without_wheels)
 
         # Update the global overhead map with the current robot and boundaries
         self.update_global_overhead_map(robot_properties[1])
@@ -1086,14 +1086,14 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
             box_half = float(self.cfg.boxes.box_half_size)
             r_box = float(np.hypot(box_half, box_half))
 
-            # extra margin to keep from robot (use your robot_clear as requested)
+            # extra margin to keep from robot
             need_robot_box = self.cfg.agent.robot_clear
 
-            # box–box spacing needed (keep using your boxes.clearance here)
+            # box–box spacing needed
             box_margin = 0.0
             need_box_box = 2 * box_half
 
-            # bounds (same idea as your sampler uses for boxes)
+            # bounds
             x_min = -self.room_length / 2 + 0.1
             x_max =  self.room_length / 2 - 0.1
             y_min = -self.room_width  / 2 + 0.1
@@ -1105,7 +1105,7 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
             # current robot center (x,y)
             rx, ry = proposed_x_y
 
-            # collect active box centers (ignore "parked" ones far below)
+            # collecting active box centers
             active_boxes = []  # list of (idx, jid, x, y)
             for i, jid in enumerate(getattr(self, "joint_id_boxes", [])):
         
@@ -1132,35 +1132,34 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
                         return False
                 return True
 
-            # make an editable list of current box centers for pairwise checks
             centers = [(i, jid, bx, by) for (i, jid, bx, by) in active_boxes]
 
-            # pass over boxes; if overlapping, try ±shift in X
+            # passing over boxes; if overlapping, trying to ±shift in X
             for k, (i, jid, bx, by) in enumerate(list(centers)):
-                # overlap with robot?
+
                 if np.hypot(bx - rx, by - ry) >= need_robot_box:
-                    continue  # already fine
+                    continue
 
                 # candidate moves: +shift (right), -shift (left)
                 candidates = [(bx + shift, by), (bx - shift, by)]
 
-                # keep those inside plane and valid wrt robot/boxes/keepouts
+                # keeping those inside plane and valid wrt robot/boxes/keepouts
                 good = []
                 for (cx, cy) in candidates:
                     if in_bounds(cx, cy) and box_pose_ok(i, cx, cy, centers):
+
                         # score by distance to robot; prefer the farther one
                         score = np.hypot(cx - rx, cy - ry)
                         good.append((score, cx, cy))
 
                 if good:
-                    # choose the candidate giving max distance to robot
+    
                     _, nx, ny = max(good, key=lambda t: t[0])
 
-                    # apply to MuJoCo state
                     adr = int(self.model.jnt_qposadr[jid])
                     self.data.qpos[adr:adr+2] = [nx, ny]           # keep z, quat as-is
 
-                    # update local centers list so subsequent checks see the move
+                    # updating local centers list so subsequent checks see the move
                     centers[k] = (i, jid, nx, ny)
                     return True
                 else:
