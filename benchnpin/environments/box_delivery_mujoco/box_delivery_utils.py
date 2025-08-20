@@ -197,8 +197,8 @@ def changing_per_configuration(env_type: str, clearance_poly,
         
         # This range is picked on clearance for robot and walls. Chosen the
         # lowest value
-        cx = rng.uniform(-ARENA_X[1]/2+0.315, ARENA_X[1]/2+0.315)
-        cy = rng.uniform(-ARENA_Y[1]/2+0.315, ARENA_Y[1]/2+0.315)
+        cx = rng.uniform(-ARENA_X[1]/2+0.315, ARENA_X[1]/2-0.315)
+        cy = rng.uniform(-ARENA_Y[1]/2+0.315, ARENA_Y[1]/2-0.315)
 
         # test the 4 pillar corners
         corners = [(cx-half[0], cy-half[1]),
