@@ -105,11 +105,11 @@ if __name__ == '__main__':
         cfg={
             # 'env': 'clear_env', # 'clear_env_small', 'clear_env', walled_env', 'walled_env_with_columns'
             'boxes': {
-                'num_boxes': 3,
+                'num_boxes': 6,
             },
             'render': {
-                'log_obs': True, # log occupancy observations
-                'show': False, # show the environment
+                'log_obs': False, # log occupancy observations
+                'show': True, # show the environment
                 'show_obs': False, # show the occupancy observation
             },
             'agent': {
@@ -123,16 +123,17 @@ if __name__ == '__main__':
                 'job_type': 'ppo', # 'sam', 'ppo', 'sac'
                 'job_name': 'ppo_clear_env',
                 'resume_training': False, 
+                # 'from_model_eps': 230000,
                 'from_model_eps': None,
-                'total_timesteps': 1e6,
+                'total_timesteps': 5e5,
                 'checkpoint_freq': 10000,
-                'job_id_to_resume': None, # job id to resume training from
+                'job_id_to_resume': 'ppo_clear_env', # job id to resume training from
             },
             'evaluate': {
                 'eval_mode': False,
                 'num_eps': 2,
                 'policy_types': ['ppo'], # list of policy types to evaluate
-                'model_names': ['clear_env_ppo'], # list of model names to evaluate
+                'model_names': ['ppo_clear_env_None_230000_steps.zip'], # list of model names to evaluate
                 'model_path': 'models/area_clearing', # path to the models
                 'obs_configs': [None], # list of obstacle configurations to evaluate
             },

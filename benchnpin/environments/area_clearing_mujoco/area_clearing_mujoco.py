@@ -833,10 +833,10 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
         robot_reward = 0
 
         # partial reward for moving boxes towards receptacle
-        self.motion_dict, boxes_total_distance= self.update_motion_dict(self.motion_dict)
+        self.motion_dict, boxes_total_distance = self.update_motion_dict(self.motion_dict)
 
-        if boxes_total_distance<-0.01 or 0.01<boxes_total_distance:
-            robot_reward+=self.partial_rewards_scale * boxes_total_distance
+        if abs(boxes_total_distance) > 0.01:
+            robot_reward += self.partial_rewards_scale * boxes_total_distance
 
         # reward for boxes in receptacle
         self.completed_box_ids, self.num_completed_boxes_new = transport_box_from_recept(self.model, self.data, self.joint_id_boxes, self.room_width_inner,

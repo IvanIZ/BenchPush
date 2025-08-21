@@ -107,7 +107,7 @@ def dynamic_vertices(model, data, qpos_idx_robot: int, joint_ids_boxes: list[int
 
     return Robot_vertices, Boxes_vertices
 
-def receptacle_vertices(receptacle_position, receptacle_local_dimension):
+def receptacle_vertices(receptacle_position, receptacle_half_dimensions):
     """
     Returns the vertices of the receptacle in the world frame.
     """
@@ -115,7 +115,7 @@ def receptacle_vertices(receptacle_position, receptacle_local_dimension):
     x, y = receptacle_position
 
         # half-width and half-height
-    hx, hy = receptacle_local_dimension
+    hx, hy = receptacle_half_dimensions
 
     # local corners around (0,0)
     local = np.array([
