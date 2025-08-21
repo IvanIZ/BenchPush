@@ -855,9 +855,9 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
         # penalty for hitting obstacles
         if self.robot_hit_obstacle:
             robot_reward -= self.collision_penalty
-        
+    
         # penalty for small movements
-        if self._step_dx < NONMOVEMENT_DIST_THRESHOLD and self._step_dyaw < NONMOVEMENT_TURN_THRESHOLD:
+        if self._step_dx < NONMOVEMENT_DIST_THRESHOLD and abs(self._step_dyaw) < NONMOVEMENT_TURN_THRESHOLD:
             robot_reward -= self.non_movement_penalty
         
         # Compute stats
