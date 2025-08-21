@@ -13,9 +13,8 @@ from benchnpin.common.controller.position_controller import PositionController
 from benchnpin.common.utils.utils import DotDict
 # from benchnpin.environments.area_clearing.area_clearing import MOVE_STEP_SIZE, STEP_LIMIT, TURN_STEP_SIZE, WAYPOINT_MOVING_THRESHOLD, WAYPOINT_TURNING_THRESHOLD
 from benchnpin.environments.box_delivery_mujoco.box_delivery_utils import generate_boxDelivery_xml, transport_box_from_recept, precompute_static_vertices, dynamic_vertices, receptacle_vertices, intersects_keepout
-from benchnpin.common.utils.mujoco_utils import vw_to_wheels, make_controller, quat_z, inside_poly, quat_z_yaw, corners_xy, get_body_pose_2d
+from benchnpin.common.utils.mujoco_utils import vw_to_wheels, make_controller, quat_z, inside_poly, quat_z_yaw, get_body_pose_2d, large_divider_corner_vertices
 from benchnpin.common.utils.sim_utils import get_color
-
 
 # SAM imports
 from scipy.ndimage import distance_transform_edt, rotate as rotate_image
@@ -37,12 +36,13 @@ DEFAULT_CAMERA_CONFIG = {
     "distance": 4.0,
 }
 
-#Image segmentation indices
+# Image segmentation indices
 OBSTACLE_SEG_INDEX = 0
 FLOOR_SEG_INDEX = 1
 RECEPTACLE_SEG_INDEX = 3
-BOX_SEG_INDEX = 4
-ROBOT_SEG_INDEX = 5
+NON_WHEELED_BOX_SEG_INDEX = 4
+WHEELED_BOX_SEG_INDEX = 5
+ROBOT_SEG_INDEX = 6
 MAX_SEG_INDEX = 8
 
 scale_factor = (2.845/10) # NOTE: this scales thresholds to be proportionately the same as in the 2d environment
@@ -56,7 +56,7 @@ NOT_MOVING_THRESHOLD = 0.005 * scale_factor
 NOT_TURNING_THRESHOLD = np.radians(0.05)
 NONMOVEMENT_DIST_THRESHOLD = 0.05 * scale_factor
 NONMOVEMENT_TURN_THRESHOLD = np.radians(0.05)
-STEP_LIMIT = 5000
+STEP_LIMIT = 400
 
 
 class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
@@ -94,6 +94,10 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
                         self.cfg[cfg_type][param] = cfg[cfg_type][param]
                 else:
                     self.cfg[cfg_type] = cfg[cfg_type]
+
+        # Checking if the configuration is valid
+        if self.cfg.wheels_on_boxes.wheels_on_boxes and self.cfg.wheels_on_boxes.num_boxes_with_wheels > self.cfg.boxes.num_boxes:
+            raise ValueError("Number of boxes with wheels cannot be more than the total number of boxes.")
         
 
         # Setting up the environment parameters
@@ -147,6 +151,18 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
         self.robot_cumulative_boxes = None
         self.robot_cumulative_reward = None
 
+        # Box with wheels
+        self.wheels_on_boxes = self.cfg.wheels_on_boxes.wheels_on_boxes
+        self.wheels_mass = self.cfg.wheels_on_boxes.wheels_mass
+        self.wheels_support_mass = self.cfg.wheels_on_boxes.wheels_support_mass
+        self.wheels_sliding_friction = self.cfg.wheels_on_boxes.wheels_sliding_friction
+        self.wheels_torsional_friction = self.cfg.wheels_on_boxes.wheels_torsional_friction
+        self.wheels_rolling_friction = self.cfg.wheels_on_boxes.wheels_rolling_friction
+        self.wheels_support_damping_ratio = self.cfg.wheels_on_boxes.wheels_support_damping_ratio
+        self.num_boxes_with_wheels = self.cfg.wheels_on_boxes.num_boxes_with_wheels if self.wheels_on_boxes else 0
+        self.num_boxes_without_wheels = self.num_boxes - self.num_boxes_with_wheels
+        self.names_boxes_without_wheels = [f"box{i}" for i in range(self.num_boxes_without_wheels)]
+
         # robot
         self.robot_hit_obstacle = False
         self.robot_info = self.cfg.agent
@@ -162,13 +178,32 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
                 # Circular robot mask
                 if (((i + 0.5) - self.local_map_pixel_width / 2)**2 + ((j + 0.5) - self.local_map_pixel_width / 2)**2)**0.5 < robot_pixel_width / 2:
                     self.robot_state_channel[i, j] = 1
+        self.agent_type = self.cfg.agent.agent_type
+        self.robot_distance = 0
+        self.robot_turn_angle = 0
+
+        if self.agent_type == "turtlebot_3":
+            self.robot_name_in_xml = "base"
+            self.joint_name_in_xml = "base_joint"
+            self.placement_height = 0.01
+            self.edges_space_left_for_robot = 0.1
+            xml_file = os.path.join(self.current_dir, 'turtlebot3_burger_xml_file.xml')
+        else:
+            self.robot_name_in_xml = "jackal_base"
+            self.joint_name_in_xml = "base_joint_jackal"
+            self.placement_height = 0.02
+            self.edges_space_left_for_robot = 0.5
+            xml_file = os.path.join(self.current_dir, 'jackal_xml_file.xml')
 
         # generate random environmnt
-        # TODO can robot_radius be used instead of robot_clear?
-        xml_file = os.path.join(self.current_dir, 'turtlebot3_burger_updated.xml')
         _, self.initialization_keepouts, self.clearance_poly = generate_boxDelivery_xml(N=self.cfg.boxes.num_boxes, env_type=self.cfg.env.obstacle_config, file_name=xml_file,
-                        ROBOT_clear=self.cfg.agent.robot_clear, CLEAR=self.cfg.boxes.clearance, goal_half=self.receptacle_half, goal_center=self.receptacle_position, Z_BOX=self.cfg.boxes.box_half_size, ARENA_X=(0.0, self.room_length), 
-                        ARENA_Y=(0.0, self.room_width), box_half_size=self.cfg.boxes.box_half_size, num_pillars=self.num_pillars, pillar_half=self.pillar_half, adjust_num_pillars=self.adjust_num_pillars, sim_timestep=self.cfg.env.sim_timestep, divider_thickness=self.divider_thickness, bumper_type=self.cfg.agent.type_of_bumper)
+                        ROBOT_clear=self.robot_radius, CLEAR=self.cfg.boxes.clearance, goal_half=self.receptacle_half, goal_center=self.receptacle_position, Z_BOX=self.cfg.boxes.box_half_size, ARENA_X=(0.0, self.room_length), 
+                        ARENA_Y=(0.0, self.room_width), box_half_size=self.cfg.boxes.box_half_size, num_pillars=self.num_pillars, pillar_half=self.pillar_half, adjust_num_pillars=self.adjust_num_pillars, sim_timestep=self.cfg.env.sim_timestep,
+                        divider_thickness=self.divider_thickness, bumper_type=self.cfg.agent.type_of_bumper, bumper_mass= self.cfg.agent.bumper_mass,
+                        wheels_on_boxes=self.wheels_on_boxes, wheels_mass=self.wheels_mass, wheels_support_mass=self.wheels_support_mass, wheels_sliding_friction=self.wheels_sliding_friction,
+                        wheels_torsional_friction=self.wheels_torsional_friction, wheels_rolling_friction=self.wheels_rolling_friction, wheels_support_damping_ratio=self.wheels_support_damping_ratio, box_mass=self.cfg.boxes.box_mass,
+                        box_sliding_friction= self.cfg.boxes.box_sliding_friction, box_torsional_friction= self.cfg.boxes.box_torsional_friction, box_rolling_friction= self.cfg.boxes.box_rolling_friction, 
+                        num_boxes_with_wheels=self.cfg.wheels_on_boxes.num_boxes_with_wheels, wheels_axle_damping_ratio=self.cfg.wheels_on_boxes.wheels_axle_damping_ratio, agent_type=self.cfg.agent.agent_type)
 
         utils.EzPickle.__init__(
             self,
@@ -210,10 +245,10 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
             self.action_space = spaces.Box(low=0, high=self.local_map_pixel_width * self.local_map_pixel_width, dtype=np.float32)
 
         # get robot body & joint addresses
-        self.base_body_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_BODY, "base")
+        self.base_body_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_BODY, self.robot_name_in_xml)
         joint_adr = self.model.body_jntadr[self.base_body_id]
         self.qpos_index_base = self.model.jnt_qposadr[joint_adr]
-        self.base_joint_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_JOINT, "base_joint")
+        self.base_joint_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_JOINT, self.joint_name_in_xml)
 
         # Box joint addresses
         joint_id_boxes=[]
@@ -325,8 +360,8 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
         robot_boxes = 0
         robot_reward = 0
 
-        robot_initial_position = get_body_pose_2d(self.model, self.data, 'base')[:2]
-        robot_initial_heading = quat_z_yaw(*self.data.qpos[self.qpos_index_base+3:self.qpos_index_base+7])
+        robot_initial_position = get_body_pose_2d(self.model, self.data, self.robot_name_in_xml)[:2]
+        robot_initial_heading = self.restrict_heading_range(quat_z_yaw(*self.data.qpos[self.qpos_index_base+3:self.qpos_index_base+7]))
 
         # TODO check if move_sign is necessary
         self.path, robot_move_sign = self.position_controller.get_waypoints_to_spatial_action(robot_initial_position, robot_initial_heading, action)
@@ -335,11 +370,8 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
         #     self.renderer.update_path(self.path)
         self.update_path(self.path)
 
-        robot_distance, robot_turn_angle = self.execute_robot_path(robot_initial_position, robot_initial_heading, robot_move_sign)
+        self.execute_robot_path(robot_initial_position, robot_initial_heading, robot_move_sign)
         
-        self._step_dx = robot_distance
-        self._step_dyaw = robot_turn_angle
-
         # check if episode is done
         terminated = False
         if len(self.joint_id_boxes) == 0:
@@ -348,17 +380,16 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
         self.inactivity_counter += 1
         truncated = False
         if self.inactivity_counter >= self.inactivity_cutoff:
-            # print('inactive')
             terminated = True
             truncated = True
 
         # items to return
         self.observation = self.generate_observation(done=terminated)
         reward = self._get_rew()
-        self.robot_cumulative_distance += robot_distance
+        self.robot_cumulative_distance += self.robot_distance
         self.robot_cumulative_boxes += self.num_completed_boxes_new
         self.robot_cumulative_reward += reward
-        ministeps = robot_distance / self.ministep_size
+        ministeps = self.robot_distance / self.ministep_size
         info = {
             'cumulative_distance': self.robot_cumulative_distance,
             'cumulative_boxes': self.robot_cumulative_boxes,
@@ -369,7 +400,7 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
         # render environment
         if self.cfg.render.show:
             self.show_observation = True
-            self.render()
+            self.render_env()
 
         return self.observation, reward, terminated, truncated, info
     
@@ -377,7 +408,7 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
         robot_position = robot_initial_position.copy()
         robot_heading = robot_initial_heading
         robot_is_moving = True
-        robot_distance = 0
+        self.robot_distance = 0
 
         robot_waypoint_index = 1
         robot_waypoint_positions = [(waypoint[0], waypoint[1]) for waypoint in self.path]
@@ -413,22 +444,21 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
             # change robot pose (use controller)
             v, w, _ = make_controller(robot_prev_position, robot_prev_heading, robot_waypoint_position)
             if not done_turning:
-                v=0
+                v = 0
             v_l, v_r = vw_to_wheels(v, w)
 
             # apply the control 'frame_skip' steps
             self.do_simulation([v_l, v_r], self.frame_skip)
 
             # get new robot pose
-            robot_position = get_body_pose_2d(self.model, self.data, 'base')[:2]
-            robot_heading = quat_z_yaw(*self.data.qpos[self.qpos_index_base+3:self.qpos_index_base+7])
+            robot_position = get_body_pose_2d(self.model, self.data, self.robot_name_in_xml)[:2]
+            robot_heading = self.restrict_heading_range(quat_z_yaw(*self.data.qpos[self.qpos_index_base+3:self.qpos_index_base+7]))
             prev_heading_diff = heading_diff
             
             # stop moving if robot collided with obstacle
             self.robot_hit_obstacle = self.robot_hits_static()
-            # if self.distance(robot_prev_waypoint_position, robot_position) > MOVE_STEP_SIZE:
-            if self.distance(robot_prev_position, robot_position) < MOVE_STEP_SIZE / 100:
-                if self.robot_hit_obstacle or done_turning:
+            if self.distance(robot_prev_waypoint_position, robot_position) > MOVE_STEP_SIZE:
+                if self.robot_hit_obstacle:
                     robot_is_moving = False
                     break   # Note: self.robot_distance does not get updated
 
@@ -437,7 +467,7 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
                     and np.abs(robot_heading - robot_waypoint_headings[robot_waypoint_index]) < WAYPOINT_TURNING_THRESHOLD):
 
                 # update distance moved
-                robot_distance += self.distance(robot_prev_waypoint_position, robot_position)
+                self.robot_distance += self.distance(robot_prev_waypoint_position, robot_position)
 
                 # increment waypoint index or stop moving if done
                 if robot_waypoint_index == len(robot_waypoint_positions) - 1:
@@ -460,8 +490,7 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
 
         robot_angle = quat_z_yaw(*self.data.qpos[self.qpos_index_base+3:self.qpos_index_base+7])
         robot_heading = self.restrict_heading_range(robot_angle)
-        robot_turn_angle = self.heading_difference(robot_initial_heading, robot_heading)
-        return robot_distance, robot_turn_angle
+        self.robot_turn_angle = self.heading_difference(robot_initial_heading, robot_heading)
 
     # Observation generation functions
 
@@ -472,10 +501,10 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
             return None
         
         # Getting the robot and boxes vertices
-        robot_properties, boxes_vertices=dynamic_vertices(self.model,self.data, self.qpos_index_base,self.joint_id_boxes, self.robot_dimen, self.cfg.boxes.box_half_size)
+        robot_properties, self.wheeled_boxes_vertices, self.non_wheeled_boxes_vertices =dynamic_vertices(self.model,self.data, self.qpos_index_base,self.joint_id_boxes, self.robot_dimen, self.cfg.boxes.box_half_size, self.names_boxes_without_wheels)
 
         # Update the global overhead map with the current robot and boundaries
-        self.update_global_overhead_map(robot_properties[1], boxes_vertices)
+        self.update_global_overhead_map(robot_properties[1])
 
         robot_postition = robot_properties[3]
         robot_angle = robot_properties[2]
@@ -624,7 +653,7 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
         # Converting the value as in 1 for obstacle and 0 for free space
         self.small_obstacle_map = 1 - small_obstacle_map
 
-    def update_global_overhead_map(self, robot_vertices, boxes_vertices):
+    def update_global_overhead_map(self, robot_vertices):
         """Updates the global overhead map with the current robot and boundaries."""
 
         # Makes a copy of immovable obstacles
@@ -653,9 +682,12 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
         # Draw the robot
         draw_object(robot_vertices, ROBOT_SEG_INDEX)
         
-        # Draw the boxes
-        for box_vertices in boxes_vertices:
-            draw_object(box_vertices[0], BOX_SEG_INDEX)
+        # Draw the wheeled and non-wheeled boxes
+        for box_vertices in self.wheeled_boxes_vertices:
+            draw_object(box_vertices[0], WHEELED_BOX_SEG_INDEX)
+
+        for box_vertices in self.non_wheeled_boxes_vertices:
+            draw_object(box_vertices[0], NON_WHEELED_BOX_SEG_INDEX)
 
         start_i, start_j = int(self.global_overhead_map.shape[0] / 2 - small_overhead_map.shape[0] / 2), int(self.global_overhead_map.shape[1] / 2 - small_overhead_map.shape[1] / 2)
         self.global_overhead_map[start_i:start_i + small_overhead_map.shape[0], start_j:start_j + small_overhead_map.shape[1]] = small_overhead_map
@@ -768,7 +800,7 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
         self.motion_dict, boxes_total_distance= self.update_motion_dict(self.motion_dict)
 
         if boxes_total_distance<-0.01 or 0.01<boxes_total_distance:
-            robot_reward += self.partial_rewards_scale * boxes_total_distance
+            robot_reward += self.partial_rewards_scale * boxes_total_distance / scale_factor
 
         # reward for boxes in receptacle
         self.joint_id_boxes, self.num_completed_boxes_new = transport_box_from_recept(self.model, self.data, self.joint_id_boxes, self.room_length,
@@ -782,7 +814,7 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
             robot_reward -= self.collision_penalty
         
         # penalty for small movements
-        if self._step_dx < NONMOVEMENT_DIST_THRESHOLD and self._step_dyaw < NONMOVEMENT_TURN_THRESHOLD:
+        if self.robot_distance < NONMOVEMENT_DIST_THRESHOLD and abs(self.robot_turn_angle) < NONMOVEMENT_TURN_THRESHOLD:
             robot_reward -= self.non_movement_penalty
         
         # self.robot_cumulative_reward += robot_reward
@@ -856,7 +888,7 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
 
         # robot base
         m_robot = self.model.body_mass[self.base_body_id]
-        cx, cy = get_body_pose_2d(self.model, self.data, 'base')[:2]
+        cx, cy = get_body_pose_2d(self.model, self.data, self.robot_name_in_xml)[:2]
         track[self.base_body_id] = [0.0, np.array([cx, cy], dtype=float), float(m_robot)]
 
         # boxes
@@ -880,7 +912,7 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
 
         # robot
         length, last_xy, mass = motion_dict[self.base_body_id]
-        cx, cy = get_body_pose_2d(self.model, self.data, 'base')[:2]
+        cx, cy = get_body_pose_2d(self.model, self.data, self.robot_name_in_xml)[:2]
         dist = np.linalg.norm(np.array([cx, cy]) - last_xy)
         motion_dict[self.base_body_id][0] += dist
         motion_dict[self.base_body_id][1][:] = (cx, cy)
@@ -914,8 +946,9 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
     # contacts
     def robot_hits_static(self) -> bool:
 
-        ROBOT_PREFIX    = "base"
-        STATIC_PREFIXES = ("wall", "small_col", "large_col", "divider", "corner")
+        ROBOT_PREFIX    = ("base","jackal")
+        STATIC_PREFIXES = ("wall", "small_col", "large_col", "large_divider", "corner")
+        SKIP_GEOMS = {"floor", "pillars_kept"}
 
         for k in range(self.data.ncon):
             c   = self.data.contact[k]
@@ -924,13 +957,13 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
             n1 = mujoco.mj_id2name(self.model, mujoco.mjtObj.mjOBJ_GEOM, g1)
             n2 = mujoco.mj_id2name(self.model, mujoco.mjtObj.mjOBJ_GEOM, g2)
 
-            # skip any unnamed geoms
-            if not n1 or not n2:
+            # skip any unnamed geoms or if no names
+            if not n1 or not n2 or n1 in SKIP_GEOMS or n2 in SKIP_GEOMS:
                 continue
 
             # check robot vs any static prefix
-            hit1 = ROBOT_PREFIX in n1.lower() and any(pref in n2.lower() for pref in STATIC_PREFIXES)
-            hit2 = ROBOT_PREFIX in n2.lower() and any(pref in n1.lower() for pref in STATIC_PREFIXES)
+            hit1 = any(pref in n1.lower() for pref in ROBOT_PREFIX) and any(pref in n2.lower() for pref in STATIC_PREFIXES)
+            hit2 = any(pref in n2.lower() for pref in ROBOT_PREFIX) and any(pref in n1.lower() for pref in STATIC_PREFIXES)
 
             if hit1 or hit2:
                 return True
@@ -986,20 +1019,24 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
             hz = 0.1
 
             # Divider X-centre and Y-centre
-            cx = -0.2 * self.room_length / 2
+            cx = 0.2 * self.room_length / 2
             # Left some clearance from corners
-            cy = self.random_state.uniform(-self.room_width/2 + 0.4, self.room_width/2 - 0.4)
+            cy = 0.0
 
             # Teleporting the divider body (joint) to the new pose
-            joint_name = "large_divider_joint"
-            j_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_JOINT,joint_name)
+
+            # FIXME: What happened to the joint_name variable?
+            j_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_JOINT,"large_divider_joint")
+
             if j_id < 0:
                 raise RuntimeError(f"Joint {joint_name} not found in model")
 
             adr = self.model.jnt_qposadr[j_id]
-            self.data.qpos[adr     : adr+3] = [cx, cy, hz]        # x, y, z
-            self.data.qpos[adr+3   : adr+7] = [1, 0, 0, 0]        # unit quat
-            self.data.qvel[adr     : adr+6] = 0                   # zero velocity
+            self.data.qpos[adr     : adr+3] = [cx, cy, hz]
+            self.data.qpos[adr+3   : adr+7] = [1, 0, 0, 0]
+            self.data.qvel[adr     : adr+6] = 0
+
+            corner_4_coordinates, corner_5_coordinates = large_divider_corner_vertices(cx, cy, hy, self.room_length/2)
 
             divider_poly = [
                 (cx - hx, cy - hy), (cx + hx, cy - hy),
@@ -1007,9 +1044,10 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
             ]
 
             # This is to ensure that that the robot/boxes do not come too close to the divider during initialization
-            self.initialization_keepouts = [divider_poly]
+            self.initialization_keepouts = [divider_poly, corner_4_coordinates, corner_5_coordinates]
 
-        def is_valid(pos, radius,positions):
+        def is_valid(pos, radius, positions):
+
             # unpack immediately
             x, y, _ = pos
 
@@ -1028,25 +1066,120 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
                 return False
 
             return True
+
+        def resolve_robot_box_overlaps(proposed_x_y, shift=0.6):
+
+            # geometry / margins
+            box_half = float(self.cfg.boxes.box_half_size)
+            r_box = float(np.hypot(box_half, box_half))
+
+            # extra margin to keep from robot
+            need_robot_box = self.robot_radius
+
+            # box–box spacing needed
+            box_margin = 0.0
+            need_box_box = 2 * box_half
+
+            # bounds
+            x_min = -self.room_length / 2 + 0.1
+            x_max =  self.room_length / 2 - 0.1
+            y_min = -self.room_width  / 2 + 0.1
+            y_max =  self.room_width  / 2 - 0.1
+
+            def in_bounds(x, y):
+                return (x_min <= x <= x_max) and (y_min <= y <= y_max)
+
+            # current robot center (x,y)
+            rx, ry = proposed_x_y
+
+            # collecting active box centers
+            active_boxes = []  # list of (idx, jid, x, y)
+            for i, jid in enumerate(getattr(self, "joint_id_boxes", [])):
+        
+                adr = int(self.model.jnt_qposadr[jid])
+                bx, by, bz = self.data.qpos[adr:adr+3]
+                active_boxes.append([i, jid, float(bx), float(by)])
+
+            # helper: validity of a proposed (x,y) for box i
+            def box_pose_ok(i, x, y, centers_xy):
+                
+                # keepouts / polygons
+                if intersects_keepout(x, y, self.initialization_keepouts):
+                    return False
+                if not inside_poly(x, y, self.clearance_poly):
+                    return False
+                # robot clearance
+                if np.hypot(x - rx, y - ry) < need_robot_box:
+                    return False
+                # other boxes
+                for (j_idx, _jid, ox, oy) in centers_xy:
+                    if j_idx == i:
+                        continue
+                    if np.hypot(x - ox, y - oy) < need_box_box:
+                        return False
+                return True
+
+            centers = [(i, jid, bx, by) for (i, jid, bx, by) in active_boxes]
+
+            # passing over boxes; if overlapping, trying to ±shift in X
+            for k, (i, jid, bx, by) in enumerate(list(centers)):
+
+                if np.hypot(bx - rx, by - ry) >= need_robot_box:
+                    continue
+
+                # candidate moves: +shift (right), -shift (left)
+                candidates = [(bx + shift, by), (bx - shift, by)]
+
+                # keeping those inside plane and valid wrt robot/boxes/keepouts
+                good = []
+                for (cx, cy) in candidates:
+                    if in_bounds(cx, cy) and box_pose_ok(i, cx, cy, centers):
+
+                        # score by distance to robot; prefer the farther one
+                        score = np.hypot(cx - rx, cy - ry)
+                        good.append((score, cx, cy))
+
+                if good:
+    
+                    _, nx, ny = max(good, key=lambda t: t[0])
+
+                    adr = int(self.model.jnt_qposadr[jid])
+                    self.data.qpos[adr:adr+2] = [nx, ny]           # keep z, quat as-is
+
+                    # updating local centers list so subsequent checks see the move
+                    centers[k] = (i, jid, nx, ny)
+                    return True
+                else:
+                    return False
+
         
         # Define bounds of the placement area (slightly inside the walls)
-        y_min, y_max = -self.room_width / 2 + 0.1, self.room_width / 2 - 0.1
-        x_min, x_max = -self.room_length / 2 + 0.1, self.room_length / 2 - 0.1
+        y_min_robot, y_max_robot = -self.room_width / 2 + self.edges_space_left_for_robot, self.room_width / 2 - self.edges_space_left_for_robot
+        x_min_robot, x_max_robot = -self.room_length / 2 + self.edges_space_left_for_robot, self.room_length / 2 - self.edges_space_left_for_robot
 
         # Sample robot pose
         while True:
-            x = np.random.uniform(x_min, x_max)
-            y = np.random.uniform(y_min, y_max)
+            x = np.random.uniform(x_min_robot, x_max_robot)
+            y = np.random.uniform(y_min_robot, y_max_robot)
             theta = np.random.uniform(-np.pi, np.pi)
-            if is_valid((x, y, theta), self.cfg.agent.robot_clear,positions):
-                positions.append(((x, y, theta), self.cfg.agent.robot_clear))
+            # x, y = -1, 0
+            # theta = 0
+            if is_valid((x, y, theta), self.robot_radius, positions):
+                proposed_x_y = (x, y)
+                positions.append(((x, y, theta), self.robot_radius))
                 break
+                if resolve_robot_box_overlaps(proposed_x_y, 1.0):
+                    positions.append(((x, y, theta), self.robot_radius))
+                    break
+                else:
+                    continue
+
 
         # Set robot pose
         base_qpos_addr = self.model.jnt_qposadr[self.base_joint_id]
-        self.data.qpos[base_qpos_addr:base_qpos_addr+3] = [x, y, 0.01]  # x, y, z
-        #self.data.qpos[base_qpos_addr:base_qpos_addr+3] = [x, y, 0.02]  # x, y, z
-        self.data.qpos[base_qpos_addr+3:base_qpos_addr+7] = quat_z(theta)
+        self.data.qpos[base_qpos_addr:base_qpos_addr+3] = [x, y, self.placement_height]  # x, y, z
+        if self.agent_type == "turtlebot_3":
+            self.data.qpos[base_qpos_addr+3:base_qpos_addr+7] = quat_z(theta)
 
         self.data.qvel[base_qpos_addr:base_qpos_addr+6] = 0
 
@@ -1058,30 +1191,42 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
         self.joint_id_boxes = joint_id_boxes
 
         # Assume box is square with radius from center to corner (diagonal/2)
-        box_r = np.sqrt(self.cfg.boxes.box_half_size ** 2 + self.cfg.boxes.box_half_size ** 2)
+        box_half_size = self.cfg.boxes.box_half_size
+        box_r = np.sqrt(box_half_size ** 2 + box_half_size ** 2)
+        
+        if self.wheels_on_boxes:
+            z = box_half_size+0.03
+        else:
+            z = box_half_size+0.005
+        
+        # Define bounds of the placement area (slightly inside the walls)
+        y_min, y_max = -self.room_width / 2 + 0.1, self.room_width / 2 - 0.1
+        x_min, x_max = -self.room_length / 2 + 0.1, self.room_length / 2 - 0.1
 
         for i in range(self.num_boxes):
             while True:
                 x = np.random.uniform(x_min, x_max)
                 y = np.random.uniform(y_min, y_max)
                 theta = np.random.uniform(-np.pi, np.pi)
-                if is_valid((x, y, theta), box_r,positions):
+                # x, y = i * .25, 0
+                # theta = 0
+                if is_valid((x, y, theta), box_r, positions):
                     positions.append(((x, y, theta), box_r))
                     break
             
             qadr = self.model.jnt_qposadr[self.joint_id_boxes[i]]
-            self.data.qpos[qadr:qadr+2] = np.array([x, y])
-            # self.data.qpos[qadr:qadr+3] = np.array([x, y,0.05])  # x, y, z
+            self.data.qpos[qadr:qadr+3] = np.array([x, y, z])
             self.data.qpos[qadr+3:qadr+7] = quat_z(theta)
             self.data.qvel[qadr:qadr+6] = 0
+        
+        # Update the simulation state
+        mujoco.mj_forward(self.model, self.data)
 
-        #self.motion_dict = init_motion_dict(self.model, self.data, self.base_body_id, self.joint_id_boxes)
-
-        self._prev_robot_xy = get_body_pose_2d(self.model, self.data, 'base')[:2]
-        self._prev_robot_heading = quat_z_yaw(*self.data.qpos[self.qpos_index_base+3:self.qpos_index_base+7])
+        self._prev_robot_xy = get_body_pose_2d(self.model, self.data, self.robot_name_in_xml)[:2]
+        self._prev_robot_heading = self.restrict_heading_range(quat_z_yaw(*self.data.qpos[self.qpos_index_base+3:self.qpos_index_base+7]))
 
         # get the robot and boxes vertices
-        robot_properties, boxes_vertices=dynamic_vertices(self.model,self.data, self.qpos_index_base,self.joint_id_boxes, self.robot_dimen, self.cfg.boxes.box_half_size)
+        robot_properties, self.wheeled_boxes_vertices, self.non_wheeled_boxes_vertices = dynamic_vertices(self.model, self.data, self.qpos_index_base, self.joint_id_boxes, self.robot_dimen, self.cfg.boxes.box_half_size, self.names_boxes_without_wheels)
 
         self.motion_dict = self.init_motion_dict()
 
@@ -1095,7 +1240,7 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
 
         # reset map
         self.global_overhead_map = self.create_padded_room_zeros()
-        self.update_global_overhead_map(robot_properties[1], boxes_vertices)
+        self.update_global_overhead_map(robot_properties[1])
 
         observation = self.generate_observation()
 

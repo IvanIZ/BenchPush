@@ -4,7 +4,7 @@ from pathlib import Path
 import os
 import random
 
-from benchnpin.common.utils.mujoco_utils import inside_poly, quat_z, quat_z_yaw, corners_xy
+from benchnpin.common.utils.mujoco_utils import inside_poly, quat_z, quat_z_yaw, corners_xy, generating_box_xml, generating_agent_xml
 
 def precompute_static_vertices(keep_out, wall_thickness, room_width, room_length, wall_clearence_outer, wall_clearence_inner, env_type):
     """
@@ -146,7 +146,7 @@ def changing_per_configuration(env_type: str,
     <body name="{name}" pos="{cx:.3f} {cy:.3f} {zh:.3f}">
       <joint name="{name}_joint" type="free"/>
       <geom name="{name}" type="box" size="{xh:.3f} {yh:.3f} {zh:.3f}" mass="{heavy_mass:.1f}" 
-      contype="1" conaffinity="1" rgba="0.647 0.165 0.165 0.4"/>
+      contype="1" conaffinity="1" rgba="0.33 0.39 0.46 0.4"/>
     </body>
 """
         Coordinates=[(cx-xh, cy-yh),(cx+xh, cy-yh),(cx+xh, cy+yh),(cx-xh, cy+yh)]
@@ -245,7 +245,7 @@ def generate_waypoint_sites(num_sites=50):
     )
     return "\n".join([site_template.format(i) for i in range(num_sites)])
 
-def build_xml(robot_qpos, boxes, stl_model_path, extra_xml, Z_BOX, box_size, ARENA_X1, ARENA_Y1, env_type, wall_clearence_outer, wall_clearence_inner, bumper_type, robot_rgb, sim_timestep):
+def build_xml(stl_model_path, extra_xml, ARENA_X1, ARENA_Y1, env_type, wall_clearence_outer, wall_clearence_inner, box_xml, agent_xml, actuator_xml, sim_timestep):
     """Building data for a different file"""
 
     if env_type == "Partially_closed_with_walls" or env_type == "Partially_closed_with_static": 
@@ -267,22 +267,6 @@ def build_xml(robot_qpos, boxes, stl_model_path, extra_xml, Z_BOX, box_size, ARE
     else:
         side_walls_code = ""
 
-
-    # Bumper type handling
-
-    if bumper_type == 'curved_inwards':
-      bumper_name= "TurtleBot3_Curved_Bumper"
-    
-    elif bumper_type == 'straight':
-        bumper_name = "TurtleBot3_Straight_Bumper"
-    
-    elif bumper_type == 'curved_outwards':
-        bumper_name = "TurtleBot3_Triangular_Bumper"
-    
-    else:
-        raise ValueError(f"Unknown bumper type: {bumper_type}. "
-                         f"Choose from 'curved_inwards', 'straight', 'curved_outwards'.")
-
     header = f"""
 <mujoco model="box_delivery_structured_env">
   <compiler angle="radian" autolimits="true" meshdir="{stl_model_path}" inertiafromgeom="true"/>
@@ -296,15 +280,31 @@ def build_xml(robot_qpos, boxes, stl_model_path, extra_xml, Z_BOX, box_size, ARE
   </default>
 
   <asset>
-    
+  
+    <texture type="skybox" builtin="gradient" width="512" height="512"/>
     <material name="blue_mat" rgba="0.4 0.3 0.2 1"/>
 
-    <mesh name="corner_full" file="corner_full.stl" scale="0.001 0.001 0.001"/>
     <mesh name="burger_base" file="burger_base.stl"scale="0.001 0.001 0.001"/>
     <mesh name="left_tire"   file="left_tire.stl"  scale="0.001 0.001 0.001"/>
     <mesh name="right_tire"  file="right_tire.stl" scale="0.001 0.001 0.001"/>
     <mesh name="lds"         file="lds.stl"        scale="0.001 0.001 0.001"/>
-    <mesh name="bumper"      file="{bumper_name}.STL" scale="0.001 0.001 0.001"/>
+
+    <mesh name="TurtleBot3_Straight_Bumper_base"      file="TurtleBot3_Straight_Bumper.STL"   scale="0.001 0.001 0.001"/>
+    <mesh name="TurtleBot3_Curved_Bumper_base"        file="TurtleBot3_Curved_Bumper.STL"     scale="0.001 0.001 0.001"/>
+    <mesh name="TurtleBot3_Triangular_Bumper_base"    file="TurtleBot3_Triangular_Bumper.STL" scale="0.001 0.001 0.001"/>
+
+    <mesh name="Wheels"      file="Box_wheels.stl"          scale="0.0001 0.0001 0.0001"/>
+    <mesh name="Wheels_support" file="Box_wheels_support.STL"  scale="0.0001 0.0001 0.0001"/>
+
+    <mesh name="jackal_base"         file="jackal-base.stl"    scale="1 1 1"/>
+    <mesh name="jackal_wheel"        file="jackal-wheel.stl"   scale="1 1 1"/>
+    <mesh name="jackal_fenders"      file="jackal-fenders.stl" scale="1 1 1"/>
+    <mesh name="antenna_bracket"     file="antenna_bracket.stl"scale="1 1 1"/>
+    <mesh name="Antenna"             file="Antenna.stl"        scale="0.001 0.001 0.001"/>
+    <mesh name="jackal_straight_bumper"       file="Jackal_straight_bumper.stl"      scale="0.001 0.001 0.001"/>
+    <mesh name="jackal_bumper_curved"         file="jackal_bumper_curved.stl"        scale="0.001 0.001 0.001"/>
+    <mesh name="jackal_bumper_curved_inwards" file="jackal_bumper_curved_inwards.stl"scale="0.001 0.001 0.001"/>
+
   </asset>
 
   <visual>
@@ -320,17 +320,13 @@ def build_xml(robot_qpos, boxes, stl_model_path, extra_xml, Z_BOX, box_size, ARE
     </body>
     
     <!-- Marked area -->
-    <site name="clearance_outline" 
-      pos="0 0 0.001" 
-      type="box"
-      size="{ARENA_X1 / 2} {ARENA_Y1 / 2} 0.01" 
-      rgba="0 1 0 1"/>
+    <body pos="0 0 0.001">
+      <geom name="clearance_outline" type="box" size="{ARENA_X1 / 2} {ARENA_Y1 / 2} 0.01" friction="0.5 0.05 0.0001" contype="1" conaffinity="1" rgba="0 1 0 1"/>
+    </body>
 
-    <site name="clearance_outline_2" 
-      pos="0 0 0.001" 
-      type="box"
-      size="{ARENA_X1 / 2 - 0.02} {ARENA_Y1 / 2 - 0.02} 0.012" 
-      rgba="1 1 1 1"/>
+    <body pos="0 0 0.001">
+      <geom name="clearance_outline_2" type="box" size="{ARENA_X1 / 2 - 0.02} {ARENA_Y1 / 2 - 0.02} 0.012" friction="0.5 0.05 0.0001" contype="1" conaffinity="1" rgba="1 1 1 1"/>
+    </body>
       
     <!-- X-walls: left and right sides -->
     <geom name="Wall_X1" type="box"
@@ -404,19 +400,16 @@ def build_xml(robot_qpos, boxes, stl_model_path, extra_xml, Z_BOX, box_size, ARE
     #Data to be written for footers
     footer = f"""
   </worldbody>
-
-  <!-- Actuator -->
-  <actuator>
-    <velocity name="wheel_left_actuator" ctrllimited="true" ctrlrange="-22.0 22.0" gear="1" kv="1.0" joint="wheel_left_joint" />
-    <velocity name="wheel_right_actuator" ctrllimited="true" ctrlrange="-22.0 22.0" gear="1" kv="1.0" joint="wheel_right_joint" />
-  </actuator>
-</mujoco>
 """
-    return header + box_xml + extra_xml + side_walls_code + footer
+    return header + agent_xml + box_xml + extra_xml + side_walls_code + footer + actuator_xml
 
 
 def generate_area_clearing_xml(N, env_type, file_name, ROBOT_clear, BOXES_clear, Z_BOX, ARENA_X, ARENA_Y,
-                  box_half_size, num_pillars, pillar_half, wall_clearence_outer, wall_clearence_inner, internal_clearance_length, robot_radius, bumper_type, sim_timestep):
+                  box_half_size, num_pillars, pillar_half, wall_clearence_outer, wall_clearence_inner, internal_clearance_length, 
+                  robot_radius, bumper_type, bumper_mass, sim_timestep, wheels_on_boxes,
+                  wheels_mass, wheels_support_mass, wheels_sliding_friction, wheels_torsional_friction, 
+                  wheels_rolling_friction, wheels_support_damping_ratio, box_mass, box_sliding_friction , 
+                  box_torsional_friction , box_rolling_friction, num_boxes_with_wheels, wheels_axle_damping_ratio, agent_type):
     
     # Name of input and output file otherwise set to default
     XML_OUT = Path(file_name)
@@ -427,9 +420,16 @@ def generate_area_clearing_xml(N, env_type, file_name, ROBOT_clear, BOXES_clear,
 
     # Finding the robot's q_pos and boxes's randomized data
     robot_qpos, boxes = sample_scene(N, keep_out, ROBOT_clear, BOXES_clear, ARENA_X, ARENA_Y, internal_clearance_length)
-  
+
+    # Generating xml code for boxes
+    box_xml = generating_box_xml(boxes, Z_BOX, wheels_on_boxes, wheels_mass, wheels_support_mass, wheels_sliding_friction, wheels_torsional_friction, wheels_rolling_friction, 
+        wheels_support_damping_ratio, box_mass, box_sliding_friction, box_torsional_friction, box_rolling_friction, box_half_size, num_boxes_with_wheels, wheels_axle_damping_ratio)
+
+    # robot xml code
+    agent_xml, actuator_xml = generating_agent_xml(agent_type, bumper_type, bumper_mass, robot_qpos)
+
     # Building new environemnt and writing it down
-    xml_string = build_xml(robot_qpos, boxes, stl_model_path, extra_xml, Z_BOX, box_half_size, ARENA_X[1], ARENA_Y[1], env_type, wall_clearence_outer, wall_clearence_inner, bumper_type, robot_rgb=(0.1, 0.1, 0.1), sim_timestep=sim_timestep)
+    xml_string = build_xml(stl_model_path, extra_xml, ARENA_X[1], ARENA_Y[1], env_type, wall_clearence_outer, wall_clearence_inner, box_xml, agent_xml, actuator_xml, sim_timestep)
     XML_OUT.write_text(xml_string)
     
     return XML_OUT, keep_out

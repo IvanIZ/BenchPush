@@ -79,7 +79,6 @@ def header_block(hfield, stl_model_path, sim_timestep, channel_len, channel_wid,
             f'<mesh name="ice_{i}_mesh" file="ice_floes/ice_{i}.stl" scale="1 1 1"/>'
         )
 
-    #DAMPING FOR YAW ANGLE HAS TO BE CHANGED
     header= dedent(f"""\
         <mujoco model="asv_with_ice_random">
           <compiler angle="degree" meshdir="{stl_model_path}" inertiafromgeom="true"/>
@@ -87,6 +86,7 @@ def header_block(hfield, stl_model_path, sim_timestep, channel_len, channel_wid,
 
           <!-- Global material presets -->
           <asset>
+            <texture type="skybox" builtin="gradient" width="512" height="512" rgb1="0.20 0.15 0.12"/>
             <mesh name="asv_mesh" file="cs_long.stl" scale="{STL_SCALE} {STL_SCALE} {STL_SCALE}"/>
             <mesh name="cs_long_bottom" file="cs_long_bottom.stl" scale="{STL_SCALE} {STL_SCALE} {STL_SCALE}"/>
             <mesh name="cs_long_top" file="cs_long_top.stl" scale="{STL_SCALE} {STL_SCALE} {STL_SCALE}"/>

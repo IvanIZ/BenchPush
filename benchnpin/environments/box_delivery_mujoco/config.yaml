@@ -1,11 +1,6 @@
 render:
   show: true # Also, in configure_box_delivery_mujoco.py, set render_mode to "human" to see the rendering else None
-  show_obs: true 
-
-boxes:
-  num_boxes: 10
-  clearance: 0.1
-  box_half_size: 0.04
+  show_obs: false
 
 train:
   train_mode: false
@@ -41,18 +36,40 @@ evaluate:
   
 ### ENVIRONMENT PARAMS
 env:
-  obstacle_config: large_divider # options are small_empty, small_columns, large_columns, large_divider
+  obstacle_config: small_empty # options are small_empty, small_columns, large_columns, large_divider
   room_length: 2.845
-  room_width_small: 1.4225
-  room_width_large: 1.4225
+  room_width_small: 1.575      # size of the test bed
+  room_width_large: 1.575
   shortest_path_channel_scale: 0.25
   local_map_pixel_width: 224
   local_map_pixel_width_sam: 96
   wall_thickness: 24.0 # Really high wall thickness to ensure nothing in vicinity of local maps
   invert_receptacle_map: false
-  receptacle_position: [1.2725, 0.56125]
+  receptacle_position: [1.2725, 0.6375]
   receptacle_half: 0.15
   sim_timestep: 0.01
+
+boxes:
+  num_boxes: 10
+  clearance: 0.1
+  box_half_size: 0.04
+  box_mass: 0.075 # mass(kg) for each box without wheels
+  box_sliding_friction: 0.4
+  box_torsional_friction: 0.015
+  box_rolling_friction: 0.002
+
+wheels_on_boxes:
+  # Upon adjusting parameters here all other physics parameters like moment of inertia etc are adjusted automatically
+  wheels_on_boxes: False # if true, the boxes would have wheels
+  num_boxes_with_wheels: 6    # this cannot be more than num_boxes (num_boxes_without_wheels= num_boxes - num_boxes_with_wheels)
+  wheels_half: 0.05           # half size of the wheel in terms of m
+  wheels_mass: 0.04           # mass in terms of kg for each wheel on the box
+  wheels_support_mass: 0.02   # mass in terms of kg for each wheel support on the box
+  wheels_sliding_friction: 0.8
+  wheels_torsional_friction: 0.01
+  wheels_rolling_friction: 0.002
+  wheels_axle_damping_ratio: 0.001 # damping ratio for the axle joint of the wheel
+  wheels_support_damping_ratio: 1.0
 
 small_pillars:
   num_pillars: 2
@@ -65,7 +82,7 @@ large_pillars:
   pillar_half: [0.14225, 0.14225, 0.20]
 
 large_divider:
-  divider_thickness: 0.1 # Full thickness of the divider wall not half-thickness
+  divider_thickness: 0.1  # Full thickness of the divider wall not half-thickness
 
 misc:
   ministep_size: 2.5
@@ -74,11 +91,16 @@ misc:
   random_seed: 42
 
 agent:
+  # Recommended values for the agent
+  # Turlebot 3: length=0.138, width=0.183, robot_clear=0.15
+  # Jackal: length=0.51, width=0.43, robot_clear=0.75
+  agent_type: 'turtlebot_3' # options are turtlebot_3 or jackal
   action_type: 'position' # options are velocity, heading, position
   length: 0.138
   width: 0.183
   robot_clear: 0.15
-  type_of_bumper: 'curved_inwards' # Choose from one of them: curved_inwards, straight, curved_outwards
+  type_of_bumper: 'straight'  # Choose from one of them: curved_inwards, straight, curved_outwards
+  bumper_mass: 0.1 # mass (kg) for the bumper so that can switch between different plastic materials
 
 rewards_sam:
   partial_rewards_scale: 0.2

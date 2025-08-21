@@ -10,7 +10,7 @@ from pathlib import Path
 import os
 import random
 
-from benchnpin.common.utils.mujoco_utils import inside_poly, quat_z, quat_z_yaw, corners_xy
+from benchnpin.common.utils.mujoco_utils import inside_poly, quat_z, quat_z_yaw, corners_xy, generating_box_xml
 
 
 def changing_per_configuration(maze_version, maze_width, maze_len):
@@ -119,7 +119,7 @@ def sample_scene(n_cubes, keep_out,ROBOT_R,CLEAR,ARENA_X,ARENA_Y, clearance_poly
     return robot_qpos, cubes
 
 
-def build_xml(robot_qpos, cubes, stl_model_path,extra_xml,Z_CUBE, cube_size, maze_width, maze_len, goal_half, goal_center,bumper_type ,robot_rgb=(0.3, 0.3, 0.3)):
+def build_xml(robot_qpos, stl_model_path, extra_xml, maze_width, maze_len, goal_half, goal_center, bumper_type, box_xml, robot_rgb=(0.3, 0.3, 0.3)):
     """Building data for a different file"""
 
     # Bumper type handling
@@ -162,6 +162,8 @@ def build_xml(robot_qpos, cubes, stl_model_path,extra_xml,Z_CUBE, cube_size, maz
     <mesh name="right_tire"  file="right_tire.stl" scale="0.001 0.001 0.001"/>
     <mesh name="lds"         file="lds.stl"        scale="0.001 0.001 0.001"/>
     <mesh name="bumper"      file="{bumper_name}.STL" scale="0.001 0.001 0.001"/>
+    <mesh name="Wheels"      file="Box_wheels.stl"    scale="0.0001 0.0001 0.0001"/>
+    <mesh name="Wheels_support" file="Box_wheels_support.STL"  scale="0.0001 0.0001 0.0001"/>
   </asset>
 
   <visual>
@@ -242,17 +244,6 @@ def build_xml(robot_qpos, cubes, stl_model_path,extra_xml,Z_CUBE, cube_size, maz
     </body>
       
 """
-    
-    #Data to be written for cubes
-    cube_xml = ""
-    for i, (x, y, th) in enumerate(cubes):
-        qw, qx, qy, qz = quat_z(th)
-        cube_xml += f"""
-    <body name="cube{i}" pos="{x:.4f} {y:.4f} {Z_CUBE:.3f}">
-      <joint name="cube{i}_joint" type="free" />
-      <geom type="box" size="{cube_size}" material="blue_mat" mass="0.075"
-            quat="{qw:.6f} {qx:.6f} {qy:.6f} {qz:.6f}" friction="0.4 0.015 0.002"/>
-    </body>"""
 
         
     #Data to be written for footers
@@ -266,11 +257,14 @@ def build_xml(robot_qpos, cubes, stl_model_path,extra_xml,Z_CUBE, cube_size, maz
   </actuator>
 </mujoco>
 """
-    return header + cube_xml + extra_xml + footer
+    return header + box_xml + extra_xml + footer
 
 
 def generate_maze_xml(N, maze_version, file_name,ROBOT_R,CLEAR,Z_CUBE,ARENA_X,ARENA_Y,
-                  cube_half_size, clearance_poly, goal_half, goal_center, bumper_type):
+                  cube_half_size, clearance_poly, goal_half, goal_center, bumper_type, wheels_on_boxes,
+                  wheels_mass, wheels_support_mass, wheels_sliding_friction, wheels_torsional_friction, 
+                  wheels_rolling_friction, wheels_support_damping_ratio, box_mass, box_sliding_friction , 
+                  box_torsional_friction, box_rolling_friction, num_boxes_with_wheels, wheels_axle_damping_ratio):
     
     #Name of input and output file otherwise set to default
     XML_OUT = Path(file_name)
@@ -283,10 +277,14 @@ def generate_maze_xml(N, maze_version, file_name,ROBOT_R,CLEAR,Z_CUBE,ARENA_X,AR
     extra_xml, keep_out = changing_per_configuration(maze_version, ARENA_X[1], ARENA_Y[1])
     
     # Finding the robot's q_pos and cubes's randomized data
-    robot_qpos, cubes = sample_scene(N, keep_out, ROBOT_R,CLEAR,ARENA_X,ARENA_Y, clearance_poly)
+    robot_qpos, boxes = sample_scene(N, keep_out, ROBOT_R,CLEAR,ARENA_X,ARENA_Y, clearance_poly)
+
+    # Generating xml code for boxes
+    box_xml = generating_box_xml(boxes, Z_CUBE, wheels_on_boxes, wheels_mass, wheels_support_mass, wheels_sliding_friction, wheels_torsional_friction, wheels_rolling_friction, 
+        wheels_support_damping_ratio, box_mass, box_sliding_friction, box_torsional_friction, box_rolling_friction, cube_half_size, num_boxes_with_wheels, wheels_axle_damping_ratio)
   
-    # Building new environemnt and writing it down
-    xml_string = build_xml(robot_qpos, cubes,stl_model_path,extra_xml,Z_CUBE, cube_size, ARENA_X[1], ARENA_Y[1], goal_half, goal_center, bumper_type, robot_rgb=(0.1, 0.1, 0.1))
+    # Building new environment and writing it down
+    xml_string = build_xml(robot_qpos, stl_model_path, extra_xml, ARENA_X[1], ARENA_Y[1], goal_half, goal_center, bumper_type, box_xml, robot_rgb=(0.1, 0.1, 0.1))
     XML_OUT.write_text(xml_string)
 
     maze_width = ARENA_X[1]

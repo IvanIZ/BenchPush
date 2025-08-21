@@ -1,0 +1,555 @@
+
+<mujoco model="box_delivery_structured_env">
+  <compiler angle="radian" autolimits="true" meshdir="/Users/rishibhatnagar/BenchNPIN/benchnpin/environments/area_clearing_mujoco/models/" inertiafromgeom="true"/>
+
+  <option integrator="implicitfast" gravity="0 0 -9.81"
+          timestep="0.01" iterations="20" viscosity="1.5"/>
+
+  <default>
+    <joint limited="false" armature="0.01"/>
+    <equality solref="0.0002 1" solimp="0.99 0.99 0.0001"/>
+  </default>
+
+  <asset>
+  
+    <texture type="skybox" builtin="gradient" width="512" height="512"/>
+    <material name="blue_mat" rgba="0.4 0.3 0.2 1"/>
+
+    <mesh name="corner_full" file="corner_full.stl" scale="0.001 0.001 0.001"/>
+    <mesh name="burger_base" file="burger_base.stl"scale="0.001 0.001 0.001"/>
+    <mesh name="left_tire"   file="left_tire.stl"  scale="0.001 0.001 0.001"/>
+    <mesh name="right_tire"  file="right_tire.stl" scale="0.001 0.001 0.001"/>
+    <mesh name="lds"         file="lds.stl"        scale="0.001 0.001 0.001"/>
+
+    <mesh name="TurtleBot3_Straight_Bumper"      file="TurtleBot3_Straight_Bumper.STL"   scale="0.001 0.001 0.001"/>
+    <mesh name="TurtleBot3_Curved_Bumper"        file="TurtleBot3_Curved_Bumper.STL"     scale="0.001 0.001 0.001"/>
+    <mesh name="TurtleBot3_Triangular_Bumper"    file="TurtleBot3_Triangular_Bumper.STL" scale="0.001 0.001 0.001"/>
+
+    <mesh name="Wheels"      file="Box_wheels.stl"          scale="0.0001 0.0001 0.0001"/>
+    <mesh name="Wheels_support" file="Box_wheels_support.STL"  scale="0.0001 0.0001 0.0001"/>
+
+    <mesh name="jackal_base"         file="jackal-base.stl"    scale="1 1 1"/>
+    <mesh name="jackal_wheel"        file="jackal-wheel.stl"   scale="1 1 1"/>
+    <mesh name="jackal_fenders"      file="jackal-fenders.stl" scale="1 1 1"/>
+    <mesh name="antenna_bracket"     file="antenna_bracket.stl"scale="1 1 1"/>
+    <mesh name="Antenna"             file="Antenna.stl"        scale="0.001 0.001 0.001"/>
+    <mesh name="jackal_straight_bumper"       file="Jackal_straight_bumper.stl"      scale="0.001 0.001 0.001"/>
+    <mesh name="jackal_bumper_curved"         file="jackal_bumper_curved.stl"        scale="0.001 0.001 0.001"/>
+    <mesh name="jackal_bumper_curved_inwards" file="jackal_bumper_curved_inwards.stl"scale="0.001 0.001 0.001"/>
+
+  </asset>
+
+  <visual>
+    <quality shadowsize="4096"/>
+    <headlight ambient="1 1 1" diffuse="1 1 1" specular="0.1 0.1 0.1"/>
+  </visual>
+
+  <worldbody>
+  
+    <!-- Floor -->
+    <body pos="0 0 0">
+      <geom name="floor" type="box" size="2.75 2.75 0.01" friction="0.5 0.05 0.0001" contype="1" conaffinity="1"/>
+    </body>
+    
+    <!-- Marked area -->
+    <body pos="0 0 0.001">
+      <geom name="clearance_outline" type="box" size="2.25 2.25 0.01" friction="0.5 0.05 0.0001" contype="1" conaffinity="1" rgba="0 1 0 1"/>
+    </body>
+
+    <body pos="0 0 0.001">
+      <geom name="clearance_outline_2" type="box" size="2.23 2.23 0.012" friction="0.5 0.05 0.0001" contype="1" conaffinity="1" rgba="1 1 1 1"/>
+    </body>
+      
+    <!-- X-walls: left and right sides -->
+    <geom name="Wall_X1" type="box"
+      pos="-2.625 0 0.15"
+      size="0.125 2.75 0.15"
+      rgba="0.2 0.2 0.2 0.6" contype="1" conaffinity="1"
+      friction="0.45 0.01 0.003"/>
+
+    <geom name="Wall_X2" type="box"
+      pos="2.625 0 0.15"
+      size="0.125 2.75 0.15"
+      rgba="0.2 0.2 0.2 0.6" contype="1" conaffinity="1"
+      friction="0.45 0.01 0.003"/>
+
+    <!-- Y-walls: bottom and top -->
+    <geom name="Wall_Y1" type="box"
+      pos="0 -2.625 0.15"
+      size="2.5 0.125 0.15"
+      rgba="0.2 0.2 0.2 0.6" contype="1" conaffinity="1"
+      friction="0.45 0.01 0.003"/>
+
+    <geom name="Wall_Y2" type="box"
+      pos="0 2.625 0.15"
+      size="2.5 0.125 0.15"
+      rgba="0.2 0.2 0.2 0.6" contype="1" conaffinity="1"
+      friction="0.45 0.01 0.003"/>
+   <!-- Jackal robot -->
+
+    <!-- robot -->
+    <body name="jackal_base" pos="1.6761 2.1081 0.015" euler="0 1.5707963267948966 1.5707963267948966">
+    
+      <joint type="free" name="base_joint_jackal"/>
+      
+      <!-- chassis -->
+      <geom name="jackal_base" pos="0 0 0" type="mesh" rgba="0.08 0.08 0.09 1" mesh="jackal_base" friction="0.1 0.02 0.0001" contype="1" conaffinity="1" mass="14.0"/>
+      
+      <!-- Fender -->
+      <geom name="jackal_fenders" pos="0 0 0" type="mesh" rgba="0.702 0.467 0.090 1" mesh="jackal_fenders" mass="0.5" contype="1" conaffinity="1" friction="0.1 0.02 0.0001"/>
+      
+      <!-- Antenna bracket -->
+      <geom name="antenna_bracket" pos="0 0.272 0.19" type="mesh" rgba="0.702 0.467 0.090 1" mesh="antenna_bracket" mass="0.2" contype="1" conaffinity="1" euler="-1.5707963267948966 0 1.5707963267948966"/>
+      
+      <!-- Antenna 1 -->
+      <geom name="Antenna_1" pos="0.05 0.265 0.190" type="mesh" rgba="0.1 0.1 0.1 1" mesh="Antenna" mass="0.13" contype="1" conaffinity="1" euler="0.8 1.5707963267948966 0"/>
+      
+      <!-- Antenna 2 -->
+      <geom name="Antenna_2" pos="-0.07 0.265 0.190" type="mesh" rgba="0.1 0.1 0.1 1" mesh="Antenna" mass="0.13" contype="1" conaffinity="1" euler="0.8 1.5707963267948966 0"/>
+      
+      <!-- Bumper -->
+      <geom name="jackal_straight_bumper" pos="-0.2075 0.025 -0.252" type="mesh" rgba="0.3 0.13 0.08 1" mesh="jackal_straight_bumper" mass="0.1" contype="1" conaffinity="1" euler="-1.5707963267948966 0.0 -1.5707963267948966"/>
+      
+      <!-- Left wheel front -->
+      <body name="wheel_left_front" pos="-0.19 0.1 -0.13" euler="0 1.5707963267948966 1.5707963267948966">
+        
+        <site name="wheel_1" pos="0 0 0" size="0.02" type="sphere"/>
+        
+        <joint name="wheel_left_jackal" axis="0 0 -1"/>
+        <geom type="mesh" rgba="0.1 0.1 0.1 1" mesh="jackal_wheel" friction="1.2 0.01 0.001" mass="0.5"/>
+      </body>
+      
+      <!-- Left wheel back -->
+      <body name="wheel_left_back" pos="-0.19 0.1 0.13" euler="0 1.5707963267948966 1.5707963267948966">
+        
+        <site name="wheel_2" pos="0 0 0" size="0.02" type="sphere"/>
+        <joint name="wheel_left_jackal_back" axis="0 0 -1"/>
+        <geom type="mesh" rgba="0.1 0.1 0.1 1" mesh="jackal_wheel" friction="1.2 0.01 0.001" mass="0.5"/>
+      </body>
+      
+      <!-- Right wheel front -->
+      <body name="wheel_right_front" pos="0.19 0.1 -0.13" euler="0 1.5707963267948966 1.5707963267948966">
+        
+        <site name="wheel_3" pos="0 0 0" size="0.02" type="sphere"/>
+        <joint name="wheel_right_jackal" axis="0 0 -1"/>
+        <geom type="mesh" rgba="0.1 0.1 0.1 1" mesh="jackal_wheel" friction="1.2 0.01 0.001" mass="0.5"/>
+        
+      </body>
+      
+      <!-- Right wheel back -->
+      <body name="wheel_right_back" pos="0.19 0.1 0.13" euler="0 1.5707963267948966 1.5707963267948966">
+        
+        <site name="wheel_4" pos="0 0 0" size="0.02" type="sphere"/>
+        <joint name="wheel_right_jackal_back" axis="0 0 -1"/>
+        <geom type="mesh" rgba="0.1 0.1 0.1 1" mesh="jackal_wheel" friction="1.2 0.01 0.001" mass="0.5"/>
+        
+      </body>
+      
+    </body> <!-- Boxes -->
+
+    <body name="box0" pos="2.3631 3.8470 0.045">
+      <joint name="box0_joint" type="free" />
+      <geom type="box" size="0.04 0.04 0.04" material="blue_mat" mass="0.07"
+            quat="-0.540680 0.000000 0.000000 0.841228" friction="0.40 0.01 0.00" contype="1" conaffinity="1"/>
+    </body>
+    <body name="box1" pos="3.7742 2.1272 0.050">
+      <joint name="box1_joint" type="free" />
+      <geom type="box" size="0.04 0.04 0.04" material="blue_mat" mass="0.07"
+            quat="0.610474 0.000000 0.000000 0.792037" friction="0.40 0.01 0.00" contype="1" conaffinity="1"/>
+    </body>
+    <body name="box2" pos="0.3736 0.9588 0.055">
+      <joint name="box2_joint" type="free" />
+      <geom type="box" size="0.04 0.04 0.04" material="blue_mat" mass="0.07"
+            quat="-0.080696 0.000000 0.000000 0.996739" friction="0.40 0.01 0.00" contype="1" conaffinity="1"/>
+    </body>
+    <body name="box3" pos="4.2485 2.5451 0.060">
+      <joint name="box3_joint" type="free" />
+      <geom type="box" size="0.04 0.04 0.04" material="blue_mat" mass="0.07"
+            quat="-0.422909 0.000000 0.000000 0.906172" friction="0.40 0.01 0.00" contype="1" conaffinity="1"/>
+    </body>
+    <body name="box4" pos="1.4502 0.7444 0.090">
+      <joint name="box4_joint" type="free" />
+      <geom type="box" size="0.04 0.04 0.04" rgba="0.36 0.20 0.09 1" mass="0.07"
+            quat="-0.999082 0.000000 0.000000 0.042843"
+            friction="0.40 0.01 0.00"
+            contype="1" conaffinity="1"/>
+      <body name="Wheels assembly_4_1" pos="-0.035 -0.03 -0.0530">
+      
+        <joint name="Wheel_support_rotation_4_1" type="hinge" axis="0 0 1" damping="1.0"/>
+        <geom  name="Wheel_support_4_1" type="mesh" mesh="Wheels_support" rgba="0.3 0.13 0.08 1"
+               contype="1" conaffinity="1" euler="1.5708 0 0" pos="-0.008 0.0093 0" mass="0.02"/>
+        
+        <body name="Wheels_actual_4_1" pos="0.0 -0.0012 0.0038">
+          <joint name="Wheels_actual_joint_4_1" type="hinge" axis="1 0 0" damping="0.001"/>
+          <geom  name="Wheel_4_1" type="mesh" mesh="Wheels" rgba="0.1 0.1 0.1 1"
+                 contype="1" conaffinity="1" pos="-0.0016 -0.007 -0.007"
+                 friction="0.85 0.02 0.00"
+                 mass="0.04"/>
+        </body>
+      </body>
+      <body name="Wheels assembly_4_2" pos="-0.029 0.03 -0.0530">
+      
+        <joint name="Wheel_support_rotation_4_2" type="hinge" axis="0 0 1" damping="1.0"/>
+        <geom  name="Wheel_support_4_2" type="mesh" mesh="Wheels_support" rgba="0.3 0.13 0.08 1"
+               contype="1" conaffinity="1" euler="1.5708 0 0" pos="-0.008 0.0093 0" mass="0.02"/>
+        
+        <body name="Wheels_actual_4_2" pos="0.0 -0.0012 0.0038">
+          <joint name="Wheels_actual_joint_4_2" type="hinge" axis="1 0 0" damping="0.001"/>
+          <geom  name="Wheel_4_2" type="mesh" mesh="Wheels" rgba="0.1 0.1 0.1 1"
+                 contype="1" conaffinity="1" pos="-0.0016 -0.007 -0.007"
+                 friction="0.85 0.02 0.00"
+                 mass="0.04"/>
+        </body>
+      </body>
+      <body name="Wheels assembly_4_3" pos="0.035 0.03 -0.0530">
+      
+        <joint name="Wheel_support_rotation_4_3" type="hinge" axis="0 0 1" damping="1.0"/>
+        <geom  name="Wheel_support_4_3" type="mesh" mesh="Wheels_support" rgba="0.3 0.13 0.08 1"
+               contype="1" conaffinity="1" euler="1.5708 0 0" pos="-0.008 0.0093 0" mass="0.02"/>
+        
+        <body name="Wheels_actual_4_3" pos="0.0 -0.0012 0.0038">
+          <joint name="Wheels_actual_joint_4_3" type="hinge" axis="1 0 0" damping="0.001"/>
+          <geom  name="Wheel_4_3" type="mesh" mesh="Wheels" rgba="0.1 0.1 0.1 1"
+                 contype="1" conaffinity="1" pos="-0.0016 -0.007 -0.007"
+                 friction="0.85 0.02 0.00"
+                 mass="0.04"/>
+        </body>
+      </body>
+      <body name="Wheels assembly_4_4" pos="0.029 -0.03 -0.0530">
+      
+        <joint name="Wheel_support_rotation_4_4" type="hinge" axis="0 0 1" damping="1.0"/>
+        <geom  name="Wheel_support_4_4" type="mesh" mesh="Wheels_support" rgba="0.3 0.13 0.08 1"
+               contype="1" conaffinity="1" euler="1.5708 0 0" pos="-0.008 0.0093 0" mass="0.02"/>
+        
+        <body name="Wheels_actual_4_4" pos="0.0 -0.0012 0.0038">
+          <joint name="Wheels_actual_joint_4_4" type="hinge" axis="1 0 0" damping="0.001"/>
+          <geom  name="Wheel_4_4" type="mesh" mesh="Wheels" rgba="0.1 0.1 0.1 1"
+                 contype="1" conaffinity="1" pos="-0.0016 -0.007 -0.007"
+                 friction="0.85 0.02 0.00"
+                 mass="0.04"/>
+        </body>
+      </body>
+    </body>
+    <body name="box5" pos="2.6501 2.5596 0.090">
+      <joint name="box5_joint" type="free" />
+      <geom type="box" size="0.04 0.04 0.04" rgba="0.36 0.20 0.09 1" mass="0.07"
+            quat="0.783628 0.000000 0.000000 0.621230"
+            friction="0.40 0.01 0.00"
+            contype="1" conaffinity="1"/>
+      <body name="Wheels assembly_5_1" pos="0.024 -0.04 -0.0530">
+      
+        <joint name="Wheel_support_rotation_5_1" type="hinge" axis="0 0 1" damping="1.0"/>
+        <geom  name="Wheel_support_5_1" type="mesh" mesh="Wheels_support" rgba="0.3 0.13 0.08 1"
+               contype="1" conaffinity="1" euler="1.5708 0 0" pos="-0.008 0.0093 0" mass="0.02"/>
+        
+        <body name="Wheels_actual_5_1" pos="0.0 -0.0012 0.0038">
+          <joint name="Wheels_actual_joint_5_1" type="hinge" axis="1 0 0" damping="0.001"/>
+          <geom  name="Wheel_5_1" type="mesh" mesh="Wheels" rgba="0.1 0.1 0.1 1"
+                 contype="1" conaffinity="1" pos="-0.0016 -0.007 -0.007"
+                 friction="0.85 0.02 0.00"
+                 mass="0.04"/>
+        </body>
+      </body>
+      <body name="Wheels assembly_5_2" pos="-0.038 -0.02 -0.0530">
+      
+        <joint name="Wheel_support_rotation_5_2" type="hinge" axis="0 0 1" damping="1.0"/>
+        <geom  name="Wheel_support_5_2" type="mesh" mesh="Wheels_support" rgba="0.3 0.13 0.08 1"
+               contype="1" conaffinity="1" euler="1.5708 0 0" pos="-0.008 0.0093 0" mass="0.02"/>
+        
+        <body name="Wheels_actual_5_2" pos="0.0 -0.0012 0.0038">
+          <joint name="Wheels_actual_joint_5_2" type="hinge" axis="1 0 0" damping="0.001"/>
+          <geom  name="Wheel_5_2" type="mesh" mesh="Wheels" rgba="0.1 0.1 0.1 1"
+                 contype="1" conaffinity="1" pos="-0.0016 -0.007 -0.007"
+                 friction="0.85 0.02 0.00"
+                 mass="0.04"/>
+        </body>
+      </body>
+      <body name="Wheels assembly_5_3" pos="-0.024 0.04 -0.0530">
+      
+        <joint name="Wheel_support_rotation_5_3" type="hinge" axis="0 0 1" damping="1.0"/>
+        <geom  name="Wheel_support_5_3" type="mesh" mesh="Wheels_support" rgba="0.3 0.13 0.08 1"
+               contype="1" conaffinity="1" euler="1.5708 0 0" pos="-0.008 0.0093 0" mass="0.02"/>
+        
+        <body name="Wheels_actual_5_3" pos="0.0 -0.0012 0.0038">
+          <joint name="Wheels_actual_joint_5_3" type="hinge" axis="1 0 0" damping="0.001"/>
+          <geom  name="Wheel_5_3" type="mesh" mesh="Wheels" rgba="0.1 0.1 0.1 1"
+                 contype="1" conaffinity="1" pos="-0.0016 -0.007 -0.007"
+                 friction="0.85 0.02 0.00"
+                 mass="0.04"/>
+        </body>
+      </body>
+      <body name="Wheels assembly_5_4" pos="0.038 0.02 -0.0530">
+      
+        <joint name="Wheel_support_rotation_5_4" type="hinge" axis="0 0 1" damping="1.0"/>
+        <geom  name="Wheel_support_5_4" type="mesh" mesh="Wheels_support" rgba="0.3 0.13 0.08 1"
+               contype="1" conaffinity="1" euler="1.5708 0 0" pos="-0.008 0.0093 0" mass="0.02"/>
+        
+        <body name="Wheels_actual_5_4" pos="0.0 -0.0012 0.0038">
+          <joint name="Wheels_actual_joint_5_4" type="hinge" axis="1 0 0" damping="0.001"/>
+          <geom  name="Wheel_5_4" type="mesh" mesh="Wheels" rgba="0.1 0.1 0.1 1"
+                 contype="1" conaffinity="1" pos="-0.0016 -0.007 -0.007"
+                 friction="0.85 0.02 0.00"
+                 mass="0.04"/>
+        </body>
+      </body>
+    </body>
+    <body name="box6" pos="0.2164 1.2145 0.090">
+      <joint name="box6_joint" type="free" />
+      <geom type="box" size="0.04 0.04 0.04" rgba="0.36 0.20 0.09 1" mass="0.07"
+            quat="0.966879 0.000000 0.000000 0.255234"
+            friction="0.40 0.01 0.00"
+            contype="1" conaffinity="1"/>
+      <body name="Wheels assembly_6_1" pos="-0.012 -0.04 -0.0530">
+      
+        <joint name="Wheel_support_rotation_6_1" type="hinge" axis="0 0 1" damping="1.0"/>
+        <geom  name="Wheel_support_6_1" type="mesh" mesh="Wheels_support" rgba="0.3 0.13 0.08 1"
+               contype="1" conaffinity="1" euler="1.5708 0 0" pos="-0.008 0.0093 0" mass="0.02"/>
+        
+        <body name="Wheels_actual_6_1" pos="0.0 -0.0012 0.0038">
+          <joint name="Wheels_actual_joint_6_1" type="hinge" axis="1 0 0" damping="0.001"/>
+          <geom  name="Wheel_6_1" type="mesh" mesh="Wheels" rgba="0.1 0.1 0.1 1"
+                 contype="1" conaffinity="1" pos="-0.0016 -0.007 -0.007"
+                 friction="0.85 0.02 0.00"
+                 mass="0.04"/>
+        </body>
+      </body>
+      <body name="Wheels assembly_6_2" pos="-0.044 0.01 -0.0530">
+      
+        <joint name="Wheel_support_rotation_6_2" type="hinge" axis="0 0 1" damping="1.0"/>
+        <geom  name="Wheel_support_6_2" type="mesh" mesh="Wheels_support" rgba="0.3 0.13 0.08 1"
+               contype="1" conaffinity="1" euler="1.5708 0 0" pos="-0.008 0.0093 0" mass="0.02"/>
+        
+        <body name="Wheels_actual_6_2" pos="0.0 -0.0012 0.0038">
+          <joint name="Wheels_actual_joint_6_2" type="hinge" axis="1 0 0" damping="0.001"/>
+          <geom  name="Wheel_6_2" type="mesh" mesh="Wheels" rgba="0.1 0.1 0.1 1"
+                 contype="1" conaffinity="1" pos="-0.0016 -0.007 -0.007"
+                 friction="0.85 0.02 0.00"
+                 mass="0.04"/>
+        </body>
+      </body>
+      <body name="Wheels assembly_6_3" pos="0.012 0.04 -0.0530">
+      
+        <joint name="Wheel_support_rotation_6_3" type="hinge" axis="0 0 1" damping="1.0"/>
+        <geom  name="Wheel_support_6_3" type="mesh" mesh="Wheels_support" rgba="0.3 0.13 0.08 1"
+               contype="1" conaffinity="1" euler="1.5708 0 0" pos="-0.008 0.0093 0" mass="0.02"/>
+        
+        <body name="Wheels_actual_6_3" pos="0.0 -0.0012 0.0038">
+          <joint name="Wheels_actual_joint_6_3" type="hinge" axis="1 0 0" damping="0.001"/>
+          <geom  name="Wheel_6_3" type="mesh" mesh="Wheels" rgba="0.1 0.1 0.1 1"
+                 contype="1" conaffinity="1" pos="-0.0016 -0.007 -0.007"
+                 friction="0.85 0.02 0.00"
+                 mass="0.04"/>
+        </body>
+      </body>
+      <body name="Wheels assembly_6_4" pos="0.044 -0.01 -0.0530">
+      
+        <joint name="Wheel_support_rotation_6_4" type="hinge" axis="0 0 1" damping="1.0"/>
+        <geom  name="Wheel_support_6_4" type="mesh" mesh="Wheels_support" rgba="0.3 0.13 0.08 1"
+               contype="1" conaffinity="1" euler="1.5708 0 0" pos="-0.008 0.0093 0" mass="0.02"/>
+        
+        <body name="Wheels_actual_6_4" pos="0.0 -0.0012 0.0038">
+          <joint name="Wheels_actual_joint_6_4" type="hinge" axis="1 0 0" damping="0.001"/>
+          <geom  name="Wheel_6_4" type="mesh" mesh="Wheels" rgba="0.1 0.1 0.1 1"
+                 contype="1" conaffinity="1" pos="-0.0016 -0.007 -0.007"
+                 friction="0.85 0.02 0.00"
+                 mass="0.04"/>
+        </body>
+      </body>
+    </body>
+    <body name="box7" pos="3.8791 0.9928 0.090">
+      <joint name="box7_joint" type="free" />
+      <geom type="box" size="0.04 0.04 0.04" rgba="0.36 0.20 0.09 1" mass="0.07"
+            quat="0.999805 0.000000 0.000000 0.019764"
+            friction="0.40 0.01 0.00"
+            contype="1" conaffinity="1"/>
+      <body name="Wheels assembly_7_1" pos="-0.031 -0.03 -0.0530">
+      
+        <joint name="Wheel_support_rotation_7_1" type="hinge" axis="0 0 1" damping="1.0"/>
+        <geom  name="Wheel_support_7_1" type="mesh" mesh="Wheels_support" rgba="0.3 0.13 0.08 1"
+               contype="1" conaffinity="1" euler="1.5708 0 0" pos="-0.008 0.0093 0" mass="0.02"/>
+        
+        <body name="Wheels_actual_7_1" pos="0.0 -0.0012 0.0038">
+          <joint name="Wheels_actual_joint_7_1" type="hinge" axis="1 0 0" damping="0.001"/>
+          <geom  name="Wheel_7_1" type="mesh" mesh="Wheels" rgba="0.1 0.1 0.1 1"
+                 contype="1" conaffinity="1" pos="-0.0016 -0.007 -0.007"
+                 friction="0.85 0.02 0.00"
+                 mass="0.04"/>
+        </body>
+      </body>
+      <body name="Wheels assembly_7_2" pos="-0.033 0.03 -0.0530">
+      
+        <joint name="Wheel_support_rotation_7_2" type="hinge" axis="0 0 1" damping="1.0"/>
+        <geom  name="Wheel_support_7_2" type="mesh" mesh="Wheels_support" rgba="0.3 0.13 0.08 1"
+               contype="1" conaffinity="1" euler="1.5708 0 0" pos="-0.008 0.0093 0" mass="0.02"/>
+        
+        <body name="Wheels_actual_7_2" pos="0.0 -0.0012 0.0038">
+          <joint name="Wheels_actual_joint_7_2" type="hinge" axis="1 0 0" damping="0.001"/>
+          <geom  name="Wheel_7_2" type="mesh" mesh="Wheels" rgba="0.1 0.1 0.1 1"
+                 contype="1" conaffinity="1" pos="-0.0016 -0.007 -0.007"
+                 friction="0.85 0.02 0.00"
+                 mass="0.04"/>
+        </body>
+      </body>
+      <body name="Wheels assembly_7_3" pos="0.031 0.03 -0.0530">
+      
+        <joint name="Wheel_support_rotation_7_3" type="hinge" axis="0 0 1" damping="1.0"/>
+        <geom  name="Wheel_support_7_3" type="mesh" mesh="Wheels_support" rgba="0.3 0.13 0.08 1"
+               contype="1" conaffinity="1" euler="1.5708 0 0" pos="-0.008 0.0093 0" mass="0.02"/>
+        
+        <body name="Wheels_actual_7_3" pos="0.0 -0.0012 0.0038">
+          <joint name="Wheels_actual_joint_7_3" type="hinge" axis="1 0 0" damping="0.001"/>
+          <geom  name="Wheel_7_3" type="mesh" mesh="Wheels" rgba="0.1 0.1 0.1 1"
+                 contype="1" conaffinity="1" pos="-0.0016 -0.007 -0.007"
+                 friction="0.85 0.02 0.00"
+                 mass="0.04"/>
+        </body>
+      </body>
+      <body name="Wheels assembly_7_4" pos="0.033 -0.03 -0.0530">
+      
+        <joint name="Wheel_support_rotation_7_4" type="hinge" axis="0 0 1" damping="1.0"/>
+        <geom  name="Wheel_support_7_4" type="mesh" mesh="Wheels_support" rgba="0.3 0.13 0.08 1"
+               contype="1" conaffinity="1" euler="1.5708 0 0" pos="-0.008 0.0093 0" mass="0.02"/>
+        
+        <body name="Wheels_actual_7_4" pos="0.0 -0.0012 0.0038">
+          <joint name="Wheels_actual_joint_7_4" type="hinge" axis="1 0 0" damping="0.001"/>
+          <geom  name="Wheel_7_4" type="mesh" mesh="Wheels" rgba="0.1 0.1 0.1 1"
+                 contype="1" conaffinity="1" pos="-0.0016 -0.007 -0.007"
+                 friction="0.85 0.02 0.00"
+                 mass="0.04"/>
+        </body>
+      </body>
+    </body>
+    <body name="box8" pos="0.6075 0.6870 0.090">
+      <joint name="box8_joint" type="free" />
+      <geom type="box" size="0.04 0.04 0.04" rgba="0.36 0.20 0.09 1" mass="0.07"
+            quat="-0.999311 0.000000 0.000000 0.037119"
+            friction="0.40 0.01 0.00"
+            contype="1" conaffinity="1"/>
+      <body name="Wheels assembly_8_1" pos="-0.034 -0.03 -0.0530">
+      
+        <joint name="Wheel_support_rotation_8_1" type="hinge" axis="0 0 1" damping="1.0"/>
+        <geom  name="Wheel_support_8_1" type="mesh" mesh="Wheels_support" rgba="0.3 0.13 0.08 1"
+               contype="1" conaffinity="1" euler="1.5708 0 0" pos="-0.008 0.0093 0" mass="0.02"/>
+        
+        <body name="Wheels_actual_8_1" pos="0.0 -0.0012 0.0038">
+          <joint name="Wheels_actual_joint_8_1" type="hinge" axis="1 0 0" damping="0.001"/>
+          <geom  name="Wheel_8_1" type="mesh" mesh="Wheels" rgba="0.1 0.1 0.1 1"
+                 contype="1" conaffinity="1" pos="-0.0016 -0.007 -0.007"
+                 friction="0.85 0.02 0.00"
+                 mass="0.04"/>
+        </body>
+      </body>
+      <body name="Wheels assembly_8_2" pos="-0.030 0.03 -0.0530">
+      
+        <joint name="Wheel_support_rotation_8_2" type="hinge" axis="0 0 1" damping="1.0"/>
+        <geom  name="Wheel_support_8_2" type="mesh" mesh="Wheels_support" rgba="0.3 0.13 0.08 1"
+               contype="1" conaffinity="1" euler="1.5708 0 0" pos="-0.008 0.0093 0" mass="0.02"/>
+        
+        <body name="Wheels_actual_8_2" pos="0.0 -0.0012 0.0038">
+          <joint name="Wheels_actual_joint_8_2" type="hinge" axis="1 0 0" damping="0.001"/>
+          <geom  name="Wheel_8_2" type="mesh" mesh="Wheels" rgba="0.1 0.1 0.1 1"
+                 contype="1" conaffinity="1" pos="-0.0016 -0.007 -0.007"
+                 friction="0.85 0.02 0.00"
+                 mass="0.04"/>
+        </body>
+      </body>
+      <body name="Wheels assembly_8_3" pos="0.034 0.03 -0.0530">
+      
+        <joint name="Wheel_support_rotation_8_3" type="hinge" axis="0 0 1" damping="1.0"/>
+        <geom  name="Wheel_support_8_3" type="mesh" mesh="Wheels_support" rgba="0.3 0.13 0.08 1"
+               contype="1" conaffinity="1" euler="1.5708 0 0" pos="-0.008 0.0093 0" mass="0.02"/>
+        
+        <body name="Wheels_actual_8_3" pos="0.0 -0.0012 0.0038">
+          <joint name="Wheels_actual_joint_8_3" type="hinge" axis="1 0 0" damping="0.001"/>
+          <geom  name="Wheel_8_3" type="mesh" mesh="Wheels" rgba="0.1 0.1 0.1 1"
+                 contype="1" conaffinity="1" pos="-0.0016 -0.007 -0.007"
+                 friction="0.85 0.02 0.00"
+                 mass="0.04"/>
+        </body>
+      </body>
+      <body name="Wheels assembly_8_4" pos="0.030 -0.03 -0.0530">
+      
+        <joint name="Wheel_support_rotation_8_4" type="hinge" axis="0 0 1" damping="1.0"/>
+        <geom  name="Wheel_support_8_4" type="mesh" mesh="Wheels_support" rgba="0.3 0.13 0.08 1"
+               contype="1" conaffinity="1" euler="1.5708 0 0" pos="-0.008 0.0093 0" mass="0.02"/>
+        
+        <body name="Wheels_actual_8_4" pos="0.0 -0.0012 0.0038">
+          <joint name="Wheels_actual_joint_8_4" type="hinge" axis="1 0 0" damping="0.001"/>
+          <geom  name="Wheel_8_4" type="mesh" mesh="Wheels" rgba="0.1 0.1 0.1 1"
+                 contype="1" conaffinity="1" pos="-0.0016 -0.007 -0.007"
+                 friction="0.85 0.02 0.00"
+                 mass="0.04"/>
+        </body>
+      </body>
+    </body>
+    <body name="box9" pos="2.6024 2.1236 0.090">
+      <joint name="box9_joint" type="free" />
+      <geom type="box" size="0.04 0.04 0.04" rgba="0.36 0.20 0.09 1" mass="0.07"
+            quat="-0.126073 0.000000 0.000000 0.992021"
+            friction="0.40 0.01 0.00"
+            contype="1" conaffinity="1"/>
+      <body name="Wheels assembly_9_1" pos="0.023 0.04 -0.0530">
+      
+        <joint name="Wheel_support_rotation_9_1" type="hinge" axis="0 0 1" damping="1.0"/>
+        <geom  name="Wheel_support_9_1" type="mesh" mesh="Wheels_support" rgba="0.3 0.13 0.08 1"
+               contype="1" conaffinity="1" euler="1.5708 0 0" pos="-0.008 0.0093 0" mass="0.02"/>
+        
+        <body name="Wheels_actual_9_1" pos="0.0 -0.0012 0.0038">
+          <joint name="Wheels_actual_joint_9_1" type="hinge" axis="1 0 0" damping="0.001"/>
+          <geom  name="Wheel_9_1" type="mesh" mesh="Wheels" rgba="0.1 0.1 0.1 1"
+                 contype="1" conaffinity="1" pos="-0.0016 -0.007 -0.007"
+                 friction="0.85 0.02 0.00"
+                 mass="0.04"/>
+        </body>
+      </body>
+      <body name="Wheels assembly_9_2" pos="0.039 -0.02 -0.0530">
+      
+        <joint name="Wheel_support_rotation_9_2" type="hinge" axis="0 0 1" damping="1.0"/>
+        <geom  name="Wheel_support_9_2" type="mesh" mesh="Wheels_support" rgba="0.3 0.13 0.08 1"
+               contype="1" conaffinity="1" euler="1.5708 0 0" pos="-0.008 0.0093 0" mass="0.02"/>
+        
+        <body name="Wheels_actual_9_2" pos="0.0 -0.0012 0.0038">
+          <joint name="Wheels_actual_joint_9_2" type="hinge" axis="1 0 0" damping="0.001"/>
+          <geom  name="Wheel_9_2" type="mesh" mesh="Wheels" rgba="0.1 0.1 0.1 1"
+                 contype="1" conaffinity="1" pos="-0.0016 -0.007 -0.007"
+                 friction="0.85 0.02 0.00"
+                 mass="0.04"/>
+        </body>
+      </body>
+      <body name="Wheels assembly_9_3" pos="-0.023 -0.04 -0.0530">
+      
+        <joint name="Wheel_support_rotation_9_3" type="hinge" axis="0 0 1" damping="1.0"/>
+        <geom  name="Wheel_support_9_3" type="mesh" mesh="Wheels_support" rgba="0.3 0.13 0.08 1"
+               contype="1" conaffinity="1" euler="1.5708 0 0" pos="-0.008 0.0093 0" mass="0.02"/>
+        
+        <body name="Wheels_actual_9_3" pos="0.0 -0.0012 0.0038">
+          <joint name="Wheels_actual_joint_9_3" type="hinge" axis="1 0 0" damping="0.001"/>
+          <geom  name="Wheel_9_3" type="mesh" mesh="Wheels" rgba="0.1 0.1 0.1 1"
+                 contype="1" conaffinity="1" pos="-0.0016 -0.007 -0.007"
+                 friction="0.85 0.02 0.00"
+                 mass="0.04"/>
+        </body>
+      </body>
+      <body name="Wheels assembly_9_4" pos="-0.039 0.02 -0.0530">
+      
+        <joint name="Wheel_support_rotation_9_4" type="hinge" axis="0 0 1" damping="1.0"/>
+        <geom  name="Wheel_support_9_4" type="mesh" mesh="Wheels_support" rgba="0.3 0.13 0.08 1"
+               contype="1" conaffinity="1" euler="1.5708 0 0" pos="-0.008 0.0093 0" mass="0.02"/>
+        
+        <body name="Wheels_actual_9_4" pos="0.0 -0.0012 0.0038">
+          <joint name="Wheels_actual_joint_9_4" type="hinge" axis="1 0 0" damping="0.001"/>
+          <geom  name="Wheel_9_4" type="mesh" mesh="Wheels" rgba="0.1 0.1 0.1 1"
+                 contype="1" conaffinity="1" pos="-0.0016 -0.007 -0.007"
+                 friction="0.85 0.02 0.00"
+                 mass="0.04"/>
+        </body>
+      </body>
+    </body>
+  </worldbody>
+
+  <!-- Actuator -->
+  <actuator>
+    <velocity name="wheel_left_actuator" ctrllimited="true" ctrlrange="-2.2 2.2" gear="1" kv="1.0" joint="wheel_left_jackal_back" />
+    <velocity name="wheel_right_actuator" ctrllimited="true" ctrlrange="-2.2 2.2" gear="1" kv="1.0" joint="wheel_right_jackal_back" />
+  </actuator>
+</mujoco>

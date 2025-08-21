@@ -3,10 +3,6 @@ occ:     # occupancy map grid size
   local_width: 1.2      # local moving window width (in meter)
   local_height: 1.2     # local moving window height (in meter)
 
-boxes:
-  num_boxes: 5
-  clearance: 0.2
-
 low_dim_state: false
 
 output_dir: "logs/"   # 'output/trial0'
@@ -54,6 +50,28 @@ env2:
   ]
   goal_position: [0.394, 0.394]
   goal_size: 0.15
+
+boxes:
+  num_boxes: 10
+  clearance: 0.1
+  box_half_size: 0.04
+  box_mass: 0.075 # mass(kg) for each box without wheels
+  box_sliding_friction: 0.4
+  box_torsional_friction: 0.015
+  box_rolling_friction: 0.002
+
+wheels_on_boxes:
+  # Upon adjusting parameters here all other physics parameters like moment of inertia etc are adjusted automatically
+  wheels_on_boxes: True       # if true, the boxes would have wheels
+  num_boxes_with_wheels: 6    # this cannot be more than num_boxes (num_boxes_without_wheels= num_boxes - num_boxes_with_wheels)
+  wheels_half: 0.05           # half size of the wheel in terms of m
+  wheels_mass: 0.08           # mass in terms of kg for each wheel on the box
+  wheels_support_mass: 0.10   # mass in terms of kg for each wheel support on the box
+  wheels_sliding_friction: 0.8
+  wheels_torsional_friction: 0.01
+  wheels_rolling_friction: 0.002
+  wheels_axle_damping_ratio: 0.5 # damping ratio for the axle joint of the wheel
+  wheels_support_damping_ratio: 0.001
 
 agent:
   action_type: 'position' # options are velocity, heading, position
