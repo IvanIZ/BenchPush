@@ -825,12 +825,12 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
         Sample non-overlapping (cx, cy) pairs for every pillar and the matching keep-outs.
         """
 
-        def boxes_overlap(cx, cy, px, py):
-            """Axis-aligned overlap test with clearance."""
-            return (
-                abs(cx - px) < (2 * hx + self.pillar_clearance) and
-                abs(cy - py) < (2 * hy + self.pillar_clearance)
-            )
+        # def boxes_overlap(cx, cy, px, py):
+        #     """Axis-aligned overlap test with clearance."""
+        #     return (
+        #         abs(cx - px) < (2 * hx + self.pillar_clearance) and
+        #         abs(cy - py) < (2 * hy + self.pillar_clearance)
+        #     )
 
         # “small_empty” scene
         if self.num_pillars is None or self.pillar_half is None:
@@ -847,21 +847,25 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
 
         active_centres = []
         corners_active = []
+        column_half_length, column_half_width, _ = self.pillar_half
+        buffer_width = self.pillar_half[0] * 1.6
+        col_min_dist = 4 * max(column_half_length, column_half_width)
         tries = 0
         while len(active_centres) < n_active and tries < 500000:
             tries += 1
-            cx = rng.uniform(-self.room_length/2+0.3, self.room_length/2 - 0.30)
-            cy = rng.uniform(-self.room_width/2+0.3, self.room_width/2-0.3)
+            cx = rng.uniform(-self.room_length / 2 + 2 * buffer_width + column_half_length,
+                             self.room_length / 2 - 2 * buffer_width - column_half_length)
+            cy = rng.uniform(-self.room_width / 2 + 2 * buffer_width + column_half_width,
+                             self.room_width / 2 - 2 * buffer_width - column_half_width)
 
             # pillar corners for clearance checks
-            hx, hy, _ = self.pillar_half
-            corners = [(cx-hx, cy-hy), (cx+hx, cy-hy),
-                    (cx+hx, cy+hy), (cx-hx, cy+hy)]
+            corners = [(cx-column_half_length, cy-column_half_width), (cx+column_half_length, cy-column_half_width),
+                    (cx+column_half_length, cy+column_half_width), (cx-column_half_length, cy+column_half_width)]
 
             if not all(inside_poly(x, y, self.clearance_poly) for x, y in corners):
                 continue
             
-            if any(np.hypot(cx-px, cy-py) < 2*hx + 0.30 for px, py in active_centres):
+            if any(np.hypot(cx-px, cy-py) <= col_min_dist for px, py in active_centres):
                 continue
 
             active_centres.append((cx, cy))
