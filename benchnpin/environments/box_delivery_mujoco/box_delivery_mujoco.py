@@ -95,22 +95,24 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
                 else:
                     self.cfg[cfg_type] = cfg[cfg_type]
 
-        # Checking if the configuration is valid
-        if self.cfg.wheels_on_boxes.wheels_on_boxes and self.cfg.wheels_on_boxes.num_boxes_with_wheels > self.cfg.boxes.num_boxes:
-            raise ValueError("Number of boxes with wheels cannot be more than the total number of boxes.")
         
-
         # Setting up the environment parameters
         self.room_length = self.cfg.env.room_length
         env_size = self.cfg.env.obstacle_config.strip()
         if 'small' in env_size:
             self.room_width = self.cfg.env.room_width_small
+            self.num_boxes = self.cfg.boxes.num_boxes_small
         else:
             self.room_width = self.cfg.env.room_width_large
-
+            self.num_boxes = self.cfg.boxes.num_boxes_large
+        
+        # Checking if the configuration is valid
+        if self.cfg.wheels_on_boxes.wheels_on_boxes and self.cfg.wheels_on_boxes.num_boxes_with_wheels > self.num_boxes:
+            raise ValueError("Number of boxes with wheels cannot be more than the total number of boxes.")
+        
         # Receptacle position and size
-        self.receptacle_position= self.cfg.env.receptacle_position
-        self.receptacle_half= self.cfg.env.receptacle_half
+        self.receptacle_half = self.cfg.env.receptacle_half
+        self.receptacle_position = (self.room_length / 2 - self.receptacle_half, self.room_width / 2 - self.receptacle_half)
 
         # Pillar position and size
         self.num_pillars = None
@@ -118,14 +120,14 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
         self.pillar_type = None
         self.adjust_num_pillars = False
         self.divider_thickness = self.cfg.large_divider.divider_thickness if env_size.strip() == "large_divider" else 0.0 
-        if env_size.strip()=="small_columns":
+        if env_size.strip() == "small_columns":
             self.num_pillars = self.cfg.small_pillars.num_pillars
             self.pillar_half = self.cfg.small_pillars.pillar_half
-            self.adjust_num_pillars= self.cfg.small_pillars.adjust_num_pillars
-        elif env_size.strip()=="large_columns":
+            self.adjust_num_pillars = self.cfg.small_pillars.adjust_num_pillars
+        elif env_size.strip() == "large_columns":
             self.num_pillars = self.cfg.large_pillars.num_pillars
             self.pillar_half = self.cfg.large_pillars.pillar_half
-            self.adjust_num_pillars= self.cfg.large_pillars.adjust_num_pillars
+            self.adjust_num_pillars = self.cfg.large_pillars.adjust_num_pillars
         
         
         # environment
@@ -133,7 +135,6 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
         self.local_map_width = max(self.room_length, self.room_width)
         self.local_map_pixels_per_meter = self.local_map_pixel_width / self.local_map_width
         self.wall_thickness = self.cfg.env.wall_thickness
-        self.num_boxes = self.cfg.boxes.num_boxes
         self.num_completed_boxes_new = 0
 
         # state
@@ -196,7 +197,7 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
             xml_file = os.path.join(self.current_dir, 'jackal_xml_file.xml')
 
         # generate random environmnt
-        _, self.initialization_keepouts, self.clearance_poly = generate_boxDelivery_xml(N=self.cfg.boxes.num_boxes, env_type=self.cfg.env.obstacle_config, file_name=xml_file,
+        _, self.initialization_keepouts, self.clearance_poly = generate_boxDelivery_xml(N=self.num_boxes, env_type=self.cfg.env.obstacle_config, file_name=xml_file,
                         ROBOT_clear=self.robot_radius, CLEAR=self.cfg.boxes.clearance, goal_half=self.receptacle_half, goal_center=self.receptacle_position, Z_BOX=self.cfg.boxes.box_half_size, ARENA_X=(0.0, self.room_length), 
                         ARENA_Y=(0.0, self.room_width), box_half_size=self.cfg.boxes.box_half_size, num_pillars=self.num_pillars, pillar_half=self.pillar_half, adjust_num_pillars=self.adjust_num_pillars, sim_timestep=self.cfg.env.sim_timestep,
                         divider_thickness=self.divider_thickness, bumper_type=self.cfg.agent.type_of_bumper, bumper_mass= self.cfg.agent.bumper_mass,
