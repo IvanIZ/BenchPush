@@ -61,3 +61,4 @@ agent:
   forward_speed: 0.2
   max_angular_speed: 0.785
   type_of_bumper: 'curved_inwards' # Choose from one of them: curved_inwards, straight, curved_outwards
+  mass: 1.07

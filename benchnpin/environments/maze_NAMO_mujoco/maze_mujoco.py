@@ -453,10 +453,6 @@ class MazeNAMOMujoco(MujocoEnv, utils.EzPickle):
                     return False
             x, y, _ = pos
 
-            # 2) check overall clearance polygon
-            if not inside_poly(x, y, self.cfg.env.clearance_poly):
-                return False
-
             # 2) check against pillar keep-outs
             if intersects_keepout(x, y, self.maze_walls):
                 return False
@@ -503,7 +499,9 @@ class MazeNAMOMujoco(MujocoEnv, utils.EzPickle):
             self.data.qpos[qadr+3:qadr+7] = quat_z(theta)
             self.data.qvel[qadr:qadr+6] = 0
 
-        
+        # let simulation settle down
+        self.do_simulation([0, 0], 10)
+
         # get box position
         _, self.prev_obs_positions = self.get_current_boxes()
 
