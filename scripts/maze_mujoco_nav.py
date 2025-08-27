@@ -5,13 +5,16 @@ An example script for running baseline policy for ship ice navigation
 import benchnpin.environments
 import gymnasium as gym
 import numpy as np
-from benchnpin.baselines.maze_NAMO.ppo.policy import MazeNAMOPPO    
+from benchnpin.baselines.maze_mujoco.ppo.policy import MazeMujocoPPO
+from benchnpin.baselines.maze_mujoco.sac.policy import MazeMujocoSAC
 env = gym.make('maze-NAMO-mujoco-v0', render_mode = "human")
 env = env.unwrapped
 
 # initialize RL policy
-policy = MazeNAMOPPO(model_path='models/maze')
-# policy = ShipIceSAC()
+# policy = MazeMujocoPPO(model_path='models/maze')
+# policy = MazeMujocoPPO()
+
+policy = MazeMujocoSAC()
 
 total_dist_reward = 0
 total_col_reward = 0
@@ -28,17 +31,22 @@ for eps_idx in range(total_episodes):
     while True:
 
         # call RL policy
-        angular_v = policy.act(observation=observation)
-        print("step count: ", step_c)
+        # angular_v = policy.act(observation=observation)
+        # angular_v = policy.act(observation=observation, model_eps='1400000')
+        angular_v = policy.act(observation=observation, model_eps='200000')
+        # angular_v = policy.act(observation=observation, model_eps='beta3000')
+        # print("step count: ", step_c)
+        # print("policy output: ", angular_v)
         step_c += 1
         
-        angular_v = angular_v[0]
-        action = np.array([0.1, angular_v])
-        observation, reward, terminated, truncated, info = env.step(action)
+        # action = np.array([0.1, angular_v])
+        observation, reward, terminated, truncated, info = env.step(angular_v)
         env.render()
 
+        # print("reward: ", reward, "; dist increment reward: ", info['dist increment reward'], "; col reward: ", info['collision reward'], "; col reward scaled: ", info['scaled collision reward'])
+        print("reward: ", reward, "; dist increment reward: ", info['dist increment reward'], "; col reward scaled: ", info['scaled collision reward'])
         total_reward += reward
-        print("total reward: ", total_reward)
+        # print("total reward: ", total_reward)
 
         if terminated or truncated:
             # policy.reset()
