@@ -97,9 +97,9 @@ class MazeMujocoPPO(BasePolicy):
             model_checkpoint = self.model_name + '_' + model_eps + '_steps'
             self.model = PPO.load(os.path.join(self.model_path, model_checkpoint))
 
-        env = gym.make('maze-NAMO-v0', cfg=self.cfg)
+        env = gym.make('maze-NAMO-mujoco-v0', cfg=self.cfg, render_mode = None)
         env = env.unwrapped
-        metric = MazeNamoMetric(alg_name="PPO", robot_mass=env.cfg.robot.mass)
+        metric = MazeNamoMetric(alg_name="PPO", robot_mass=env.cfg.agent.mass)
 
         for eps_idx in range(num_eps):
             print("PPO Progress: ", eps_idx, " / ", num_eps, " episodes")
@@ -115,6 +115,8 @@ class MazeMujocoPPO(BasePolicy):
         
         env.close()
         metric.plot_scores(save_fig_dir=env.cfg.output_dir)
+
+        print("efficiency scores: ", metric.efficiency_scores)
         return metric.efficiency_scores, metric.effort_scores, metric.rewards, "PPO"
     
 

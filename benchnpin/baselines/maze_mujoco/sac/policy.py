@@ -93,9 +93,9 @@ class MazeMujocoSAC(BasePolicy):
             model_checkpoint = self.model_name + '_' + model_eps + '_steps'
             self.model = SAC.load(os.path.join(self.model_path, model_checkpoint))
 
-        env = gym.make('maze-NAMO-v0', cfg=self.cfg)
+        env = gym.make('maze-NAMO-mujoco-v0', cfg=self.cfg, render_mode = None)
         env = env.unwrapped
-        metric = MazeNamoMetric(alg_name="SAC", robot_mass=env.cfg.robot.mass)
+        metric = MazeNamoMetric(alg_name="SAC", robot_mass=env.cfg.agent.mass)
 
         for eps_idx in range(num_eps):
             print("SAC Progress: ", eps_idx, " / ", num_eps, " episodes")
