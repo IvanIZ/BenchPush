@@ -4,29 +4,29 @@ from pathlib import Path
 import os
 import random
 
-from benchnpin.common.utils.mujoco_utils import inside_poly, quat_z, quat_z_yaw, corners_xy
+from benchnpin.common.utils.mujoco_utils import inside_poly, quat_z, quat_z_yaw, corners_xy, generating_box_xml, generating_agent_xml
 
 def precompute_static_vertices(keep_out, wall_thickness, room_width, room_length, wall_clearence_outer, wall_clearence_inner, env_type):
     """
     Gives list of static vertices that do not change during the simulation
     """
     
-    half_w, half_l = room_width / 2, room_length / 2
+    half_l, half_w = room_length / 2, room_width / 2
 
     # OUTER WALLS  (thickness = 0.25, exactly what build_xml creates)
     t = wall_thickness                   # wall thickness  (half-size in build_xml)
-    c = wall_clearence_outer   # clearance beyond arena edge
+    c = wall_clearence_outer             # clearance beyond arena edge
 
-    X0 = -half_w - c - t       # left   face x
-    X1 = +half_w + c + t       # right  face x
-    Y0 = -half_l - c - t       # bottom face y
-    Y1 = +half_l + c + t       # top    face y
+    X0 = -half_l - c[1] - t       # bottom face x
+    X1 = +half_l + c[1] + t       # top    face x
+    Y0 = -half_w - c[0] - t       # left   face y
+    Y1 = +half_w + c[0] + t       # right  face y
 
     wall_vertices = [
         ["Wall_left",   [(X0,     Y0), (X0+t,  Y0), (X0+t,  Y1), (X0,     Y1)]],
         ["Wall_right",  [(X1-t,   Y0), (X1,    Y0), (X1,    Y1), (X1-t,   Y1)]],
-        ["Wall_bottom", [(-half_w-c, Y0), (+half_w+c, Y0), (+half_w+c, Y0+t), (-half_w-c, Y0+t)]],
-        ["Wall_top",    [(-half_w-c, Y1-t), (+half_w+c, Y1-t), (+half_w+c, Y1), (-half_w-c, Y1)]],
+        ["Wall_bottom", [(X0,     Y0), (X1,     Y0), (X1,     Y0 + t), (X0,     Y0 + t)]],
+        ["Wall_top",    [(X0,     Y1 - t), (X1, Y1 - t), (X1, Y1), (X0, Y1)]]
     ]
 
     # THIN SIDE-WALLS (present only in partially-closed envs)
@@ -112,7 +112,7 @@ def receptacle_vertices(receptacle_position, receptacle_local_dimension):
     Returns the vertices of the receptacle in the world frame.
     """
     # Receptacle vertices
-    x , y = receptacle_position
+    x, y = receptacle_position
 
         # half-width and half-height
     hx, hy = receptacle_local_dimension
@@ -125,9 +125,9 @@ def receptacle_vertices(receptacle_position, receptacle_local_dimension):
         [-hx,  hy],
     ])
 
-    Receptacle_vertices = corners_xy(np.array([x, y]), 0, local).tolist()
+    receptacle_vertices = corners_xy(np.array([x, y]), 0, local).tolist()
 
-    return Receptacle_vertices
+    return receptacle_vertices
 
 def changing_per_configuration(env_type: str, 
                                ARENA_X, ARENA_Y, n_pillars, pillar_half, internal_clearance_length,robot_radius):
@@ -146,7 +146,7 @@ def changing_per_configuration(env_type: str,
     <body name="{name}" pos="{cx:.3f} {cy:.3f} {zh:.3f}">
       <joint name="{name}_joint" type="free"/>
       <geom name="{name}" type="box" size="{xh:.3f} {yh:.3f} {zh:.3f}" mass="{heavy_mass:.1f}" 
-      contype="1" conaffinity="1" rgba="0.647 0.165 0.165 0.4"/>
+      contype="1" conaffinity="1" rgba="0.33 0.39 0.46 0.4"/>
     </body>
 """
         Coordinates=[(cx-xh, cy-yh),(cx+xh, cy-yh),(cx+xh, cy+yh),(cx-xh, cy+yh)]
@@ -240,7 +240,7 @@ def sample_scene(n_boxes, keep_out, ROBOT_R, BOXES_clear, ARENA_X, ARENA_Y, inte
     return robot_qpos, boxes
 
 
-def build_xml(robot_qpos, boxes, stl_model_path, extra_xml, Z_BOX, box_size, ARENA_X1, ARENA_Y1, env_type, wall_clearence_outer, wall_clearence_inner, bumper_type, robot_rgb, sim_timestep):
+def build_xml(stl_model_path, extra_xml, ARENA_X1, ARENA_Y1, env_type, wall_clearence_outer, wall_clearence_inner, box_xml, agent_xml, actuator_xml, sim_timestep):
     """Building data for a different file"""
 
     if env_type == "Partially_closed_with_walls" or env_type == "Partially_closed_with_static": 
@@ -262,22 +262,6 @@ def build_xml(robot_qpos, boxes, stl_model_path, extra_xml, Z_BOX, box_size, ARE
     else:
         side_walls_code = ""
 
-
-    # Bumper type handling
-
-    if bumper_type == 'curved_inwards':
-      bumper_name= "TurtleBot3_Curved_Bumper"
-    
-    elif bumper_type == 'straight':
-        bumper_name = "TurtleBot3_Straight_Bumper"
-    
-    elif bumper_type == 'curved_outwards':
-        bumper_name = "TurtleBot3_Triangular_Bumper"
-    
-    else:
-        raise ValueError(f"Unknown bumper type: {bumper_type}. "
-                         f"Choose from 'curved_inwards', 'straight', 'curved_outwards'.")
-
     header = f"""
 <mujoco model="box_delivery_structured_env">
   <compiler angle="radian" autolimits="true" meshdir="{stl_model_path}" inertiafromgeom="true"/>
@@ -291,15 +275,31 @@ def build_xml(robot_qpos, boxes, stl_model_path, extra_xml, Z_BOX, box_size, ARE
   </default>
 
   <asset>
-    
+  
+    <texture type="skybox" builtin="gradient" width="512" height="512"/>
     <material name="blue_mat" rgba="0.4 0.3 0.2 1"/>
 
-    <mesh name="corner_full" file="corner_full.stl" scale="0.001 0.001 0.001"/>
     <mesh name="burger_base" file="burger_base.stl"scale="0.001 0.001 0.001"/>
     <mesh name="left_tire"   file="left_tire.stl"  scale="0.001 0.001 0.001"/>
     <mesh name="right_tire"  file="right_tire.stl" scale="0.001 0.001 0.001"/>
     <mesh name="lds"         file="lds.stl"        scale="0.001 0.001 0.001"/>
-    <mesh name="bumper"      file="{bumper_name}.STL" scale="0.001 0.001 0.001"/>
+
+    <mesh name="TurtleBot3_Straight_Bumper_base"      file="TurtleBot3_Straight_Bumper.STL"   scale="0.001 0.001 0.001"/>
+    <mesh name="TurtleBot3_Curved_Bumper_base"        file="TurtleBot3_Curved_Bumper.STL"     scale="0.001 0.001 0.001"/>
+    <mesh name="TurtleBot3_Triangular_Bumper_base"    file="TurtleBot3_Triangular_Bumper.STL" scale="0.001 0.001 0.001"/>
+
+    <mesh name="Wheels"      file="Box_wheels.stl"          scale="0.0001 0.0001 0.0001"/>
+    <mesh name="Wheels_support" file="Box_wheels_support.STL"  scale="0.0001 0.0001 0.0001"/>
+
+    <mesh name="jackal_base"         file="jackal-base.stl"    scale="1 1 1"/>
+    <mesh name="jackal_wheel"        file="jackal-wheel.stl"   scale="1 1 1"/>
+    <mesh name="jackal_fenders"      file="jackal-fenders.stl" scale="1 1 1"/>
+    <mesh name="antenna_bracket"     file="antenna_bracket.stl"scale="1 1 1"/>
+    <mesh name="Antenna"             file="Antenna.stl"        scale="0.001 0.001 0.001"/>
+    <mesh name="jackal_straight_bumper"       file="Jackal_straight_bumper.stl"      scale="0.001 0.001 0.001"/>
+    <mesh name="jackal_bumper_curved"         file="jackal_bumper_curved.stl"        scale="0.001 0.001 0.001"/>
+    <mesh name="jackal_bumper_curved_inwards" file="jackal_bumper_curved_inwards.stl"scale="0.001 0.001 0.001"/>
+
   </asset>
 
   <visual>
@@ -311,105 +311,59 @@ def build_xml(robot_qpos, boxes, stl_model_path, extra_xml, Z_BOX, box_size, ARE
   
     <!-- Floor -->
     <body pos="0 0 0">
-      <geom name="floor" type="box" size="{ARENA_X1 / 2 + wall_clearence_outer + 0.25} {ARENA_Y1 / 2 + wall_clearence_outer + 0.25} 0.01" friction="0.5 0.05 0.0001" contype="1" conaffinity="1"/>
+      <geom name="floor" type="box" size="{ARENA_X1 / 2 + wall_clearence_outer[0] + 0.25} {ARENA_Y1 / 2 + wall_clearence_outer[1] + 0.25} 0.01" friction="0.5 0.05 0.0001" contype="1" conaffinity="1"/>
     </body>
     
     <!-- Marked area -->
-    <site name="clearance_outline" 
-      pos="0 0 0.001" 
-      type="box"
-      size="{ARENA_X1 / 2} {ARENA_Y1 / 2} 0.01" 
-      rgba="0 1 0 1"/>
+    <body pos="0 0 0.001">
+      <geom name="clearance_outline" type="box" size="{ARENA_X1 / 2} {ARENA_Y1 / 2} 0.01" friction="0.5 0.05 0.0001" contype="1" conaffinity="1" rgba="0 1 0 1"/>
+    </body>
 
-    <site name="clearance_outline_2" 
-      pos="0 0 0.001" 
-      type="box"
-      size="{ARENA_X1 / 2 - 0.02} {ARENA_Y1 / 2 - 0.02} 0.012" 
-      rgba="1 1 1 1"/>
+    <body pos="0 0 0.001">
+      <geom name="clearance_outline_2" type="box" size="{ARENA_X1 / 2 - 0.02} {ARENA_Y1 / 2 - 0.02} 0.012" friction="0.5 0.05 0.0001" contype="1" conaffinity="1" rgba="1 1 1 1"/>
+    </body>
       
     <!-- X-walls: left and right sides -->
     <geom name="Wall_X1" type="box"
-      pos="{-ARENA_X1/2 - wall_clearence_outer - 0.125} 0 0.15"
-      size="0.125 {ARENA_Y1 / 2 + wall_clearence_outer + 0.25} 0.15"
+      pos="{-ARENA_X1/2 - wall_clearence_outer[0] - 0.125} 0 0.15"
+      size="0.125 {ARENA_Y1 / 2 + wall_clearence_outer[1] + 0.25} 0.15"
       rgba="0.2 0.2 0.2 0.6" contype="1" conaffinity="1"
       friction="0.45 0.01 0.003"/>
 
     <geom name="Wall_X2" type="box"
-      pos="{ARENA_X1/2 + wall_clearence_outer + 0.125} 0 0.15"
-      size="0.125 {ARENA_Y1 / 2 + wall_clearence_outer + 0.25} 0.15"
+      pos="{ARENA_X1/2 + wall_clearence_outer[0] + 0.125} 0 0.15"
+      size="0.125 {ARENA_Y1 / 2 + wall_clearence_outer[1] + 0.25} 0.15"
       rgba="0.2 0.2 0.2 0.6" contype="1" conaffinity="1"
       friction="0.45 0.01 0.003"/>
 
     <!-- Y-walls: bottom and top -->
     <geom name="Wall_Y1" type="box"
-      pos="0 {-ARENA_X1/2 - wall_clearence_outer - 0.125} 0.15"
-      size="{ARENA_X1 / 2 + wall_clearence_outer} 0.125 0.15"
+      pos="0 {-ARENA_Y1/2 - wall_clearence_outer[1] - 0.125} 0.15"
+      size="{ARENA_X1 / 2 + wall_clearence_outer[0]} 0.125 0.15"
       rgba="0.2 0.2 0.2 0.6" contype="1" conaffinity="1"
       friction="0.45 0.01 0.003"/>
 
     <geom name="Wall_Y2" type="box"
-      pos="0 {ARENA_Y1/2 + wall_clearence_outer + 0.125} 0.15"
-      size="{ARENA_X1 / 2 + wall_clearence_outer} 0.125 0.15"
+      pos="0 {ARENA_Y1/2 + wall_clearence_outer[1] + 0.125} 0.15"
+      size="{ARENA_X1 / 2 + wall_clearence_outer[0]} 0.125 0.15"
       rgba="0.2 0.2 0.2 0.6" contype="1" conaffinity="1"
       friction="0.45 0.01 0.003"/>
-    
-     <!-- robot -->
-    <body name="base" pos="{robot_qpos}" euler="0 0 3.141592653589793">
-      <joint type="free" name="base_joint"/>
-      <!-- chassis -->
-      <geom name="base_chasis" pos="-0.032 0 0.01" type="mesh" rgba="{robot_rgb[0]} {robot_rgb[1]} {robot_rgb[2]} 1" mesh="burger_base" friction="0.1 0.02 0.0001" mass="0.8" contype="1" conaffinity="1"/>
-      <!-- small box sensor -->
-      <geom name="base_sensor_1" size="0.015 0.0045 0.01" pos="-0.081 7.96327e-07 0.005" quat="0.707388 -0.706825 0 0" type="box" rgba="{robot_rgb[0]} {robot_rgb[1]} {robot_rgb[2]} 1" mass="0.05" contype="1" conaffinity="1"/>
-      <!-- LDS sensor -->
-      <geom name="base_sensor_2" pos="-0.032 0 0.182" quat="1 0 0 0" type="mesh" rgba="{robot_rgb[0]} {robot_rgb[1]} {robot_rgb[2]} 1" mesh="lds" mass="0.131" contype="1" conaffinity="1"/>
-      <!-- Bumper -->
-      <geom name="base_bumper" pos="-0.04 -0.09 0.01" quat="1 0 0 0" type="mesh" rgba="0.3 0.13 0.08 1" mesh="bumper" mass="0.100" contype="1" conaffinity="1"/>
-      
-      <!-- Left wheel -->
-      <body name="wheel_left_link" pos="0 0.08 0.033" quat="0.707388 -0.706825 0 0">
-        <inertial pos="0 0 0" quat="-0.000890159 0.706886 0.000889646 0.707326" mass="0.0284989" diaginertia="2.07126e-05 1.11924e-05 1.11756e-05"/>
-        <joint name="wheel_left_joint" pos="0 0 0" axis="0 0 1"/>
-        <geom quat="0.707388 0.706825 0 0" type="mesh" rgba="{robot_rgb[0]+0.1} {robot_rgb[1]+0.1} {robot_rgb[2]+0.1} 1" mesh="left_tire" friction="1.2 0.01 0.001"/>
-      </body>
-      
-      <!-- Right wheel -->
-      <body name="wheel_right_link" pos="0 -0.08 0.033" quat="0.707388 -0.706825 0 0">
-        <inertial pos="0 0 0" quat="-0.000890159 0.706886 0.000889646 0.707326" mass="0.0284989" diaginertia="2.07126e-05 1.11924e-05 1.11756e-05"/>
-        <joint name="wheel_right_joint" pos="0 0 0" axis="0 0 1"/>
-        <geom quat="0.707388 0.706825 0 0" type="mesh" rgba="{robot_rgb[0]+0.1} {robot_rgb[1]+0.1} {robot_rgb[2]+0.1} 1" mesh="right_tire" friction="1.2 0.01 0.001"/>
-      </body>
-    </body>
-      
 """
-    
-    #Data to be written for boxes
-    box_xml = ""
-    for i, (x, y, th) in enumerate(boxes):
-        qw, qx, qy, qz = quat_z(th)
-        box_xml += f"""
-    <body name="box{i}" pos="{x:.4f} {y:.4f} {Z_BOX:.3f}">
-      <joint name="box{i}_joint" type="free" />
-      <geom type="box" size="{box_size} {box_size} {box_size}" material="blue_mat" mass="0.075"
-            quat="{qw:.6f} {qx:.6f} {qy:.6f} {qz:.6f}" friction="0.4 0.015 0.002" contype="1" conaffinity="1"/>
-    </body>"""
 
 
     #Data to be written for footers
     footer = f"""
   </worldbody>
-
-  <!-- Actuator -->
-  <actuator>
-    <velocity name="wheel_left_actuator" ctrllimited="true" ctrlrange="-22.0 22.0" gear="1" kv="1.0" joint="wheel_left_joint" />
-    <velocity name="wheel_right_actuator" ctrllimited="true" ctrlrange="-22.0 22.0" gear="1" kv="1.0" joint="wheel_right_joint" />
-  </actuator>
-</mujoco>
 """
-    return header + box_xml + extra_xml + side_walls_code + footer
+    return header + agent_xml + box_xml + extra_xml + side_walls_code + footer + actuator_xml
 
 
 def generate_area_clearing_xml(N, env_type, file_name, ROBOT_clear, BOXES_clear, Z_BOX, ARENA_X, ARENA_Y,
-                  box_half_size, num_pillars, pillar_half, wall_clearence_outer, wall_clearence_inner, internal_clearance_length, robot_radius, bumper_type, sim_timestep):
+                  box_half_size, num_pillars, pillar_half, wall_clearence_outer, wall_clearence_inner, internal_clearance_length, 
+                  robot_radius, bumper_type, bumper_mass, sim_timestep, wheels_on_boxes,
+                  wheels_mass, wheels_support_mass, wheels_sliding_friction, wheels_torsional_friction, 
+                  wheels_rolling_friction, wheels_support_damping_ratio, box_mass, box_sliding_friction , 
+                  box_torsional_friction , box_rolling_friction, num_boxes_with_wheels, wheels_axle_damping_ratio, agent_type):
     
     # Name of input and output file otherwise set to default
     XML_OUT = Path(file_name)
@@ -420,9 +374,16 @@ def generate_area_clearing_xml(N, env_type, file_name, ROBOT_clear, BOXES_clear,
 
     # Finding the robot's q_pos and boxes's randomized data
     robot_qpos, boxes = sample_scene(N, keep_out, ROBOT_clear, BOXES_clear, ARENA_X, ARENA_Y, internal_clearance_length)
-  
+
+    # Generating xml code for boxes
+    box_xml = generating_box_xml(boxes, Z_BOX, wheels_on_boxes, wheels_mass, wheels_support_mass, wheels_sliding_friction, wheels_torsional_friction, wheels_rolling_friction, 
+        wheels_support_damping_ratio, box_mass, box_sliding_friction, box_torsional_friction, box_rolling_friction, box_half_size, num_boxes_with_wheels, wheels_axle_damping_ratio)
+
+    # robot xml code
+    agent_xml, actuator_xml = generating_agent_xml(agent_type, bumper_type, bumper_mass, robot_qpos)
+
     # Building new environemnt and writing it down
-    xml_string = build_xml(robot_qpos, boxes, stl_model_path, extra_xml, Z_BOX, box_half_size, ARENA_X[1], ARENA_Y[1], env_type, wall_clearence_outer, wall_clearence_inner, bumper_type, robot_rgb=(0.1, 0.1, 0.1), sim_timestep=sim_timestep)
+    xml_string = build_xml(stl_model_path, extra_xml, ARENA_X[1], ARENA_Y[1], env_type, wall_clearence_outer, wall_clearence_inner, box_xml, agent_xml, actuator_xml, sim_timestep)
     XML_OUT.write_text(xml_string)
     
     return XML_OUT, keep_out

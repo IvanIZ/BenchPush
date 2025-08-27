@@ -73,6 +73,18 @@ class MazeNAMOMujoco(MujocoEnv, utils.EzPickle):
         else:
             raise Exception("Invalid Maze Version!")
 
+        # Box with wheels
+        self.wheels_on_boxes = self.cfg.wheels_on_boxes.wheels_on_boxes
+        self.wheels_mass = self.cfg.wheels_on_boxes.wheels_mass
+        self.wheels_support_mass = self.cfg.wheels_on_boxes.wheels_support_mass
+        self.wheels_sliding_friction = self.cfg.wheels_on_boxes.wheels_sliding_friction
+        self.wheels_torsional_friction = self.cfg.wheels_on_boxes.wheels_torsional_friction
+        self.wheels_rolling_friction = self.cfg.wheels_on_boxes.wheels_rolling_friction
+        self.wheels_support_damping_ratio = self.cfg.wheels_on_boxes.wheels_support_damping_ratio
+        self.num_boxes_with_wheels = self.cfg.wheels_on_boxes.num_boxes_with_wheels
+        self.num_boxes_without_wheels = self.cfg.boxes.num_boxes - self.num_boxes_with_wheels
+        self.names_boxes_without_wheels = [f"box{i}" for i in range(self.num_boxes_without_wheels)]
+
         # initialize occupancy helper class
         grid_size = 1 / self.cfg.occ.m_to_pix_scale
         self.occupancy = OccupancyGrid(grid_width=grid_size, grid_height=grid_size, map_width=self.cfg.env.width, map_height=self.cfg.env.length, 
@@ -111,7 +123,10 @@ class MazeNAMOMujoco(MujocoEnv, utils.EzPickle):
         _, self.maze_walls = generate_maze_xml(N=self.cfg.boxes.num_boxes, maze_version=self.cfg.maze_version, file_name=xml_file,
                         ROBOT_R=self.cfg.agent.robot_r, CLEAR=self.cfg.boxes.clearance, Z_CUBE=0.02, ARENA_X=(0.0, self.cfg.env.width), 
                         ARENA_Y=(0.0, self.cfg.env.length), cube_half_size=0.04, clearance_poly=self.cfg.env.clearance_poly, goal_center=self.cfg.env.goal_position, 
-                        goal_half=self.cfg.env.goal_size, bumper_type=self.cfg.agent.type_of_bumper)
+                        goal_half=self.cfg.env.goal_size, bumper_type=self.cfg.agent.type_of_bumper, wheels_on_boxes=self.wheels_on_boxes, wheels_mass=self.wheels_mass, wheels_support_mass=self.wheels_support_mass, wheels_sliding_friction=self.wheels_sliding_friction,
+                        wheels_torsional_friction=self.wheels_torsional_friction, wheels_rolling_friction=self.wheels_rolling_friction, wheels_support_damping_ratio=self.wheels_support_damping_ratio, box_mass=self.cfg.boxes.box_mass,
+                        box_sliding_friction= self.cfg.boxes.box_sliding_friction, box_torsional_friction= self.cfg.boxes.box_torsional_friction, box_rolling_friction= self.cfg.boxes.box_rolling_friction, 
+                        num_boxes_with_wheels=self.cfg.wheels_on_boxes.num_boxes_with_wheels, wheels_axle_damping_ratio=self.cfg.wheels_on_boxes.wheels_axle_damping_ratio)
 
 
         # compute the global distance map
@@ -169,7 +184,7 @@ class MazeNAMOMujoco(MujocoEnv, utils.EzPickle):
         # get box area list
         self.areas = []
         for i in range(self.cfg.boxes.num_boxes):
-            body_name = "cube" + str(i)
+            body_name = "box" + str(i)
             self.areas.append(get_box_2d_area(self.model, self.data, body_name))
         self.prev_obs_positions = None
 
@@ -287,7 +302,7 @@ class MazeNAMOMujoco(MujocoEnv, utils.EzPickle):
         obs[:3] = get_body_pose_2d(self.model, self.data, body_name='base')
 
         for i in range(self.cfg.boxes.num_boxes):
-            body_name = "cube" + str(i)
+            body_name = "box" + str(i)
             start_idx = (i + 1) * 3
             end_idx = (i + 2) * 3
             obs[start_idx:end_idx] = get_body_pose_2d(self.model, self.data, body_name=body_name)
@@ -382,7 +397,7 @@ class MazeNAMOMujoco(MujocoEnv, utils.EzPickle):
         obs_verts = []
         obs_pos = []
         for i in range(self.cfg.boxes.num_boxes):
-            body_name = "cube" + str(i)
+            body_name = "box" + str(i)
             vertices, pos = get_box_2d_vertices(self.model, self.data, body_name)
             obs_verts.append(vertices)
             obs_pos.append(pos)

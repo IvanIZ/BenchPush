@@ -1,11 +1,6 @@
 render:
   show: true
-  show_obs: true
-
-boxes:
-  num_boxes: 10
-  clearance: 0.1
-  box_half_size: 0.04
+  show_obs: false
 
 train:
   train_mode: false
@@ -21,7 +16,7 @@ train:
   learning_rate: 0.01
   learning_starts: 1000
   n_epochs: 10
-  n_steps: 256
+  n_steps: 256s
   replay_buffer_size: 10000
   resume_training: false
   target_update_freq: 1000
@@ -34,18 +29,40 @@ train:
   
 ### ENVIRONMENT PARAMS
 env:
-  area_clearing_version: "Partially_closed_with_walls" # Choose from one of them: Fully_open_area ,Partially_closed_with_walls ,Partially_closed_with_static
-  room_width: 1.4225
-  room_length: 1.4225
-  wall_clearence_outer: 0.2 # Provides clearance from either of the room length and width
-  wall_clearence_inner: 0.05
-  internal_clearance_length: 0.2
+  area_clearing_version: "Partially_closed_with_walls" # Choose from one of them: Fully_open_area, Partially_closed_with_walls, Partially_closed_with_static
+  room_width: 2.845 # From inside of wall to inside of wall
+  room_length: 1.575 # From inside of wall to inside of wall
+  distance_between_inner_goal_and_outer_wall_width: 0.25
+  distance_between_inner_goal_and_outer_wall_length: 0.25
+  wall_clearence_inner: 0.05 # Distance between the goal and inner wall
+  internal_clearance_length: 0.2 
   shortest_path_channel_scale: 0.25
   local_map_pixel_width: 224
   local_map_pixel_width_sam: 96
   wall_thickness: 50.0 # Really high wall thickness to ensure nothing in vicinity of local maps
   invert_receptacle_map: false
   sim_timestep: 0.01
+
+boxes:
+  num_boxes: 10
+  clearance: 0.1
+  box_half_size: 0.04
+  box_mass: 0.075 # mass(kg) for each box without wheels
+  box_sliding_friction: 0.4
+  box_torsional_friction: 0.015
+  box_rolling_friction: 0.002
+
+wheels_on_boxes:
+  # Upon adjusting parameters here all other physics parameters like moment of inertia etc are adjusted automatically
+  wheels_on_boxes: True       # if true, the boxes would have wheels
+  num_boxes_with_wheels: 6    # this cannot be more than num_boxes (num_boxes_without_wheels= num_boxes - num_boxes_with_wheels)
+  wheels_mass: 0.04           # mass in terms of kg for each wheel on the box
+  wheels_support_mass: 0.02   # mass in terms of kg for each wheel support on the box
+  wheels_sliding_friction: 0.85
+  wheels_torsional_friction: 0.02
+  wheels_rolling_friction: 0.002
+  wheels_axle_damping_ratio: 0.001
+  wheels_support_damping_ratio: 1.0
 
 small_pillars:
   num_pillars: 4
@@ -58,11 +75,16 @@ misc:
   random_seed: 42
 
 agent:
+  # Recommended values for the agent
+  # Turlebot 3: length=0.138, width=0.183, robot_clear=0.15
+  # Jackal: length=0.51, width=0.43, robot_clear=0.75
+  agent_type: 'turtlebot_3' # options are turtlebot_3 or jackal
   action_type: 'position' # options are velocity, heading, position
   length: 0.138
   width: 0.183
   robot_clear: 0.15
   type_of_bumper: 'straight' # Choose from one of them: curved_inwards, straight, curved_outwards
+  bumper_mass: 0.1 # mass (kg) for the bumper so that can switch between different plastic materials
 
 rewards_sam:
   partial_rewards_scale: 0.2

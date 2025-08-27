@@ -5,7 +5,7 @@ import argparse
 
 # from benchnpin.baselines.area_clearing.ppo.policy import AreaClearingPPO
 # from benchnpin.baselines.area_clearing.sac.policy import AreaClearingSAC
-from benchnpin.baselines.area_clearing.planning_based.policy import PlanningBasedPolicy
+# from benchnpin.baselines.area_clearing.planning_based.policy import PlanningBasedPolicy
 from benchnpin.baselines.area_clearing_mujoco.sam.policy import AreaClearingMujocoSAM
 
 from benchnpin.common.metrics.base_metric import BaseMetric

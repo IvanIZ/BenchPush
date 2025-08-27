@@ -2,6 +2,7 @@ import numpy as np
 import shapely.geometry as sg
 import shapely.ops as so
 import trimesh
+import math
 try:
     import mujoco
 except ImportError as e:
@@ -62,10 +63,17 @@ def make_controller(curr_pos, curr_yaw, goal_pos):
     # Angle computations
     goal_head = np.arctan2(vec[1], vec[0])
     err_yaw   = np.arctan2(np.sin(goal_head - curr_yaw), np.cos(goal_head - curr_yaw))
-
+    
     # Controller characteristics
     k_v, k_w = 0.2, 8.0
 
+    # Rotation
+    if abs(err_yaw) > ANGLE_TOL:
+        return 0.0, k_w * err_yaw, dist
+
+    # # Moving to required position
+    # else:
+        # return k_v * dist, 0.0, dist
     return k_v, k_w * err_yaw, dist
 
 
@@ -100,6 +108,280 @@ def corners_xy(centre_xy, yaw,corners_local_coordinates) -> np.ndarray:
     R = np.array([[ np.cos(yaw), -np.sin(yaw)],
                   [ np.sin(yaw),  np.cos(yaw)]])
     return centre_xy + corners_local_coordinates @ R.T
+
+def xy_positions_of_wheel_assembly_wrt_center(yaw,corners_local_coordinates) -> np.ndarray:
+    """4 x 2 array with world-space (x,y) vertices of a yawed box."""
+    R = np.array([[ np.cos(yaw), -np.sin(yaw)],
+                  [ np.sin(yaw),  np.cos(yaw)]])
+    return 0.8 * corners_local_coordinates @ R.T
+
+
+def generating_box_xml(boxes, Z_BOX, wheels_on_boxes, wheels_mass, wheels_support_mass, wheels_sliding_friction, 
+    wheels_torsional_friction, wheels_rolling_friction, wheels_support_damping_ratio, box_mass, box_sliding_friction, 
+    box_torsional_friction, box_rolling_friction, box_half_size, num_boxes_with_wheels, wheels_axle_damping_ratio):
+
+    box_xml = " <!-- Boxes -->\n"
+    box_size = f"{box_half_size} {box_half_size} {box_half_size}"
+
+    if not wheels_on_boxes:
+        num_boxes_without_wheels = len(boxes)
+    else:
+        num_boxes_without_wheels = len(boxes) - num_boxes_with_wheels
+    
+    box_number=0
+        
+    while num_boxes_without_wheels > 0:
+
+        Z_BOX = Z_BOX + 0.005
+        (x, y, th)= boxes[box_number]
+
+        qw, qx, qy, qz = quat_z(th)
+
+        box_xml += f"""
+    <body name="box{box_number}" pos="{x:.4f} {y:.4f} {Z_BOX:.3f}">
+      <joint name="box{box_number}_joint" type="free" />
+      <geom type="box" size="{box_size}" material="blue_mat" mass="{box_mass:.2f}"
+            quat="{qw:.6f} {qx:.6f} {qy:.6f} {qz:.6f}" friction="{box_sliding_friction:.2f} {box_torsional_friction:.2f} {box_rolling_friction:.2f}" contype="1" conaffinity="1"/>
+    </body>"""
+
+        box_number += 1
+
+        num_boxes_without_wheels -= 1
+
+    if not wheels_on_boxes:
+        return box_xml
+      
+    Z_BOX = Z_BOX + 0.030
+    Z_wheel_support, Z_wheel = -0.0530, 0.0038
+
+    # Wheel support position relative to wheel support assembly
+    Wheel_support_assembly_pos = [-0.008,0.0093,0]
+
+    # Wheel assembly positio relative to wheel support assembly
+    Wheel_assembly_pos = [0,-0.0012,Z_wheel]
+    # Wheel position relative to wheel assembly
+    Wheel_pos = [-0.0016,-0.007,-0.007]
+
+    def caster_block(i, idx, px, py):
+      sx, sy, sz = Wheel_support_assembly_pos
+      ax, ay, az = Wheel_assembly_pos
+      wx, wy, wz = Wheel_pos
+      return f"""
+      <body name="Wheels assembly_{i}_{idx}" pos="{px:.3f} {py:.2f} {Z_wheel_support:.4f}">
+      
+        <joint name="Wheel_support_rotation_{i}_{idx}" type="hinge" axis="0 0 1" damping="{wheels_support_damping_ratio}"/>
+        <geom  name="Wheel_support_{i}_{idx}" type="mesh" mesh="Wheels_support" rgba="0.3 0.13 0.08 1"
+               contype="1" conaffinity="1" euler="1.5708 0 0" pos="{sx:.3f} {sy:.4f} {sz:.0f}" mass="{wheels_support_mass}"/>
+        
+        <body name="Wheels_actual_{i}_{idx}" pos="{ax:.1f} {ay:.4f} {az:.4f}">
+          <joint name="Wheels_actual_joint_{i}_{idx}" type="hinge" axis="1 0 0" damping="{wheels_axle_damping_ratio}"/>
+          <geom  name="Wheel_{i}_{idx}" type="mesh" mesh="Wheels" rgba="0.1 0.1 0.1 1"
+                 contype="1" conaffinity="1" pos="{wx:.4f} {wy:.3f} {wz:.3f}"
+                 friction="{wheels_sliding_friction:.2f} {wheels_torsional_friction:.2f} {wheels_rolling_friction:.2f}"
+                 mass="{wheels_mass}"/>
+        </body>
+      </body>"""
+
+    boxes_with_wheels = boxes[box_number:]
+
+
+    for i, (x, y, th) in enumerate(boxes_with_wheels, start=box_number):
+        
+        qw, qx, qy, qz = quat_z(th)
+        yaw = 2 * math.atan2(qz, qw)
+  
+        corners_local_coordinates = np.array([
+            [-box_half_size, -box_half_size],
+            [-box_half_size,  box_half_size],
+            [ box_half_size,  box_half_size],
+            [ box_half_size, -box_half_size]
+        ])
+
+        # Wheel positions relative to box center
+        Wheel_support_pos = xy_positions_of_wheel_assembly_wrt_center(yaw,corners_local_coordinates)
+
+        # Box header
+        box_xml += f"""
+    <body name="box{i}" pos="{x:.4f} {y:.4f} {Z_BOX:.3f}">
+      <joint name="box{i}_joint" type="free" />
+      <geom type="box" size="{box_size}" rgba="0.36 0.20 0.09 1" mass="{box_mass:.2f}"
+            quat="{qw:.6f} {qx:.6f} {qy:.6f} {qz:.6f}"
+            friction="{box_sliding_friction:.2f} {box_torsional_friction:.2f} {box_rolling_friction:.2f}"
+            contype="1" conaffinity="1"/>"""
+
+        # Four identical wheel assemblies (kept same order and names)
+        for idx, (px, py) in enumerate(Wheel_support_pos, start=1):
+            box_xml += caster_block(i, idx, px, py)
+
+        # Close box body
+        box_xml += """
+    </body>"""
+
+
+    return box_xml
+
+def generating_agent_xml(agent_type, bumper_type, bumper_mass, robot_qpos, robot_rgb=(0.1, 0.1, 0.1)):
+
+    if agent_type == "turtlebot_3":
+        if bumper_type == 'curved_inwards':
+            bumper_name= "TurtleBot3_Curved_Bumper_base"
+        
+        elif bumper_type == 'straight':
+            bumper_name = "TurtleBot3_Straight_Bumper_base"
+        
+        elif bumper_type == 'curved_outwards':
+            bumper_name = "TurtleBot3_Triangular_Bumper_base"
+        
+        else:
+            raise ValueError("Invalid bumper type for Turtlebot3. Choose from 'curved_inwards', 'straight', or 'curved_outwards'.")
+
+        agent_xml = f"""   <!-- Turtlebot3 robot -->\n
+    <!-- robot -->
+    <body name="base" pos="{robot_qpos}" euler="0 0 3.141592653589793">
+      <joint type="free" name="base_joint"/>
+      <!-- chassis -->
+      <geom name="base_chasis" pos="-0.032 0 0.01" type="mesh" rgba="{robot_rgb[0]} {robot_rgb[1]} {robot_rgb[2]} 1" mesh="burger_base" friction="0.1 0.02 0.0001" mass="0.8" contype="1" conaffinity="1"/>
+      <!-- small box sensor -->
+      <geom name="base_sensor_1" size="0.015 0.0045 0.01" pos="-0.081 7.96327e-07 0.005" quat="0.707388 -0.706825 0 0" type="box" rgba="{robot_rgb[0]} {robot_rgb[1]} {robot_rgb[2]} 1" mass="0.05" contype="1" conaffinity="1"/>
+      <!-- LDS sensor -->
+      <geom name="base_sensor_2" pos="-0.032 0 0.182" quat="1 0 0 0" type="mesh" rgba="{robot_rgb[0]} {robot_rgb[1]} {robot_rgb[2]} 1" mesh="lds" mass="0.131" contype="1" conaffinity="1"/>
+      <!-- Bumper -->
+      <geom name="{bumper_name}" pos="-0.04 -0.09 0.01" quat="1 0 0 0" type="mesh" rgba="0.3 0.13 0.08 1" mesh="{bumper_name}" mass="{bumper_mass}" contype="1" conaffinity="1" friction="0.1 0.02 0.0001"/>
+      
+      <!-- Left wheel -->
+      <body name="wheel_left_link_base" pos="0 0.08 0.033" quat="0.707388 -0.706825 0 0">
+        <inertial pos="0 0 0" quat="-0.000890159 0.706886 0.000889646 0.707326" mass="0.0284989" diaginertia="2.07126e-05 1.11924e-05 1.11756e-05"/>
+        <joint name="wheel_left_joint" pos="0 0 0" axis="0 0 1"/>
+        <geom quat="0.707388 0.706825 0 0" type="mesh" rgba="{robot_rgb[0]+0.1} {robot_rgb[1]+0.1} {robot_rgb[2]+0.1} 1" mesh="left_tire" friction="1.2 0.01 0.001"/>
+      </body>
+      
+      <!-- Right wheel -->
+      <body name="wheel_right_link_base" pos="0 -0.08 0.033" quat="0.707388 -0.706825 0 0">
+        <inertial pos="0 0 0" quat="-0.000890159 0.706886 0.000889646 0.707326" mass="0.0284989" diaginertia="2.07126e-05 1.11924e-05 1.11756e-05"/>
+        <joint name="wheel_right_joint" pos="0 0 0" axis="0 0 1"/>
+        <geom quat="0.707388 0.706825 0 0" type="mesh" rgba="{robot_rgb[0]+0.1} {robot_rgb[1]+0.1} {robot_rgb[2]+0.1} 1" mesh="right_tire" friction="1.2 0.01 0.001"/>
+      </body>
+    </body>"""
+        actuator_xml = f"""
+  <!-- Actuator -->
+  <actuator>
+    <velocity name="wheel_left_actuator" ctrllimited="true" ctrlrange="-22.0 22.0" gear="1" kv="1.0" joint="wheel_left_joint" />
+    <velocity name="wheel_right_actuator" ctrllimited="true" ctrlrange="-22.0 22.0" gear="1" kv="1.0" joint="wheel_right_joint" />
+  </actuator>
+</mujoco>"""
+
+    elif agent_type == "jackal":
+
+        if bumper_type == 'curved_inwards':
+            bumper_name= "jackal_bumper_curved_inwards"
+            bumper_pos = "-0.2075 0.026 -0.283"
+        
+        elif bumper_type == 'straight':
+            bumper_name = "jackal_straight_bumper"
+            bumper_pos = "-0.2075 0.025 -0.252"
+        
+        elif bumper_type == 'curved_outwards':
+            bumper_name = "jackal_bumper_curved"
+            bumper_pos = "-0.2075 0.026 -0.283"
+        
+        else:
+            raise ValueError("Invalid bumper type for Jackal. Choose from 'curved_inwards', 'straight', or 'curved_outwards'.")
+        
+        robot_qpos_x, robot_qpos_y = robot_qpos.split(" ")[0:2]
+
+        agent_xml = f"""   <!-- Jackal robot -->\n
+    <!-- robot -->
+    <body name="jackal_base" pos="{robot_qpos_x} {robot_qpos_y} 0.015" euler="0 1.5707963267948966 1.5707963267948966">
+    
+      <joint type="free" name="base_joint_jackal"/>
+      
+      <!-- chassis -->
+      <geom name="jackal_base" pos="0 0 0" type="mesh" rgba="0.08 0.08 0.09 1" mesh="jackal_base" friction="0.1 0.02 0.0001" contype="1" conaffinity="1" mass="14.0"/>
+      
+      <!-- Fender -->
+      <geom name="jackal_fenders" pos="0 0 0" type="mesh" rgba="0.702 0.467 0.090 1" mesh="jackal_fenders" mass="0.5" contype="1" conaffinity="1" friction="0.1 0.02 0.0001"/>
+      
+      <!-- Antenna bracket -->
+      <geom name="antenna_bracket" pos="0 0.272 0.19" type="mesh" rgba="0.702 0.467 0.090 1" mesh="antenna_bracket" mass="0.2" contype="1" conaffinity="1" euler="-1.5707963267948966 0 1.5707963267948966"/>
+      
+      <!-- Antenna 1 -->
+      <geom name="Antenna_1" pos="0.05 0.265 0.190" type="mesh" rgba="0.1 0.1 0.1 1" mesh="Antenna" mass="0.13" contype="1" conaffinity="1" euler="0.8 1.5707963267948966 0"/>
+      
+      <!-- Antenna 2 -->
+      <geom name="Antenna_2" pos="-0.07 0.265 0.190" type="mesh" rgba="0.1 0.1 0.1 1" mesh="Antenna" mass="0.13" contype="1" conaffinity="1" euler="0.8 1.5707963267948966 0"/>
+      
+      <!-- Bumper -->
+      <geom name="{bumper_name}" pos="{bumper_pos}" type="mesh" rgba="0.3 0.13 0.08 1" mesh="{bumper_name}" mass="{bumper_mass}" contype="1" conaffinity="1" euler="-1.5707963267948966 0.0 -1.5707963267948966"/>
+      
+      <!-- Left wheel front -->
+      <body name="wheel_left_front" pos="-0.19 0.1 -0.13" euler="0 1.5707963267948966 1.5707963267948966">
+        
+        <site name="wheel_1" pos="0 0 0" size="0.02" type="sphere"/>
+        
+        <joint name="wheel_left_jackal" axis="0 0 -1"/>
+        <geom type="mesh" rgba="0.1 0.1 0.1 1" mesh="jackal_wheel" friction="1.2 0.01 0.001" mass="0.5"/>
+      </body>
+      
+      <!-- Left wheel back -->
+      <body name="wheel_left_back" pos="-0.19 0.1 0.13" euler="0 1.5707963267948966 1.5707963267948966">
+        
+        <site name="wheel_2" pos="0 0 0" size="0.02" type="sphere"/>
+        <joint name="wheel_left_jackal_back" axis="0 0 -1"/>
+        <geom type="mesh" rgba="0.1 0.1 0.1 1" mesh="jackal_wheel" friction="1.2 0.01 0.001" mass="0.5"/>
+      </body>
+      
+      <!-- Right wheel front -->
+      <body name="wheel_right_front" pos="0.19 0.1 -0.13" euler="0 1.5707963267948966 1.5707963267948966">
+        
+        <site name="wheel_3" pos="0 0 0" size="0.02" type="sphere"/>
+        <joint name="wheel_right_jackal" axis="0 0 -1"/>
+        <geom type="mesh" rgba="0.1 0.1 0.1 1" mesh="jackal_wheel" friction="1.2 0.01 0.001" mass="0.5"/>
+        
+      </body>
+      
+      <!-- Right wheel back -->
+      <body name="wheel_right_back" pos="0.19 0.1 0.13" euler="0 1.5707963267948966 1.5707963267948966">
+        
+        <site name="wheel_4" pos="0 0 0" size="0.02" type="sphere"/>
+        <joint name="wheel_right_jackal_back" axis="0 0 -1"/>
+        <geom type="mesh" rgba="0.1 0.1 0.1 1" mesh="jackal_wheel" friction="1.2 0.01 0.001" mass="0.5"/>
+        
+      </body>
+      
+    </body>"""
+        actuator_xml = f"""
+  <!-- Actuator -->
+  <actuator>
+    <velocity name="wheel_left_actuator" ctrllimited="true" ctrlrange="-2.2 2.2" gear="1" kv="1.0" joint="wheel_left_jackal_back" />
+    <velocity name="wheel_right_actuator" ctrllimited="true" ctrlrange="-2.2 2.2" gear="1" kv="1.0" joint="wheel_right_jackal_back" />
+  </actuator>
+</mujoco>"""
+    else:
+        raise ValueError("Only turtlebot_3 and jackal are supported agents")
+    return agent_xml, actuator_xml
+
+def large_divider_corner_vertices(cx, cy, hy, half_x):
+    """
+    Return two corner footprints as lists of (x,y) vertices, same format as your earlier 'corners'
+    """
+    corner_coordinates = [
+    (0.0000, 0.0000),
+    (0.3150, 0.0000),
+    (0.1575, 0.0640),
+    (0.0640, 0.1575),
+    (0.0000, 0.3150)]
+
+    def place_on_right_wall(y_anchor):
+        # Mirror across X to the right wall (x -> half_x - x) and shift up to y_anchor (y -> y_anchor + y)
+        return [(half_x - x, y_anchor + y) for (x, y) in corner_coordinates]
+    
+    def place_on_right_wall_mirror_y(y_anchor):
+        return [(half_x - x, y_anchor - y) for (x, y) in corner_coordinates]
+
+    corner_4 = place_on_right_wall(cy + hy)
+    corner_5 = place_on_right_wall_mirror_y(cy - hy)
+
+    return corner_4, corner_5
 
 
 def get_body_pose_2d(model, data, body_name):
