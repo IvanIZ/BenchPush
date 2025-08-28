@@ -175,7 +175,7 @@ class MazeNAMOMujoco(MujocoEnv, utils.EzPickle):
         # Cube joint addresses
         joint_id_boxes=[]
         for i in range (self.cfg.boxes.num_boxes):
-            joint_id=mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_JOINT, f"cube{i}_joint")
+            joint_id=mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_JOINT, f"box{i}_joint")
             joint_id_boxes.append(joint_id)
         self.joint_id_boxes = joint_id_boxes
 

@@ -27,7 +27,6 @@ def changing_per_configuration(maze_version, maze_width, maze_len):
         Text = f"""
     <!-- pillar {name} -->
     <body name="{name}" pos="{cx:.3f} {cy:.3f} {zh:.3f}">
-      <joint name="{name}_joint" type="free"/>
       <geom name="{name}" type="box" size="{xh:.3f} {yh:.3f} {zh:.3f}" mass="{heavy_mass:.1f}" 
       rgba="0.4 0.4 0.4 1" contype="1" conaffinity="1"/>
     </body>
