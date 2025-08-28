@@ -3,6 +3,7 @@ import shapely.geometry as sg
 import shapely.ops as so
 import trimesh
 import math
+from shapely.geometry import Polygon
 try:
     import mujoco
 except ImportError as e:
@@ -219,6 +220,15 @@ def generating_box_xml(boxes, Z_BOX, wheels_on_boxes, wheels_mass, wheels_suppor
 
 
     return box_xml
+
+def inflate_keepouts(keep_outs, radius):
+
+    inflated = []
+    for poly in keep_outs:
+        polygon = Polygon(poly)
+        buffered = polygon.buffer(radius)   # Minkowski dilation
+        inflated.append(list(buffered.exterior.coords))
+    return inflated
 
 def generating_agent_xml(agent_type, bumper_type, bumper_mass, robot_qpos, robot_rgb=(0.1, 0.1, 0.1)):
 

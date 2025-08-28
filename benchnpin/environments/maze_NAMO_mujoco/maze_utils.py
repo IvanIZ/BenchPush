@@ -27,6 +27,7 @@ def changing_per_configuration(maze_version, maze_width, maze_len):
         Text = f"""
     <!-- pillar {name} -->
     <body name="{name}" pos="{cx:.3f} {cy:.3f} {zh:.3f}">
+      <joint name="{name}_joint" type="free"/>
       <geom name="{name}" type="box" size="{xh:.3f} {yh:.3f} {zh:.3f}" mass="{heavy_mass:.1f}" 
       rgba="0.4 0.4 0.4 1" contype="1" conaffinity="1"/>
     </body>
@@ -296,7 +297,7 @@ def generate_maze_xml(N, maze_version, file_name,ROBOT_R,CLEAR,Z_CUBE,ARENA_X,AR
       [(0, 0), (maze_width, 0), (maze_width, thickness), (0, thickness)]                                            # bottom wall
     ]
 
-    walls = keep_out + wall_vertices
+    walls = keep_out
     
     return XML_OUT, np.array(walls)
 

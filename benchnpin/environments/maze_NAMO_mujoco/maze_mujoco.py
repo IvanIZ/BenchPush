@@ -6,13 +6,14 @@ from matplotlib import pyplot as plt
 from benchnpin.common.utils.utils import DotDict
 from benchnpin.common.occupancy_grid.occupancy_map_mujoco import OccupancyGrid
 from benchnpin.environments.maze_NAMO_mujoco.maze_utils import generate_maze_xml, intersects_keepout, total_work_done
-from benchnpin.common.utils.mujoco_utils import vw_to_wheels, quat_z, inside_poly, get_body_pose_2d, get_box_2d_vertices, quat_z_yaw, corners_xy, wall_collision, get_box_2d_area
+from benchnpin.common.utils.mujoco_utils import vw_to_wheels, quat_z, inside_poly, get_body_pose_2d, get_box_2d_vertices, quat_z_yaw, corners_xy, wall_collision, get_box_2d_area, inflate_keepouts
 
 from gymnasium import utils
 from gymnasium.envs.mujoco import MujocoEnv
 from gymnasium.spaces import Box
 import os
 from gymnasium import error, spaces
+from shapely.geometry import Polygon
 
 try:
     import mujoco
@@ -187,6 +188,9 @@ class MazeNAMOMujoco(MujocoEnv, utils.EzPickle):
             body_name = "box" + str(i)
             self.areas.append(get_box_2d_area(self.model, self.data, body_name))
         self.prev_obs_positions = None
+
+        # Adding dilation to keep-out zones for collision checking
+        self.maze_walls_with_dialation = inflate_keepouts(self.maze_walls, self.cfg.agent.robot_r)
 
 
     def step(self, action):
@@ -469,7 +473,7 @@ class MazeNAMOMujoco(MujocoEnv, utils.EzPickle):
             x, y, _ = pos
 
             # 2) check against pillar keep-outs
-            if intersects_keepout(x, y, self.maze_walls):
+            if intersects_keepout(x, y, self.maze_walls_with_dialation):
                 return False
 
             return True
