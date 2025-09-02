@@ -126,7 +126,13 @@ def header_block(hfield, stl_model_path, sim_timestep, channel_len, channel_wid,
             <geom name="hfield" type="hfield" hfield="wave_field" pos="0 0 0" size="1 1 2" rgba="0 0.48 0.9 1" contype="0" conaffinity="0" />
             <geom name="sea_surface2" type="plane" size="100000 100000 0.1" pos="0 0 -1" material="water_" contype="0" conaffinity="0"/>
 
+            <!-- For generating snapshots -->
+            <camera name="overview_cam0" pos="300 250 200" euler="40 0 0" fovy="60"/>
+            <camera name="overview_forward" pos="300 250 200" euler="50 0 0" fovy="60"/>
+            <camera name="overview_high" pos="150 250 300" euler="40 0 0" fovy="60"/>
+            
             <camera name="overview_cam" pos="50 -200 200" euler="60 0 0" fovy="60"/>
+            <camera name="bottom_cam" pos="50 -200 200" quat="9.39692621e-01 3.42020143e-01 2.09426937e-17 5.75395780e-17" fovy="60"/> 
             
             <!ASV->
             <body name="asv" pos="{ASV_X0} {ASV_Y0} 0" quat="0.7071 0 0 0.7071">
@@ -297,7 +303,7 @@ def footer_block():
 
 def generate_waypoint_sites(num_sites=500):
     site_template = (
-        '<site name="wp{0}" pos="0 500 5" size="1" rgba="0 1 0 1" type="sphere"/>'
+        '<site name="wp{0}" pos="0 5000 5000" size="1" rgba="0 1 0 1" type="sphere"/>'
     )
     return "\n".join([site_template.format(i) for i in range(num_sites)])
 
