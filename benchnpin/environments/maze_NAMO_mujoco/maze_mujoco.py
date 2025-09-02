@@ -29,6 +29,8 @@ DEFAULT_CAMERA_CONFIG = {
     "distance": 4.0,
 }
 
+DEFAULT_SIZE = 480          # Default render size
+
 class MazeNAMOMujoco(MujocoEnv, utils.EzPickle):
 
     metadata = {
@@ -44,6 +46,8 @@ class MazeNAMOMujoco(MujocoEnv, utils.EzPickle):
         self,
         frame_skip: int = 15,
         default_camera_config: Dict[str, Union[float, int]] = DEFAULT_CAMERA_CONFIG,
+        render_width=DEFAULT_SIZE,
+        render_height=DEFAULT_SIZE,
         cfg=None,
         **kwargs,
     ):
@@ -148,6 +152,9 @@ class MazeNAMOMujoco(MujocoEnv, utils.EzPickle):
             frame_skip,
             observation_space=None,
             default_camera_config=default_camera_config,
+            width=render_width,
+            height=render_height,
+            camera_id=0,
             **kwargs,
         )
 
@@ -479,8 +486,8 @@ class MazeNAMOMujoco(MujocoEnv, utils.EzPickle):
             return True
 
         # Define bounds of the placement area (slightly inside the walls)
-        x_min, x_max = 0.1, 1.5
-        y_min, y_max = 0.1, 2.7
+        x_min, x_max = 0, self.cfg.env.width
+        y_min, y_max = 0, self.cfg.env.length
 
         # set robot pose
         if self.cfg.maze_version == 1:
