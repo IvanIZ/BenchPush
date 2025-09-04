@@ -384,6 +384,8 @@ def build_xml(robot_qpos, stl_model_path, extra_xml, ARENA_X1, ARENA_Y1, goal_ha
       <geom name="floor" type="box" size="{ARENA_X1/2} {ARENA_Y1/2} 0.01" friction="0.5 0.05 0.0001" contype="1" conaffinity="1"/>
     </body>
 
+    <camera name="centered_cam" pos="-0 -2 2.5" quat="1 0.3 0  0" fovy="60"/>
+
     <!-- Corner 1 -->
     <body name="corner_1" pos="{-ARENA_X1/2} {-ARENA_Y1/2} 0.06" euler="-3.14 0.0 0">
       <geom name="corner_1_1" type="mesh" mesh="corner_1" rgba="0.0 0.3 1.0 1.0" contype="1" conaffinity="1"/>

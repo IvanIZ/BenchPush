@@ -36,6 +36,8 @@ DEFAULT_CAMERA_CONFIG = {
     "distance": 4.0,
 }
 
+DEFAULT_SIZE = 480
+
 # Image segmentation indices
 OBSTACLE_SEG_INDEX = 0
 FLOOR_SEG_INDEX = 1
@@ -73,6 +75,8 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
         self,
         frame_skip: int = 5,
         default_camera_config: Dict[str, Union[float, int]] = DEFAULT_CAMERA_CONFIG,
+        render_width=DEFAULT_SIZE,
+        render_height=DEFAULT_SIZE,
         cfg=None,
         **kwargs,
     ):
@@ -220,6 +224,9 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
             frame_skip,
             observation_space=None,
             default_camera_config=default_camera_config,
+            width=render_width,
+            height=render_height,
+            camera_id=0,
             **kwargs,
         )
 
