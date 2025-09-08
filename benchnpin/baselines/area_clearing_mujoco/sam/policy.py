@@ -199,7 +199,8 @@ class AreaClearingMujocoSAM(BasePolicy):
 
     def train(self, job_id) -> None:
         # create environment
-        env = gym.make('area-clearing-mujoco-v0', render_mode='human', cfg=self.cfg)
+        render_mode = 'human' if self.cfg.render.show else None
+        env = gym.make('area-clearing-mujoco-v0', render_mode=render_mode, cfg=self.cfg)
         env = env.unwrapped
         # env.configure_env_for_SAM()
         self.cfg = env.cfg # update cfg with env-specific config
@@ -369,7 +370,8 @@ class AreaClearingMujocoSAM(BasePolicy):
     def evaluate(self, num_eps: int, model_eps: str ='latest'):
         # create environment
         if self.cfg is not None:
-            env = gym.make('area-clearing-mujoco-v0', render_mode='human', cfg=self.cfg)
+            render_mode = 'human' if self.cfg.render.show else None
+            env = gym.make('area-clearing-mujoco-v0', render_mode=render_mode, cfg=self.cfg)
         else:
             env = gym.make('area-clearing-mujoco-v0', render_mode='human')
         env = env.unwrapped
@@ -382,7 +384,7 @@ class AreaClearingMujocoSAM(BasePolicy):
         # env.cfg.agent.action_type = 'position'
         # env.cfg.sim.t_max = 50
 
-        # metric = TaskDrivenMetric(alg_name="SAM", robot_mass=env.cfg.agent.mass)
+        metric = TaskDrivenMetric(alg_name="SAM", robot_mass=env.cfg.agent.mass)
 
         if model_eps == 'latest':
             self.model = DenseActionSpacePolicy(env.action_space.high, env.num_channels, 0.0,
@@ -392,28 +394,28 @@ class AreaClearingMujocoSAM(BasePolicy):
 
         rewards_list = []
         for eps_idx in range(num_eps):
-            print("SAM Progress: ", eps_idx, " / ", num_eps, " episodes")
+            print("SAM Progress: ", eps_idx, " / ", num_eps, " episodes", end='\r')
             obs, info = env.reset()
-            # metric.reset(info)
+            metric.reset(info)
             done = truncated = False
             eps_reward = 0.0
             while True:
                 action, _ = self.model.step(obs)
                 obs, reward, done, truncated, info = env.step(action)
-                # metric.update(info=info, reward=reward, eps_complete=(done or truncated))
+                metric.update(info=info, reward=reward, eps_complete=(done or truncated))
                 if(self.cfg.render.show):
                     env.render()
                 if done or truncated:
                     break
+        print()
         
         env.close()
-        # metric.plot_scores(save_fig_dir=env.cfg.output_dir)
+        metric.plot_scores(save_fig_dir=env.cfg.output_dir)
 
         # env.cfg.agent.action_type = old_action_type
         # env.cfg.sim.t_max = old_t_max
 
-        # return metric.success_rates, metric.efficiency_scores, metric.effort_scores, metric.rewards, "SAM"
-        return None, None, None, None, None
+        return metric.success_rates, metric.efficiency_scores, metric.effort_scores, metric.rewards, "SAM"
 
 
     

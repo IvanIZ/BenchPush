@@ -12,6 +12,7 @@ from shapely.geometry import Polygon, LineString, Point
 
 # Bench-NPIN imports
 from benchnpin.common.controller.position_controller import PositionController
+from benchnpin.common.evaluation.metrics import total_work_done
 from benchnpin.common.utils.utils import DotDict
 from benchnpin.environments.area_clearing_mujoco.area_clearing_utils import generate_area_clearing_xml, precompute_static_vertices, dynamic_vertices, intersects_keepout, receptacle_vertices, transport_box_from_recept
 from benchnpin.common.utils.mujoco_utils import vw_to_wheels, make_controller, quat_z, inside_poly, quat_z_yaw, get_body_pose_2d
@@ -154,6 +155,7 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
         self.robot_cumulative_distance = None
         self.robot_cumulative_boxes = None
         self.robot_cumulative_reward = None
+        self.total_work = [0, []]
 
         # robot
         self.robot_hit_obstacle = False
@@ -263,6 +265,7 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
             joint_id=mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_JOINT, f"box{i}_joint")
             joint_id_boxes.append(joint_id)
         self.joint_id_boxes = joint_id_boxes
+        self.initial_box_joint_id = joint_id_boxes[0]
         self.completed_boxes_id=[]
 
         # rewards
@@ -409,6 +412,18 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
             terminated = True
             truncated = True
 
+        # work
+        _, boxes_vertices = dynamic_vertices(self.model, self.data, self.qpos_index_base, self.joint_id_boxes, self.robot_dimen, self.cfg.boxes.box_half_size)
+        updated_boxes = [np.array(poly[0]) for poly in boxes_vertices]
+        work = total_work_done(self.prev_boxes, updated_boxes)
+        self.total_work[0] += work
+        self.total_work[1].append(work)
+        self.prev_boxes = updated_boxes
+
+        # update position
+        robot_position = get_body_pose_2d(self.model, self.data, self.robot_name_in_xml)[:2]
+        robot_heading = self.restrict_heading_range(quat_z_yaw(*self.data.qpos[self.qpos_index_base+3:self.qpos_index_base+7]))
+
         # items to return
         self.observation=self.generate_observation(done=terminated)
         reward = self._get_rew()
@@ -417,10 +432,17 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
         self.robot_cumulative_reward += reward
         ministeps = robot_distance / self.ministep_size
         info = {
+            'state': (round(robot_position[0], 2),
+                      round(robot_position[1], 2),
+                      round(robot_heading, 2)),
             'cumulative_distance': self.robot_cumulative_distance,
             'cumulative_boxes': self.robot_cumulative_boxes,
             'cumulative_reward': self.robot_cumulative_reward,
             'ministeps': ministeps,
+            'total_work': self.total_work[0],
+            'obs': updated_boxes,
+            'box_completed_statuses': self.box_clearance_statuses,
+            'goal_positions': self.goal_points,
         }
 
         # render environment
@@ -847,10 +869,13 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
 
         # reward for boxes in receptacle
         self.completed_boxes_id, self.num_completed_boxes_new = transport_box_from_recept(self.model, self.data, self.joint_id_boxes, self.room_width_inner,
-                                                                                          self.room_length_inner, self.completed_boxes_id, goal_half= self.receptacle_half, goal_center= self.receptacle_position, box_half_size=self.cfg.boxes.box_half_size)
+                                                                                          self.room_length_inner, self.completed_boxes_id, goal_half=self.receptacle_half, goal_center=self.receptacle_position, box_half_size=self.cfg.boxes.box_half_size)
         if self.num_completed_boxes_new > 0:
             self.inactivity_counter = 0
         robot_reward += self.goal_reward * self.num_completed_boxes_new
+
+        for id in self.completed_boxes_id:
+            self.box_clearance_statuses[id - self.joint_id_boxes[0]] = True
         
         # penalty for hitting obstacles
         if self.robot_hit_obstacle:
@@ -1140,6 +1165,7 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
         self.robot_cumulative_distance = 0
         self.robot_cumulative_boxes = 0
         self.robot_cumulative_reward = 0
+        self.total_work = [0, []]
 
         self.update_configuration_space()
 
@@ -1150,7 +1176,11 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
         if self.goal_point_global_map is None:
             self.goal_point_global_map = self.create_global_shortest_path_to_goal_points()
 
-        observation=self.generate_observation()
+        observation = self.generate_observation()
+
+        self.box_clearance_statuses = [False for _ in range(self.num_boxes)]
+
+        self.prev_boxes = [np.array(poly[0]) for poly in boxes_vertices]
 
         self.position_controller = PositionController(self.cfg, self.robot_radius, self.room_width_inner, self.room_length_inner, 
                                                       self.configuration_space, self.configuration_space_thin, self.closest_cspace_indices, 
@@ -1160,10 +1190,19 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
         return observation
 
     def _get_reset_info(self):
+        robot_position = get_body_pose_2d(self.model, self.data, self.robot_name_in_xml)[:2]
+        robot_heading = self.restrict_heading_range(quat_z_yaw(*self.data.qpos[self.qpos_index_base+3:self.qpos_index_base+7]))
         info = {
+            'state': (round(robot_position[0], 2),
+                      round(robot_position[1], 2),
+                      round(robot_heading, 2)),
             'cumulative_distance': self.robot_cumulative_distance,
             'cumulative_boxes': self.robot_cumulative_boxes,
             'cumulative_reward': self.robot_cumulative_reward,
             'ministeps': 0,
+            'total_work': self.total_work[0],
+            'obs': self.prev_boxes, # updated from reset
+            'box_completed_statuses': self.box_clearance_statuses,
+            'goal_positions': self.goal_points,
         }
         return info

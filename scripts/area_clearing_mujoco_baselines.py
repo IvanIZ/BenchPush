@@ -65,7 +65,7 @@ def main(cfg, job_id):
             #     planning_based_policy = PlanningBasedPolicy(cfg.glns_executable_path, cfg=cfg)
             #     benchmark_results.append(planning_based_policy.evaluate(num_eps=num_eps))
 
-    # BaseMetric.plot_algs_scores(benchmark_results, save_fig_dir='./', plot_success=True)
+    BaseMetric.plot_algs_scores(benchmark_results, save_fig_dir='./', plot_success=True)
 
     # save eval results to disk
     pickle_dict = {
