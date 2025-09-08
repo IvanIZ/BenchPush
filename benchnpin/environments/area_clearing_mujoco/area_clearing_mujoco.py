@@ -46,9 +46,9 @@ DISTANCE_SCALE_MAX = 0.5
 #Image segmentation indices
 OBSTACLE_SEG_INDEX = 0
 FLOOR_SEG_INDEX = 1
-WHEELED_BOX_SEG_INDEX = 2
-NON_WHEELED_BOX_SEG_INDEX = 3
-RECEPTACLE_SEG_INDEX = 4
+RECEPTACLE_SEG_INDEX = 2
+WHEELED_BOX_SEG_INDEX = 3
+NON_WHEELED_BOX_SEG_INDEX = 4
 ROBOT_SEG_INDEX = 5
 COMPLETED_NON_WHEELED_BOX_SEG_INDEX = 7
 COMPLETED_WHEELED_BOX_SEG_INDEX = 8
@@ -65,7 +65,7 @@ NOT_MOVING_THRESHOLD = 0.005 * scale_factor
 NOT_TURNING_THRESHOLD = np.radians(0.05)
 NONMOVEMENT_DIST_THRESHOLD = 0.05 * scale_factor
 NONMOVEMENT_TURN_THRESHOLD = np.radians(0.05)
-STEP_LIMIT = 5000
+STEP_LIMIT = 400
 
 
 class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
@@ -172,6 +172,8 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
                 # Circular robot mask
                 if (((i + 0.5) - self.local_map_pixel_width / 2)**2 + ((j + 0.5) - self.local_map_pixel_width / 2)**2)**0.5 < robot_pixel_width / 2:
                     self.robot_state_channel[i, j] = 1
+        self.robot_distance = 0
+        self.robot_turn_angle = 0
 
         self.agent_type = self.cfg.agent.agent_type
         if self.agent_type == "turtlebot_3":
@@ -201,7 +203,7 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
 
         # generate random environment
         _, self.initialization_keepouts = generate_area_clearing_xml(N=self.cfg.boxes.num_boxes, env_type=self.cfg.env.area_clearing_version, file_name=xml_file,
-                        ROBOT_clear=self.cfg.agent.robot_clear, BOXES_clear=self.cfg.boxes.clearance, Z_BOX=self.cfg.boxes.box_half_size, ARENA_X=(0.0, self.room_length_inner), 
+                        ROBOT_clear=self.robot_radius, BOXES_clear=self.cfg.boxes.clearance, Z_BOX=self.cfg.boxes.box_half_size, ARENA_X=(0.0, self.room_length_inner), 
                         ARENA_Y=(0.0, self.room_width_inner), box_half_size=self.cfg.boxes.box_half_size, num_pillars=self.cfg.small_pillars.num_pillars, pillar_half=self.cfg.small_pillars.pillar_half,
                         wall_clearence_outer=[self.cfg.env.distance_between_inner_goal_and_outer_wall_length, self.cfg.env.distance_between_inner_goal_and_outer_wall_width], 
                         wall_clearence_inner=self.cfg.env.wall_clearence_inner, internal_clearance_length=self.cfg.env.internal_clearance_length, robot_radius=self.robot_radius, 
@@ -387,7 +389,7 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
         robot_reward = 0
 
         robot_initial_position = get_body_pose_2d(self.model, self.data, self.robot_name_in_xml)[:2]
-        robot_initial_heading = quat_z_yaw(*self.data.qpos[self.qpos_index_base+3:self.qpos_index_base+7])
+        robot_initial_heading = self.restrict_heading_range(quat_z_yaw(*self.data.qpos[self.qpos_index_base+3:self.qpos_index_base+7]))
 
         # TODO check if move_sign is necessary
         self.path, robot_move_sign = self.position_controller.get_waypoints_to_spatial_action(robot_initial_position, robot_initial_heading, action)
@@ -396,10 +398,7 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
         #     self.renderer.update_path(self.path)
         #self.update_path(self.path)
 
-        robot_distance, robot_turn_angle = self.execute_robot_path(robot_initial_position, robot_initial_heading)
-        
-        self._step_dx = robot_distance
-        self._step_dyaw = robot_turn_angle
+        self.execute_robot_path(robot_initial_position, robot_initial_heading)
 
         # check if episode is done
         terminated = False
@@ -427,10 +426,10 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
         # items to return
         self.observation=self.generate_observation(done=terminated)
         reward = self._get_rew()
-        self.robot_cumulative_distance += robot_distance
+        self.robot_cumulative_distance += self.robot_distance
         self.robot_cumulative_boxes += self.num_completed_boxes_new
         self.robot_cumulative_reward += reward
-        ministeps = robot_distance / self.ministep_size
+        ministeps = self.robot_distance / self.ministep_size
         info = {
             'state': (round(robot_position[0], 2),
                       round(robot_position[1], 2),
@@ -456,7 +455,7 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
         robot_position = robot_initial_position.copy()
         robot_heading = robot_initial_heading
         robot_is_moving = True
-        robot_distance = 0
+        self.robot_distance = 0
 
         robot_waypoint_index = 1
         robot_waypoint_positions = [(waypoint[0], waypoint[1]) for waypoint in self.path]
@@ -500,15 +499,13 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
 
             # get new robot pose
             robot_position = get_body_pose_2d(self.model, self.data, self.robot_name_in_xml)[:2]
-            # robot_position = list(robot_position)
-            robot_heading = quat_z_yaw(*self.data.qpos[self.qpos_index_base+3:self.qpos_index_base+7])
+            robot_heading = self.restrict_heading_range(quat_z_yaw(*self.data.qpos[self.qpos_index_base+3:self.qpos_index_base+7]))
             prev_heading_diff = heading_diff
             
             # stop moving if robot collided with obstacle
             self.robot_hit_obstacle = self.robot_hits_static()
-            # if self.distance(robot_prev_waypoint_position, robot_position) > MOVE_STEP_SIZE:
-            if self.distance(robot_prev_position, robot_position) < MOVE_STEP_SIZE / 100:
-                if self.robot_hit_obstacle or done_turning:
+            if self.distance(robot_prev_waypoint_position, robot_position) > MOVE_STEP_SIZE:
+                if self.robot_hit_obstacle:
                     robot_is_moving = False
                     break   # Note: self.robot_distance does not get updated
 
@@ -517,7 +514,7 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
                     and np.abs(robot_heading - robot_waypoint_headings[robot_waypoint_index]) < WAYPOINT_TURNING_THRESHOLD):
 
                 # update distance moved
-                robot_distance += self.distance(robot_prev_waypoint_position, robot_position)
+                self.robot_distance += self.distance(robot_prev_waypoint_position, robot_position)
 
                 # increment waypoint index or stop moving if done
                 if robot_waypoint_index == len(robot_waypoint_positions) - 1:
@@ -540,8 +537,7 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
 
         robot_angle = quat_z_yaw(*self.data.qpos[self.qpos_index_base+3:self.qpos_index_base+7])
         robot_heading = self.restrict_heading_range(robot_angle)
-        robot_turn_angle = self.heading_difference(robot_initial_heading, robot_heading)
-        return robot_distance, robot_turn_angle
+        self.robot_turn_angle = self.heading_difference(robot_initial_heading, robot_heading)
 
     # Observation generation functions
 
@@ -882,7 +878,7 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
             robot_reward -= self.collision_penalty
         
         # penalty for small movements
-        if self._step_dx < NONMOVEMENT_DIST_THRESHOLD and self._step_dyaw < NONMOVEMENT_TURN_THRESHOLD:
+        if self.robot_distance < NONMOVEMENT_DIST_THRESHOLD and abs(self.robot_turn_angle) < NONMOVEMENT_TURN_THRESHOLD:
             robot_reward -= self.non_movement_penalty
         
         # Compute stats
@@ -1150,13 +1146,16 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
             self.data.qpos[qadr:qadr+3] = np.array([x, y, z])
             self.data.qpos[qadr+3:qadr+7] = quat_z(theta)
             self.data.qvel[qadr:qadr+6] = 0
+        
+        # Update the simulation state
+        mujoco.mj_forward(self.model, self.data)
 
         # self._prev_robot_xy = get_body_pose_2d(self.model, self.data, 'base')[:2]
         self.do_simulation([0, 0], 1)
-        self._prev_robot_heading = quat_z_yaw(*self.data.qpos[self.qpos_index_base+3:self.qpos_index_base+7])
+        self._prev_robot_heading = self.restrict_heading_range(quat_z_yaw(*self.data.qpos[self.qpos_index_base+3:self.qpos_index_base+7]))
 
         # get the robot and boxes vertices
-        robot_properties, boxes_vertices = dynamic_vertices(self.model,self.data, self.qpos_index_base,self.joint_id_boxes, self.robot_dimen, self.cfg.boxes.box_half_size)
+        robot_properties, boxes_vertices = dynamic_vertices(self.model, self.data, self.qpos_index_base, self.joint_id_boxes, self.robot_dimen, self.cfg.boxes.box_half_size)
 
         self.motion_dict = self.init_motion_dict()
 

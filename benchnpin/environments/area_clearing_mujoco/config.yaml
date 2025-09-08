@@ -56,7 +56,7 @@ boxes:
 
 wheels_on_boxes:
   # Upon adjusting parameters here all other physics parameters like moment of inertia etc are adjusted automatically
-  wheels_on_boxes: True       # if true, the boxes would have wheels
+  wheels_on_boxes: False # if true, the boxes would have wheels
   num_boxes_with_wheels: 6    # this cannot be more than num_boxes (num_boxes_without_wheels= num_boxes - num_boxes_with_wheels)
   wheels_mass: 0.04           # mass in terms of kg for each wheel on the box
   wheels_support_mass: 0.02   # mass in terms of kg for each wheel support on the box
