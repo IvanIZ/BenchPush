@@ -560,6 +560,7 @@ def transport_box_from_recept(model, data, joint_id_boxes, ARENA_X1, ARENA_Y1, g
     xmin, xmax = goal_center[0] - GOAL_HALF[0], goal_center[0] + GOAL_HALF[0]
     ymin, ymax = goal_center[1] - GOAL_HALF[1], goal_center[1] + GOAL_HALF[1]
 
+    completed_ids = []
     for jid in joint_id_boxes[:]:
 
         qadr = model.jnt_qposadr[jid]
@@ -587,9 +588,10 @@ def transport_box_from_recept(model, data, joint_id_boxes, ARENA_X1, ARENA_Y1, g
         if inside:
             data.qpos[qadr:qadr+3] = DROP_POS
             joint_id_boxes.remove(jid)
+            completed_ids.append(jid)
 
     # number of boxes that are transported
     final_len = len(joint_id_boxes)
     num_boxes = initial_len - final_len
     
-    return joint_id_boxes, num_boxes
+    return joint_id_boxes, num_boxes, completed_ids

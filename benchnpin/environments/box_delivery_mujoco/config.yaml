@@ -1,3 +1,5 @@
+output_dir: "logs/"
+
 render:
   show: true # Also, in configure_box_delivery_mujoco.py, set render_mode to "human" to see the rendering else None
   show_obs: false
@@ -101,6 +103,7 @@ agent:
   robot_clear: 0.15
   type_of_bumper: 'straight'  # Choose from one of them: curved_inwards, straight, curved_outwards
   bumper_mass: 0.1 # mass (kg) for the bumper so that can switch between different plastic materials
+  mass: 1.07
 
 rewards_sam:
   partial_rewards_scale: 0.2
