@@ -1,9 +1,8 @@
 #!/bin/sh
 # Node resource configurations
-#SBATCH --exclude=gpu138
-#SBATCH --job-name=SAM
+#SBATCH -A aip-sl2smith
 #SBATCH --mem=20G
-#SBATCH --gres=gpu:rtx6000:1
+#SBATCH --gres=gpu:l40s:1
 #SBATCH -c 4
 #SBATCH --qos=normal
 #SBATCH --time=12:00:00

@@ -605,8 +605,14 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
             int(2 * np.ceil((self.room_width * self.local_map_pixels_per_meter + self.local_map_pixel_width * np.sqrt(2)) / 2)),
             int(2 * np.ceil((self.room_length * self.local_map_pixels_per_meter + self.local_map_pixel_width * np.sqrt(2)) / 2))
         ), dtype=np.float32)
+
+    def create_padded_room_ones(self):
+        return np.ones((
+            int(2 * np.ceil((self.room_width * self.local_map_pixels_per_meter + self.local_map_pixel_width * np.sqrt(2)) / 2)),
+            int(2 * np.ceil((self.room_length * self.local_map_pixels_per_meter + self.local_map_pixel_width * np.sqrt(2)) / 2))
+        ), dtype=np.float32)
     
-    def create_global_shortest_path_to_receptacle_map(self,receptacle_position):
+    def create_global_shortest_path_to_receptacle_map(self, receptacle_position):
         """ Creates a global shortest path map to the receptacle."""
 
         # Create a padded room of zeros and compute the shortest path to the receptacle
@@ -648,7 +654,8 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
         """
 
         # Create a padded room of zeros to draw the walls and columns
-        obstacle_map = self.create_padded_room_zeros()
+        # obstacle_map = self.create_padded_room_zeros()
+        obstacle_map = self.create_padded_room_ones()
         small_obstacle_map = np.zeros((self.local_map_pixel_width+20, self.local_map_pixel_width+20), dtype=np.float32)
         
         # Precompute static vertices for walls and columns

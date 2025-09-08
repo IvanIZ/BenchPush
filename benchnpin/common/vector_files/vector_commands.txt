@@ -9,7 +9,7 @@ module avail
 module load python/3.9.10
 
 ## Access one GPU for debugging code
-srun -c 4 --gres=gpu:rtx6000:1 --mem=10GB --pty --time=6:00:00 bash
+srun -A aip-sl2smith -c 4 --gres=gpu:l40s:1 --mem=10GB --pty --time=6:00:00 bash
 
 sbatch benchnpin/common/vector_files/launch_job_.slrm
 

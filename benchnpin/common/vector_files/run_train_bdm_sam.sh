@@ -14,21 +14,28 @@
 # We also recommend users to create a symlink of the checkpoint dir so your
 # training code stays the same with regards to different job IDs and it would
 # be easier to navigate the checkpoint directory
-ln -sfn /checkpoint/${USER}/${SLURM_JOB_ID} $PWD/benchnpin/baselines/box_delivery_mujoco/SAM/checkpoint/${SLURM_JOB_ID}
-
+# ln -sfn /checkpoint/${USER}/${SLURM_JOB_ID} $PWD/benchnpin/baselines/box_delivery_mujoco/SAM/checkpoint/${SLURM_JOB_ID}
+# echo "Resolved path is: $(realpath "$PWD/../../../../scratch/checkpoint/${SLURM_JOB_ID}")"
+mkdir -p $SCRATCH/checkpoint/${SLURM_JOB_ID}
+ln -sfn $SCRATCH/checkpoint/${SLURM_JOB_ID} $PWD/benchnpin/baselines/box_delivery_mujoco/SAM/checkpoint/${SLURM_JOB_ID}
 
 # In the future, the checkpoint directory will be removed immediately after the
 # job has finished. If you would like the file to stay longer, and create an
 # empty "delay purge" file as a flag so the system will delay the removal for
 # 48 hours
-touch /checkpoint/${USER}/${SLURM_JOB_ID}/DELAYPURGE
+# touch /checkpoint/${USER}/${SLURM_JOB_ID}/DELAYPURGE
 
 # prepare the environment, here I am using environment modules, but you could
 # select the method of your choice (but note that code in ~/.bash_profile or
 # ~/.bashrc will not be executed with a new job)
-module purge && module load pytorch2.1-cuda11.8-python3.10
-export DISPLAY=:99
-Xvfb :99 -screen 0 1024x768x24 &
+# module purge && module load pytorch2.1-cuda11.8-python3.10
+module --force purge && module load StdEnv/2023 python/3.10.13
+# mujoco/3.1.6PWD/../../../../scratch/
+module load gcc opencv/4.10.0 mujoco/3.3.0
+# export DISPLAY=:99
+# Xvfb :99 -screen 0 1024x768x24 &
+unset DISPLAY
+export MUJOCO_GL=osmesa
 
 # Then we run our training code, using the checkpoint dir provided the code
 # demonstrates how to perform checkpointing in pytorch, please navigate to the

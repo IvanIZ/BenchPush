@@ -205,6 +205,9 @@ class BoxDeliveryMujocoSAM(BasePolicy):
         env = env.unwrapped
         self.cfg = env.cfg # update cfg with env-specific config
 
+        for key in self.cfg:
+            print(f"{key}: {self.cfg[key]}")
+
         job_id = job_id
         params = self.cfg['train']
         self.batch_size = params['batch_size']
