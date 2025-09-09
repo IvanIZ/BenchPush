@@ -10,7 +10,7 @@ shapely
 pymunk==6.5.1
 torch
 torchvision
-gymnasium
+gymnasium[mujoco]
 stable-baselines3
 tensorboard
 pygame

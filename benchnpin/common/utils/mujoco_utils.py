@@ -7,7 +7,7 @@ from shapely.geometry import Polygon
 try:
     import mujoco
 except ImportError as e:
-    raise error.DependencyNotInstalled(
+    raise ModuleNotFoundError(
         'MuJoCo is not installed, run `pip install "gymnasium[mujoco]"`'
     ) from e
 

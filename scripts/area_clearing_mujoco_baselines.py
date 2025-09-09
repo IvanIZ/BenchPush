@@ -7,6 +7,7 @@ import argparse
 # from benchnpin.baselines.area_clearing.sac.policy import AreaClearingSAC
 # from benchnpin.baselines.area_clearing.planning_based.policy import PlanningBasedPolicy
 from benchnpin.baselines.area_clearing_mujoco.sam.policy import AreaClearingMujocoSAM
+from benchnpin.baselines.area_clearing_mujoco.ppo.policy import AreaClearingMujocoPPO
 
 from benchnpin.common.metrics.base_metric import BaseMetric
 
@@ -30,10 +31,10 @@ def main(cfg, job_id):
             sam_policy = AreaClearingMujocoSAM(model_name=model_name, cfg=cfg)
             sam_policy.train(job_id)
 
-        # elif cfg.train.job_type == 'ppo':
-        #     # ================================ PPO Policy =================================    
-        #     ppo_policy = AreaClearingPPO(model_name=model_name, cfg=cfg)
-        #     ppo_policy.train(total_timesteps=cfg.train.total_timesteps, checkpoint_freq=cfg.train.checkpoint_freq, from_model_eps=cfg.train.from_model_eps)
+        elif cfg.train.job_type == 'ppo':
+            # ================================ PPO Policy =================================
+            ppo_policy = AreaClearingMujocoPPO(model_name=model_name, cfg=cfg)
+            ppo_policy.train(total_timesteps=cfg.train.total_timesteps, checkpoint_freq=cfg.train.checkpoint_freq, from_model_eps=cfg.train.from_model_eps)
 
         # elif cfg.train.job_type == 'sac':
         #     # ================================ SAC Policy =================================
@@ -50,10 +51,10 @@ def main(cfg, job_id):
                 sam_policy = AreaClearingMujocoSAM(model_name=model_name, model_path=model_path, cfg=cfg)
                 benchmark_results.append(sam_policy.evaluate(num_eps=num_eps))
 
-            # elif policy_type == 'ppo':
-            #     # ================================ PPO Policy =================================    
-            #     ppo_policy = AreaClearingPPO(model_name=model_name, model_path=model_path, cfg=cfg)
-            #     benchmark_results.append(ppo_policy.evaluate(num_eps=num_eps))
+            elif policy_type == 'ppo':
+                # ================================ PPO Policy =================================
+                ppo_policy = AreaClearingMujocoPPO(model_name=model_name, model_path=model_path, cfg=cfg)
+                benchmark_results.append(ppo_policy.evaluate(num_eps=num_eps))
 
             # elif policy_type == 'sac':
             #     # ================================ SAC Policy =================================
@@ -102,33 +103,37 @@ if __name__ == '__main__':
     else:
         # High level configuration for the area clearing task
         cfg={
-            'num_obstacles': 10,
+            # 'env': 'clear_env', # 'clear_env_small', 'clear_env', walled_env', 'walled_env_with_columns'
+            'boxes': {
+                'num_boxes': 6,
+            },
             'render': {
                 'log_obs': False, # log occupancy observations
-                'show': False, # show the environment
+                'show': True, # show the environment
                 'show_obs': False, # show the occupancy observation
-            },
-            'env': {
-                'area_clearing_version': "Fully_open_area" # Choose from one of them: Fully_open_area ,Partially_closed_with_walls ,Partially_closed_with_static
             },
             'agent': {
                 # Options: 'position', 'heading', 'velocity'
-                # 'action_type': 'heading', # Use for PPO and SAC
-                'action_type': 'position', # Used by default for SAM
+                'action_type': 'heading', # Use for PPO and SAC
+                # 'action_type': 'position', # Used by default for SAM
                 # action_type: 'velocity', # Use for GTSP
             },
             'train': {
                 'train_mode': True,
-                'job_type': 'sam', # 'sam', 'ppo', 'sac'
-                'job_name': 'sam_clear_env',
+                'job_type': 'ppo', # 'sam', 'ppo', 'sac'
+                'job_name': 'ppo_clear_env',
                 'resume_training': False, 
+                # 'from_model_eps': 230000,
                 'from_model_eps': None,
+                'total_timesteps': 5e5,
+                'checkpoint_freq': 10000,
+                'job_id_to_resume': 'ppo_clear_env', # job id to resume training from
             },
             'evaluate': {
                 'eval_mode': False,
                 'num_eps': 2,
-                'policy_types': ['sam'], # list of policy types to evaluate
-                'model_names': ['clear_env'], # list of model names to evaluate
+                'policy_types': ['ppo'], # list of policy types to evaluate
+                'model_names': ['ppo_clear_env_None_230000_steps.zip'], # list of model names to evaluate
                 'model_path': 'models/area_clearing', # path to the models
                 'obs_configs': [None], # list of obstacle configurations to evaluate
             },

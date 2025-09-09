@@ -31,7 +31,7 @@ train:
   
 ### ENVIRONMENT PARAMS
 env:
-  area_clearing_version: "Partially_closed_with_walls" # Choose from one of them: Fully_open_area, Partially_closed_with_walls, Partially_closed_with_static
+  area_clearing_version: "Fully_open_area" # Choose from one of them: Fully_open_area, Partially_closed_with_walls, Partially_closed_with_static
   room_width: 2.845 # From inside of wall to inside of wall
   room_length: 1.575 # From inside of wall to inside of wall
   distance_between_inner_goal_and_outer_wall_width: 0.25
@@ -86,6 +86,7 @@ agent:
   width: 0.183
   robot_clear: 0.15
   type_of_bumper: 'straight' # Choose from one of them: curved_inwards, straight, curved_outwards
+  movement_step_size: 0.1
   bumper_mass: 0.1 # mass (kg) for the bumper so that can switch between different plastic materials
   mass: 1.07
 
@@ -95,3 +96,12 @@ rewards_sam:
   collision_penalty: 0.25
   non_movement_penalty: 0.25
   correct_direction_reward_scale: 1
+  terminal_reward: 10.0
+
+rewards:
+  partial_rewards_scale: 0.2
+  goal_reward: 10.0
+  collision_penalty: 0.25
+  non_movement_penalty: 0.25
+  correct_direction_reward_scale: 1
+  terminal_reward: 50.0

@@ -59,7 +59,7 @@ scale_factor = (2.845/10) # scales thresholds to be proportionately the same as 
 MOVE_STEP_SIZE = 0.05 * scale_factor
 TURN_STEP_SIZE = np.radians(15)
 
-WAYPOINT_MOVING_THRESHOLD = 0.6 * scale_factor
+WAYPOINT_MOVING_THRESHOLD = 0.2 * scale_factor
 WAYPOINT_TURNING_THRESHOLD = np.radians(10)
 NOT_MOVING_THRESHOLD = 0.005 * scale_factor
 NOT_TURNING_THRESHOLD = np.radians(0.05)
@@ -75,6 +75,7 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
             "human",
             "rgb_array",
             "depth_array",
+            "None"
         ],
     }
 
@@ -110,9 +111,12 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
         if self.cfg.wheels_on_boxes.wheels_on_boxes and self.cfg.wheels_on_boxes.num_boxes_with_wheels > self.cfg.boxes.num_boxes:
             raise ValueError("Number of boxes with wheels cannot be more than the total number of boxes.")
 
+        self.room_width = self.cfg.env.room_width
+        self.room_length = self.cfg.env.room_length
+
         # Setting up the environment parameters
-        self.room_length_inner = self.cfg.env.room_length - 2 * self.cfg.env.distance_between_inner_goal_and_outer_wall_length
-        self.room_width_inner = self.cfg.env.room_width - 2 * self.cfg.env.distance_between_inner_goal_and_outer_wall_width
+        self.room_length_inner = self.room_length - 2 * self.cfg.env.distance_between_inner_goal_and_outer_wall_length
+        self.room_width_inner = self.room_width - 2 * self.cfg.env.distance_between_inner_goal_and_outer_wall_width
 
         # Pillar position and size
         self.num_pillars = self.cfg.small_pillars.num_pillars
@@ -120,7 +124,7 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
 
         # environment
         self.local_map_pixel_width = self.cfg.env.local_map_pixel_width if self.cfg.train.job_type != 'sam' else self.cfg.env.local_map_pixel_width_sam
-        self.local_map_width = max(self.room_length_inner + 2 * self.cfg.env.distance_between_inner_goal_and_outer_wall_length, self.room_width_inner + 2 * self.cfg.env.distance_between_inner_goal_and_outer_wall_width)
+        self.local_map_width = max(self.room_length, self.room_width)
         self.local_map_pixels_per_meter = self.local_map_pixel_width / self.local_map_width
         self.wall_thickness = self.cfg.env.wall_thickness
         self.num_boxes = self.cfg.boxes.num_boxes
@@ -128,6 +132,7 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
         self.receptacle_position = [0, 0]  # The center of the plane is assumed to be 0,0
         self.receptacle_half = [self.room_length_inner / 2, self.room_width_inner / 2]
         self.num_completed_boxes_new = 0
+        self.num_completed_boxes = 0
 
         self.boundary_vertices = receptacle_vertices(self.receptacle_position, self.receptacle_half)
         self.outer_boundary_vertices = receptacle_vertices(
@@ -261,6 +266,8 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
         self.qpos_index_base = self.model.jnt_qposadr[joint_adr]
         self.base_joint_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_JOINT, self.joint_name_in_xml)
 
+        self.robot_mass = self.model.body_mass[self.base_body_id]
+
         # Box joint addresses
         joint_id_boxes=[]
         for i in range (self.cfg.boxes.num_boxes):
@@ -268,7 +275,7 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
             joint_id_boxes.append(joint_id)
         self.joint_id_boxes = joint_id_boxes
         self.initial_box_joint_id = joint_id_boxes[0]
-        self.completed_boxes_id=[]
+        self.completed_box_ids=[]
 
         # rewards
         if self.cfg.train.job_type == 'sam':
@@ -279,6 +286,7 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
         self.goal_reward = rewards.goal_reward
         self.collision_penalty = rewards.collision_penalty
         self.non_movement_penalty = rewards.non_movement_penalty
+        self.terminal_reward = rewards.terminal_reward
 
         # misc
         self.ministep_size = self.cfg.misc.ministep_size * scale_factor
@@ -308,7 +316,7 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
     def render_env(self, mode='human', close=False):
         """Renders the environment."""
 
-        if self.cfg.render.show and self.render_mode == "human":
+        if self.cfg.render.show:
             self.render()
 
         if self.cfg.render.show_obs and self.show_observation and self.observation is not None:# and self.t % self.cfg.render.frequency == 1:
@@ -329,6 +337,13 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
             # self.state_plot.pause(0.001)
             self.state_plot.pause(0.1)
 
+    def render(self):
+        """
+        Render a frame from the MuJoCo simulation as specified by the render_mode
+        """
+        if self.render_mode is not None:
+            return self.mujoco_renderer.render(self.render_mode)
+
 
     def update_path(self, waypoints):
         for i, point in enumerate(waypoints):
@@ -336,7 +351,7 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
             self.model.site(f"wp{i}").pos[2] = 0.3                  # set visualization point z-axis
 
         # Move the rest out of view
-        for i in range(len(waypoints), 50):
+        for i in range(len(waypoints), 100):
             site_id = self.model.site(f"wp{i}").id
             self.data.site_xpos[site_id] = np.array([1000, 1000, 1000])
 
@@ -390,19 +405,38 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
 
         robot_initial_position = get_body_pose_2d(self.model, self.data, self.robot_name_in_xml)[:2]
         robot_initial_heading = self.restrict_heading_range(quat_z_yaw(*self.data.qpos[self.qpos_index_base+3:self.qpos_index_base+7]))
+        
+        if self.cfg.agent.action_type == 'heading':
+            ################################ Heading Control ################################
+            # convert heading action to a pixel index in order to use the position control code
+
+            # rescale heading action to be in range [0, 2*pi]
+            angle = (action + 1) * np.pi + np.pi / 2
+            step_size = self.cfg.agent.movement_step_size
+
+            # calculate target position
+            x_movement = step_size * np.cos(angle)
+            y_movement = step_size * np.sin(angle)
+
+            # convert target position to pixel coordinates
+            x_pixel = int(self.local_map_pixel_width / 2 + x_movement * self.local_map_pixels_per_meter)
+            y_pixel = int(self.local_map_pixel_width / 2 - y_movement * self.local_map_pixels_per_meter)
+
+            # convert pixel coordinates to a single index
+            action = y_pixel * self.local_map_pixel_width + x_pixel
 
         # TODO check if move_sign is necessary
         self.path, robot_move_sign = self.position_controller.get_waypoints_to_spatial_action(robot_initial_position, robot_initial_heading, action)
 
         # if self.cfg.render.show:
         #     self.renderer.update_path(self.path)
-        #self.update_path(self.path)
+        self.update_path(self.path)
 
         self.execute_robot_path(robot_initial_position, robot_initial_heading)
 
         # check if episode is done
         terminated = False
-        if len(self.joint_id_boxes) == len(self.completed_boxes_id):
+        if len(self.joint_id_boxes) == len(self.completed_box_ids):
             terminated = True
         
         self.inactivity_counter += 1
@@ -427,7 +461,7 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
         self.observation=self.generate_observation(done=terminated)
         reward = self._get_rew()
         self.robot_cumulative_distance += self.robot_distance
-        self.robot_cumulative_boxes += self.num_completed_boxes_new
+        self.robot_cumulative_boxes = self.num_completed_boxes
         self.robot_cumulative_reward += reward
         ministeps = self.robot_distance / self.ministep_size
         info = {
@@ -456,8 +490,8 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
         robot_heading = robot_initial_heading
         robot_is_moving = True
         self.robot_distance = 0
-
         robot_waypoint_index = 1
+
         robot_waypoint_positions = [(waypoint[0], waypoint[1]) for waypoint in self.path]
         robot_waypoint_headings = [waypoint[2] for waypoint in self.path]
 
@@ -478,8 +512,6 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
             robot_prev_heading = robot_heading
 
             # compute robot pose for new constraint
-            robot_new_position = robot_position.copy()
-            robot_new_heading = robot_heading
             heading_diff = self.heading_difference(robot_heading, robot_waypoint_heading)
             if np.abs(heading_diff) > TURN_STEP_SIZE and np.abs(heading_diff - prev_heading_diff) > 0.001:
                 pass
@@ -501,7 +533,7 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
             robot_position = get_body_pose_2d(self.model, self.data, self.robot_name_in_xml)[:2]
             robot_heading = self.restrict_heading_range(quat_z_yaw(*self.data.qpos[self.qpos_index_base+3:self.qpos_index_base+7]))
             prev_heading_diff = heading_diff
-            
+
             # stop moving if robot collided with obstacle
             self.robot_hit_obstacle = self.robot_hits_static()
             if self.distance(robot_prev_waypoint_position, robot_position) > MOVE_STEP_SIZE:
@@ -544,9 +576,9 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
     def generate_observation(self, done=False):
         """ Generates the observation for the environment."""
 
-        if done:
+        if self.cfg.train.job_type == 'sam' and done:
             return None
-        
+
         # Getting the robot and boxes vertices
         robot_properties, boxes_vertices = dynamic_vertices(self.model, self.data, self.qpos_index_base, self.joint_id_boxes, self.robot_dimen, self.cfg.boxes.box_half_size)
 
@@ -742,9 +774,9 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
         # Draw the boxes
         first_box_id = self.joint_id_boxes[0]
         for i in range(len(boxes_vertices)):
-            if (i + first_box_id) in self.completed_boxes_id and not self.wheels_on_boxes:
+            if (i + first_box_id) in self.completed_box_ids and not self.wheels_on_boxes:
                 draw_object(boxes_vertices[i][0], COMPLETED_NON_WHEELED_BOX_SEG_INDEX)
-            elif (i + first_box_id) in self.completed_boxes_id and self.wheels_on_boxes and i>=(self.num_boxes_without_wheels):
+            elif (i + first_box_id) in self.completed_box_ids and self.wheels_on_boxes and i>=(self.num_boxes_without_wheels):
                 draw_object(boxes_vertices[i][0], COMPLETED_WHEELED_BOX_SEG_INDEX)
             elif not self.wheels_on_boxes or i<(self.num_boxes_without_wheels):
                 draw_object(boxes_vertices[i][0], NON_WHEELED_BOX_SEG_INDEX)
@@ -858,27 +890,34 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
         robot_reward = 0
 
         # partial reward for moving boxes towards receptacle
-        self.motion_dict, boxes_total_distance= self.update_motion_dict(self.motion_dict)
+        self.motion_dict, boxes_total_distance = self.update_motion_dict(self.motion_dict)
 
-        if boxes_total_distance<-0.01 or 0.01<boxes_total_distance:
-            robot_reward+=self.partial_rewards_scale * boxes_total_distance
+        if abs(boxes_total_distance) > 0.01:
+            robot_reward += self.partial_rewards_scale * boxes_total_distance
 
         # reward for boxes in receptacle
-        self.completed_boxes_id, self.num_completed_boxes_new = transport_box_from_recept(self.model, self.data, self.joint_id_boxes, self.room_width_inner,
-                                                                                          self.room_length_inner, self.completed_boxes_id, goal_half=self.receptacle_half, goal_center=self.receptacle_position, box_half_size=self.cfg.boxes.box_half_size)
+        self.completed_box_ids, self.num_completed_boxes_new = transport_box_from_recept(self.model, self.data, self.joint_id_boxes, self.room_width_inner,
+                                                                                          self.room_length_inner, self.completed_box_ids, goal_half=self.receptacle_half, goal_center=self.receptacle_position, box_half_size=self.cfg.boxes.box_half_size)
         if self.num_completed_boxes_new > 0:
             self.inactivity_counter = 0
         robot_reward += self.goal_reward * self.num_completed_boxes_new
 
-        for id in self.completed_boxes_id:
+        for id in self.completed_box_ids:
             self.box_clearance_statuses[id - self.joint_id_boxes[0]] = True
-        
+
+        self.num_completed_boxes = len(self.completed_box_ids)
+        if(self.num_completed_boxes_new != 0):
+            print('Num of completed boxes:', self.num_completed_boxes)
+
+        if not(self.cfg.train.job_type == 'sam') and self.num_completed_boxes == self.num_boxes:
+            robot_reward += self.terminal_reward
+
         # penalty for hitting obstacles
         if self.robot_hit_obstacle:
             robot_reward -= self.collision_penalty
-        
+    
         # penalty for small movements
-        if self.robot_distance < NONMOVEMENT_DIST_THRESHOLD and abs(self.robot_turn_angle) < NONMOVEMENT_TURN_THRESHOLD:
+        if self.robot_distance < NONMOVEMENT_DIST_THRESHOLD and abs(abs(self.robot_turn_angle)) < NONMOVEMENT_TURN_THRESHOLD:
             robot_reward -= self.non_movement_penalty
         
         # Compute stats
@@ -942,7 +981,7 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
         motion_dict[self.base_body_id][1][:] = (cx, cy)
 
         # boxes still present
-        live_bodies_joint_id = list(set(self.joint_id_boxes) - set(self.completed_boxes_id))
+        live_bodies_joint_id = list(set(self.joint_id_boxes) - set(self.completed_box_ids))
         live_bodies = {self.model.jnt_bodyid[jid] for jid in live_bodies_joint_id}
         boxes_total_distance=0
 
@@ -1182,11 +1221,15 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
 
         self.prev_boxes = [np.array(poly[0]) for poly in boxes_vertices]
 
-        self.position_controller = PositionController(self.cfg, self.robot_radius, self.room_width_inner, self.room_length_inner, 
+        self.position_controller = PositionController(self.cfg, self.robot_radius, self.room_width, self.room_length, 
                                                       self.configuration_space, self.configuration_space_thin, self.closest_cspace_indices, 
                                                       self.local_map_pixel_width, self.local_map_width, self.local_map_pixels_per_meter,
                                                       TURN_STEP_SIZE, MOVE_STEP_SIZE, WAYPOINT_MOVING_THRESHOLD, WAYPOINT_TURNING_THRESHOLD)
-       
+
+        self.num_completed_boxes = 0
+        self.num_completed_boxes_new = 0
+        self.completed_box_ids=[]
+
         return observation
 
     def _get_reset_info(self):

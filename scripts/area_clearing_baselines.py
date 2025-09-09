@@ -123,8 +123,8 @@ if __name__ == '__main__':
             'evaluate': {
                 'eval_mode': True,
                 'num_eps': 2,
-                'policy_types': ['sam'], # list of policy types to evaluate
-                'model_names': ['clear_env'], # list of model names to evaluate
+                'policy_types': ['ppo'], # list of policy types to evaluate
+                'model_names': ['ppo_model'], # list of model names to evaluate
                 'model_path': 'models/area_clearing', # path to the models
                 'obs_configs': [None], # list of obstacle configurations to evaluate
             },

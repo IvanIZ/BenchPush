@@ -367,23 +367,28 @@ class AreaClearingSAM(BasePolicy):
 
 
     def evaluate(self, num_eps: int, model_eps: str ='latest'):
-        # create environment
+        
+        # # create environment
         if self.cfg is not None:
             env = gym.make('area-clearing-v0', cfg=self.cfg)
+            # env = gym.make('area-clearing-mujoco-v0', cfg=self.cfg)
+
             # env = gym.make('area-clearing-v0')
         else:
             env = gym.make('area-clearing-v0')
+        
+        # env = gym.make('area-clearing-mujoco-v0', render_mode='human')
         env = env.unwrapped
 
-        env.configure_env_for_SAM()
+        # env.configure_env_for_SAM()
 
-        old_action_type = env.cfg.agent.action_type
-        old_t_max = env.cfg.sim.t_max
+        # old_action_type = env.cfg.agent.action_type
+        # old_t_max = env.cfg.sim.t_max
 
-        env.cfg.agent.action_type = 'position'
-        env.cfg.sim.t_max = 50
+        # env.cfg.agent.action_type = 'position'
+        # env.cfg.sim.t_max = 50
 
-        metric = TaskDrivenMetric(alg_name="SAM", robot_mass=env.cfg.agent.mass)
+        # metric = TaskDrivenMetric(alg_name="SAM", robot_mass=env.robot_mass)
 
         if model_eps == 'latest':
             self.model = DenseActionSpacePolicy(env.action_space.high, env.num_channels, 0.0,
@@ -395,25 +400,26 @@ class AreaClearingSAM(BasePolicy):
         for eps_idx in range(num_eps):
             print("SAM Progress: ", eps_idx, " / ", num_eps, " episodes")
             obs, info = env.reset()
-            metric.reset(info)
+            # metric.reset(info)
             done = truncated = False
             eps_reward = 0.0
             while True:
                 action, _ = self.model.step(obs)
                 obs, reward, done, truncated, info = env.step(action)
-                metric.update(info=info, reward=reward, eps_complete=(done or truncated))
+                # metric.update(info=info, reward=reward, eps_complete=(done or truncated))
                 if(self.cfg.render.show):
                     env.render()
                 if done or truncated:
                     break
         
         env.close()
-        metric.plot_scores(save_fig_dir=env.cfg.output_dir)
+        # metric.plot_scores(save_fig_dir=env.cfg.output_dir)
 
-        env.cfg.agent.action_type = old_action_type
-        env.cfg.sim.t_max = old_t_max
+        # env.cfg.agent.action_type = old_action_type
+        # env.cfg.sim.t_max = old_t_max
 
-        return metric.success_rates, metric.efficiency_scores, metric.effort_scores, metric.rewards, "SAM"
+        # return metric.success_rates, metric.efficiency_scores, metric.effort_scores, metric.rewards, "SAM"
+        return None, None, None, None, "SAM"
 
 
     
