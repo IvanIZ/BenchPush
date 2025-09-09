@@ -18,3 +18,6 @@ opencv-python
 pynput
 git+https://github.com/rdesc/pydubins.git
 trimesh
+mujoco
+packcircles
+mapbox-earcut

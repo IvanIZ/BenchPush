@@ -178,6 +178,8 @@ def build_xml(robot_qpos, stl_model_path, extra_xml, maze_width, maze_len, goal_
       <geom type="box" size="{maze_width/2} {maze_len/2}  0.01" friction="0.5 0.05 0.0001"/>
     </body>
 
+    <camera name="angle_cam" pos="-0.8 -2 1.5" quat="0.85861644  0.49572243 -0.0652631  -0.113039" fovy="60"/>    
+
     <camera name="bottom_cam" pos="{maze_width/2} -0.4 1.7" quat="9.39692621e-01 3.42020143e-01 2.09426937e-17 5.75395780e-17" fovy="60"/>    
     <camera name="top_cam" pos="{maze_width/2} {maze_len + 0.8} 1.3" quat="0.        0.        0.5       0.8660254" fovy="60"/>
     

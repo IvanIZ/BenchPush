@@ -3,6 +3,7 @@ from gymnasium.envs.mujoco import MujocoEnv
 from gymnasium.spaces import Box
 from gymnasium import error, spaces
 import matplotlib.pyplot as plt
+from shapely.geometry import Point
 from pathlib import Path
 from typing import Dict, Union
 import numpy as np
@@ -10,6 +11,7 @@ import os
 
 # Bench-NPIN imports
 from benchnpin.common.controller.position_controller import PositionController
+from benchnpin.common.evaluation.metrics import total_work_done
 from benchnpin.common.utils.utils import DotDict
 # from benchnpin.environments.area_clearing.area_clearing import MOVE_STEP_SIZE, STEP_LIMIT, TURN_STEP_SIZE, WAYPOINT_MOVING_THRESHOLD, WAYPOINT_TURNING_THRESHOLD
 from benchnpin.environments.box_delivery_mujoco.box_delivery_utils import generate_boxDelivery_xml, transport_box_from_recept, precompute_static_vertices, dynamic_vertices, receptacle_vertices, intersects_keepout
@@ -35,6 +37,8 @@ except ImportError as e:
 DEFAULT_CAMERA_CONFIG = {
     "distance": 4.0,
 }
+
+DEFAULT_SIZE = 480
 
 # Image segmentation indices
 OBSTACLE_SEG_INDEX = 0
@@ -73,6 +77,8 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
         self,
         frame_skip: int = 5,
         default_camera_config: Dict[str, Union[float, int]] = DEFAULT_CAMERA_CONFIG,
+        render_width=DEFAULT_SIZE,
+        render_height=DEFAULT_SIZE,
         cfg=None,
         **kwargs,
     ):
@@ -95,22 +101,25 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
                 else:
                     self.cfg[cfg_type] = cfg[cfg_type]
 
-        # Checking if the configuration is valid
-        if self.cfg.wheels_on_boxes.wheels_on_boxes and self.cfg.wheels_on_boxes.num_boxes_with_wheels > self.cfg.boxes.num_boxes:
-            raise ValueError("Number of boxes with wheels cannot be more than the total number of boxes.")
         
-
         # Setting up the environment parameters
         self.room_length = self.cfg.env.room_length
         env_size = self.cfg.env.obstacle_config.strip()
         if 'small' in env_size:
             self.room_width = self.cfg.env.room_width_small
+            self.num_boxes = self.cfg.boxes.num_boxes_small
         else:
             self.room_width = self.cfg.env.room_width_large
-
+            self.num_boxes = self.cfg.boxes.num_boxes_large
+        
+        # Checking if the configuration is valid
+        if self.cfg.wheels_on_boxes.wheels_on_boxes and self.cfg.wheels_on_boxes.num_boxes_with_wheels > self.num_boxes:
+            raise ValueError("Number of boxes with wheels cannot be more than the total number of boxes.")
+        
         # Receptacle position and size
-        self.receptacle_position= self.cfg.env.receptacle_position
-        self.receptacle_half= self.cfg.env.receptacle_half
+        self.receptacle_half = self.cfg.env.receptacle_half
+        self.receptacle_position = (self.room_length / 2 - self.receptacle_half, self.room_width / 2 - self.receptacle_half)
+        self.goal_points = [Point(self.receptacle_position)]
 
         # Pillar position and size
         self.num_pillars = None
@@ -118,14 +127,14 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
         self.pillar_type = None
         self.adjust_num_pillars = False
         self.divider_thickness = self.cfg.large_divider.divider_thickness if env_size.strip() == "large_divider" else 0.0 
-        if env_size.strip()=="small_columns":
+        if env_size.strip() == "small_columns":
             self.num_pillars = self.cfg.small_pillars.num_pillars
             self.pillar_half = self.cfg.small_pillars.pillar_half
-            self.adjust_num_pillars= self.cfg.small_pillars.adjust_num_pillars
-        elif env_size.strip()=="large_columns":
+            self.adjust_num_pillars = self.cfg.small_pillars.adjust_num_pillars
+        elif env_size.strip() == "large_columns":
             self.num_pillars = self.cfg.large_pillars.num_pillars
             self.pillar_half = self.cfg.large_pillars.pillar_half
-            self.adjust_num_pillars= self.cfg.large_pillars.adjust_num_pillars
+            self.adjust_num_pillars = self.cfg.large_pillars.adjust_num_pillars
         
         
         # environment
@@ -133,7 +142,6 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
         self.local_map_width = max(self.room_length, self.room_width)
         self.local_map_pixels_per_meter = self.local_map_pixel_width / self.local_map_width
         self.wall_thickness = self.cfg.env.wall_thickness
-        self.num_boxes = self.cfg.boxes.num_boxes
         self.num_completed_boxes_new = 0
 
         # state
@@ -150,6 +158,7 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
         self.robot_cumulative_distance = None
         self.robot_cumulative_boxes = None
         self.robot_cumulative_reward = None
+        self.total_work = [0, []]
 
         # Box with wheels
         self.wheels_on_boxes = self.cfg.wheels_on_boxes.wheels_on_boxes
@@ -196,7 +205,7 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
             xml_file = os.path.join(self.current_dir, 'jackal_xml_file.xml')
 
         # generate random environmnt
-        _, self.initialization_keepouts, self.clearance_poly = generate_boxDelivery_xml(N=self.cfg.boxes.num_boxes, env_type=self.cfg.env.obstacle_config, file_name=xml_file,
+        _, self.initialization_keepouts, self.clearance_poly = generate_boxDelivery_xml(N=self.num_boxes, env_type=self.cfg.env.obstacle_config, file_name=xml_file,
                         ROBOT_clear=self.robot_radius, CLEAR=self.cfg.boxes.clearance, goal_half=self.receptacle_half, goal_center=self.receptacle_position, Z_BOX=self.cfg.boxes.box_half_size, ARENA_X=(0.0, self.room_length), 
                         ARENA_Y=(0.0, self.room_width), box_half_size=self.cfg.boxes.box_half_size, num_pillars=self.num_pillars, pillar_half=self.pillar_half, adjust_num_pillars=self.adjust_num_pillars, sim_timestep=self.cfg.env.sim_timestep,
                         divider_thickness=self.divider_thickness, bumper_type=self.cfg.agent.type_of_bumper, bumper_mass= self.cfg.agent.bumper_mass,
@@ -219,6 +228,9 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
             frame_skip,
             observation_space=None,
             default_camera_config=default_camera_config,
+            width=render_width,
+            height=render_height,
+            camera_id=0,
             **kwargs,
         )
 
@@ -256,6 +268,7 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
             joint_id=mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_JOINT, f"box{i}_joint")
             joint_id_boxes.append(joint_id)
         self.joint_id_boxes = joint_id_boxes
+        self.initial_box_joint_id = joint_id_boxes[0]
 
         # rewards
         if self.cfg.train.job_type == 'sam':
@@ -383,6 +396,18 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
             terminated = True
             truncated = True
 
+        # work
+        _, self.wheeled_boxes_vertices, self.non_wheeled_boxes_vertices = dynamic_vertices(self.model, self.data, self.qpos_index_base, self.joint_id_boxes, self.robot_dimen, self.cfg.boxes.box_half_size, self.names_boxes_without_wheels)
+        updated_boxes = [np.array(poly[0]) for poly in self.wheeled_boxes_vertices + self.non_wheeled_boxes_vertices]
+        work = total_work_done(self.prev_boxes, updated_boxes)
+        self.total_work[0] += work
+        self.total_work[1].append(work)
+        self.prev_boxes = updated_boxes
+
+        # update position
+        robot_position = get_body_pose_2d(self.model, self.data, self.robot_name_in_xml)[:2]
+        robot_heading = self.restrict_heading_range(quat_z_yaw(*self.data.qpos[self.qpos_index_base+3:self.qpos_index_base+7]))
+
         # items to return
         self.observation = self.generate_observation(done=terminated)
         reward = self._get_rew()
@@ -391,10 +416,17 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
         self.robot_cumulative_reward += reward
         ministeps = self.robot_distance / self.ministep_size
         info = {
+            'state': (round(robot_position[0], 2),
+                      round(robot_position[1], 2),
+                      round(robot_heading, 2)),
             'cumulative_distance': self.robot_cumulative_distance,
             'cumulative_boxes': self.robot_cumulative_boxes,
             'cumulative_reward': self.robot_cumulative_reward,
             'ministeps': ministeps,
+            'total_work': self.total_work[0],
+            'obs': updated_boxes,
+            'box_completed_statuses': self.box_clearance_statuses,
+            'goal_positions': self.goal_points,
         }
 
         # render environment
@@ -501,7 +533,7 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
             return None
         
         # Getting the robot and boxes vertices
-        robot_properties, self.wheeled_boxes_vertices, self.non_wheeled_boxes_vertices =dynamic_vertices(self.model,self.data, self.qpos_index_base,self.joint_id_boxes, self.robot_dimen, self.cfg.boxes.box_half_size, self.names_boxes_without_wheels)
+        robot_properties, self.wheeled_boxes_vertices, self.non_wheeled_boxes_vertices = dynamic_vertices(self.model, self.data, self.qpos_index_base, self.joint_id_boxes, self.robot_dimen, self.cfg.boxes.box_half_size, self.names_boxes_without_wheels)
 
         # Update the global overhead map with the current robot and boundaries
         self.update_global_overhead_map(robot_properties[1])
@@ -573,8 +605,14 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
             int(2 * np.ceil((self.room_width * self.local_map_pixels_per_meter + self.local_map_pixel_width * np.sqrt(2)) / 2)),
             int(2 * np.ceil((self.room_length * self.local_map_pixels_per_meter + self.local_map_pixel_width * np.sqrt(2)) / 2))
         ), dtype=np.float32)
+
+    def create_padded_room_ones(self):
+        return np.ones((
+            int(2 * np.ceil((self.room_width * self.local_map_pixels_per_meter + self.local_map_pixel_width * np.sqrt(2)) / 2)),
+            int(2 * np.ceil((self.room_length * self.local_map_pixels_per_meter + self.local_map_pixel_width * np.sqrt(2)) / 2))
+        ), dtype=np.float32)
     
-    def create_global_shortest_path_to_receptacle_map(self,receptacle_position):
+    def create_global_shortest_path_to_receptacle_map(self, receptacle_position):
         """ Creates a global shortest path map to the receptacle."""
 
         # Create a padded room of zeros and compute the shortest path to the receptacle
@@ -616,7 +654,8 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
         """
 
         # Create a padded room of zeros to draw the walls and columns
-        obstacle_map = self.create_padded_room_zeros()
+        # obstacle_map = self.create_padded_room_zeros()
+        obstacle_map = self.create_padded_room_ones()
         small_obstacle_map = np.zeros((self.local_map_pixel_width+20, self.local_map_pixel_width+20), dtype=np.float32)
         
         # Precompute static vertices for walls and columns
@@ -803,11 +842,14 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
             robot_reward += self.partial_rewards_scale * boxes_total_distance / scale_factor
 
         # reward for boxes in receptacle
-        self.joint_id_boxes, self.num_completed_boxes_new = transport_box_from_recept(self.model, self.data, self.joint_id_boxes, self.room_length,
+        self.joint_id_boxes, self.num_completed_boxes_new, completed_ids = transport_box_from_recept(self.model, self.data, self.joint_id_boxes, self.room_length,
                                                                          self.room_width, goal_half=self.receptacle_half, goal_center=self.receptacle_position, box_half_size=self.cfg.boxes.box_half_size)
         if self.num_completed_boxes_new > 0:
             self.inactivity_counter = 0
         robot_reward += self.goal_reward * self.num_completed_boxes_new
+
+        for id in completed_ids:
+            self.box_clearance_statuses[id - self.initial_box_joint_id] = True
         
         # penalty for hitting obstacles
         if self.robot_hit_obstacle:
@@ -825,12 +867,12 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
         Sample non-overlapping (cx, cy) pairs for every pillar and the matching keep-outs.
         """
 
-        def boxes_overlap(cx, cy, px, py):
-            """Axis-aligned overlap test with clearance."""
-            return (
-                abs(cx - px) < (2 * hx + self.pillar_clearance) and
-                abs(cy - py) < (2 * hy + self.pillar_clearance)
-            )
+        # def boxes_overlap(cx, cy, px, py):
+        #     """Axis-aligned overlap test with clearance."""
+        #     return (
+        #         abs(cx - px) < (2 * hx + self.pillar_clearance) and
+        #         abs(cy - py) < (2 * hy + self.pillar_clearance)
+        #     )
 
         # “small_empty” scene
         if self.num_pillars is None or self.pillar_half is None:
@@ -847,21 +889,25 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
 
         active_centres = []
         corners_active = []
+        column_half_length, column_half_width, _ = self.pillar_half
+        buffer_width = self.pillar_half[0] * 1.6
+        col_min_dist = 4 * max(column_half_length, column_half_width)
         tries = 0
         while len(active_centres) < n_active and tries < 500000:
             tries += 1
-            cx = rng.uniform(-self.room_length/2+0.3, self.room_length/2 - 0.30)
-            cy = rng.uniform(-self.room_width/2+0.3, self.room_width/2-0.3)
+            cx = rng.uniform(-self.room_length / 2 + 2 * buffer_width + column_half_length,
+                             self.room_length / 2 - 2 * buffer_width - column_half_length)
+            cy = rng.uniform(-self.room_width / 2 + 2 * buffer_width + column_half_width,
+                             self.room_width / 2 - 2 * buffer_width - column_half_width)
 
             # pillar corners for clearance checks
-            hx, hy, _ = self.pillar_half
-            corners = [(cx-hx, cy-hy), (cx+hx, cy-hy),
-                    (cx+hx, cy+hy), (cx-hx, cy+hy)]
+            corners = [(cx-column_half_length, cy-column_half_width), (cx+column_half_length, cy-column_half_width),
+                    (cx+column_half_length, cy+column_half_width), (cx-column_half_length, cy+column_half_width)]
 
             if not all(inside_poly(x, y, self.clearance_poly) for x, y in corners):
                 continue
             
-            if any(np.hypot(cx-px, cy-py) < 2*hx + 0.30 for px, py in active_centres):
+            if any(np.hypot(cx-px, cy-py) <= col_min_dist for px, py in active_centres):
                 continue
 
             active_centres.append((cx, cy))
@@ -1235,6 +1281,7 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
         self.robot_cumulative_distance = 0
         self.robot_cumulative_boxes = 0
         self.robot_cumulative_reward = 0
+        self.total_work = [0, []]
 
         self.update_configuration_space()
 
@@ -1244,6 +1291,10 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
 
         observation = self.generate_observation()
 
+        self.box_clearance_statuses = [False for _ in range(self.num_boxes)]
+
+        self.prev_boxes = [np.array(poly[0]) for poly in self.wheeled_boxes_vertices + self.non_wheeled_boxes_vertices]
+
         self.position_controller = PositionController(self.cfg, self.robot_radius, self.room_width, self.room_length, 
                                                       self.configuration_space, self.configuration_space_thin, self.closest_cspace_indices, 
                                                       self.local_map_pixel_width, self.local_map_width, self.local_map_pixels_per_meter,
@@ -1252,10 +1303,19 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
         return observation
 
     def _get_reset_info(self):
+        robot_position = get_body_pose_2d(self.model, self.data, self.robot_name_in_xml)[:2]
+        robot_heading = self.restrict_heading_range(quat_z_yaw(*self.data.qpos[self.qpos_index_base+3:self.qpos_index_base+7]))
         info = {
+            'state': (round(robot_position[0], 2),
+                      round(robot_position[1], 2),
+                      round(robot_heading, 2)),
             'cumulative_distance': self.robot_cumulative_distance,
             'cumulative_boxes': self.robot_cumulative_boxes,
             'cumulative_reward': self.robot_cumulative_reward,
             'ministeps': 0,
+            'total_work': self.total_work[0],
+            'obs': self.prev_boxes, # updated from reset
+            'box_completed_statuses': self.box_clearance_statuses,
+            'goal_positions': self.goal_points,
         }
         return info

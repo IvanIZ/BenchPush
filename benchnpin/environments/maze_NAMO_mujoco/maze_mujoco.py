@@ -6,13 +6,14 @@ from matplotlib import pyplot as plt
 from benchnpin.common.utils.utils import DotDict
 from benchnpin.common.occupancy_grid.occupancy_map_mujoco import OccupancyGrid
 from benchnpin.environments.maze_NAMO_mujoco.maze_utils import generate_maze_xml, intersects_keepout, total_work_done
-from benchnpin.common.utils.mujoco_utils import vw_to_wheels, quat_z, inside_poly, get_body_pose_2d, get_box_2d_vertices, quat_z_yaw, corners_xy, wall_collision, get_box_2d_area
+from benchnpin.common.utils.mujoco_utils import vw_to_wheels, quat_z, inside_poly, get_body_pose_2d, get_box_2d_vertices, quat_z_yaw, corners_xy, wall_collision, get_box_2d_area, inflate_keepouts
 
 from gymnasium import utils
 from gymnasium.envs.mujoco import MujocoEnv
 from gymnasium.spaces import Box
 import os
 from gymnasium import error, spaces
+from shapely.geometry import Polygon
 
 try:
     import mujoco
@@ -27,6 +28,8 @@ TERMINAL_REWARD = 200
 DEFAULT_CAMERA_CONFIG = {
     "distance": 4.0,
 }
+
+DEFAULT_SIZE = 480          # Default render size
 
 class MazeNAMOMujoco(MujocoEnv, utils.EzPickle):
 
@@ -43,6 +46,8 @@ class MazeNAMOMujoco(MujocoEnv, utils.EzPickle):
         self,
         frame_skip: int = 15,
         default_camera_config: Dict[str, Union[float, int]] = DEFAULT_CAMERA_CONFIG,
+        render_width=DEFAULT_SIZE,
+        render_height=DEFAULT_SIZE,
         cfg=None,
         **kwargs,
     ):
@@ -147,6 +152,9 @@ class MazeNAMOMujoco(MujocoEnv, utils.EzPickle):
             frame_skip,
             observation_space=None,
             default_camera_config=default_camera_config,
+            width=render_width,
+            height=render_height,
+            camera_id=0,
             **kwargs,
         )
 
@@ -175,7 +183,7 @@ class MazeNAMOMujoco(MujocoEnv, utils.EzPickle):
         # Cube joint addresses
         joint_id_boxes=[]
         for i in range (self.cfg.boxes.num_boxes):
-            joint_id=mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_JOINT, f"cube{i}_joint")
+            joint_id=mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_JOINT, f"box{i}_joint")
             joint_id_boxes.append(joint_id)
         self.joint_id_boxes = joint_id_boxes
 
@@ -187,6 +195,9 @@ class MazeNAMOMujoco(MujocoEnv, utils.EzPickle):
             body_name = "box" + str(i)
             self.areas.append(get_box_2d_area(self.model, self.data, body_name))
         self.prev_obs_positions = None
+
+        # Adding dilation to keep-out zones for collision checking
+        self.maze_walls_with_dialation = inflate_keepouts(self.maze_walls, self.cfg.agent.robot_r)
 
 
     def step(self, action):
@@ -468,19 +479,15 @@ class MazeNAMOMujoco(MujocoEnv, utils.EzPickle):
                     return False
             x, y, _ = pos
 
-            # 2) check overall clearance polygon
-            if not inside_poly(x, y, self.cfg.env.clearance_poly):
-                return False
-
             # 2) check against pillar keep-outs
-            if intersects_keepout(x, y, self.maze_walls):
+            if intersects_keepout(x, y, self.maze_walls_with_dialation):
                 return False
 
             return True
 
         # Define bounds of the placement area (slightly inside the walls)
-        x_min, x_max = 0.1, 1.5
-        y_min, y_max = 0.1, 2.7
+        x_min, x_max = 0, self.cfg.env.width
+        y_min, y_max = 0, self.cfg.env.length
 
         # set robot pose
         if self.cfg.maze_version == 1:
@@ -518,7 +525,9 @@ class MazeNAMOMujoco(MujocoEnv, utils.EzPickle):
             self.data.qpos[qadr+3:qadr+7] = quat_z(theta)
             self.data.qvel[qadr:qadr+6] = 0
 
-        
+        # let simulation settle down
+        self.do_simulation([0, 0], 10)
+
         # get box position
         _, self.prev_obs_positions = self.get_current_boxes()
 

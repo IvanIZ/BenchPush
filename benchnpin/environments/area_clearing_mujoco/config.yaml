@@ -1,3 +1,5 @@
+output_dir: "logs/"
+
 render:
   show: true
   show_obs: false
@@ -54,7 +56,7 @@ boxes:
 
 wheels_on_boxes:
   # Upon adjusting parameters here all other physics parameters like moment of inertia etc are adjusted automatically
-  wheels_on_boxes: True       # if true, the boxes would have wheels
+  wheels_on_boxes: False # if true, the boxes would have wheels
   num_boxes_with_wheels: 6    # this cannot be more than num_boxes (num_boxes_without_wheels= num_boxes - num_boxes_with_wheels)
   wheels_mass: 0.04           # mass in terms of kg for each wheel on the box
   wheels_support_mass: 0.02   # mass in terms of kg for each wheel support on the box
@@ -86,6 +88,7 @@ agent:
   type_of_bumper: 'straight' # Choose from one of them: curved_inwards, straight, curved_outwards
   movement_step_size: 0.1
   bumper_mass: 0.1 # mass (kg) for the bumper so that can switch between different plastic materials
+  mass: 1.07
 
 rewards_sam:
   partial_rewards_scale: 0.2

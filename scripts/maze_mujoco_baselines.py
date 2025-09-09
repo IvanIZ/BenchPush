@@ -50,7 +50,7 @@ def main(cfg, job_id):
         pickle_dict = {
             'benchmark_results': benchmark_results
         }
-        with open('shipIce_benchmark_results.pkl', 'wb') as f:
+        with open('maze_mujoco_benchmark_results.pkl', 'wb') as f:
                 pickle.dump(pickle_dict, f)
 
 
@@ -89,20 +89,28 @@ if __name__ == '__main__':
             'maze_version': 1, # options are 1, 2
             },
             'train': {
-                'train_mode': True,
-                'job_type': 'ppo', # 'ppo', 'sac'
-                'job_name': 'ppo_model',
+                'train_mode': False,
+                'job_type': 'sac', # 'ppo', 'sac'
+                'job_name': 'sac_model',
                 'total_timesteps': int(30e5),
                 'checkpoint_freq': 10000,
-                'pretrained_checkpoint_path': 'models/maze'         # path to a pretrained checkpoint
-                # 'pretrained_checkpoint_path': None
+                # 'pretrained_checkpoint_path': 'models/maze'         # path to a pretrained checkpoint
+                'pretrained_checkpoint_path': None
             },
             'evaluate': {
-                'eval_mode': False,
-                'num_eps': 1,
-                'policy_types': ['ppo', 'sac'], # list of policy types to evaluate
-                'model_names': ['ppo_model', 'sac_model'], # list of model names to evaluate
-                'model_path': 'models/maze', # path to the models
+                'eval_mode': True,
+                'num_eps': 20,
+
+                # 'policy_types': ['ppo', 'sac'], # list of policy types to evaluate
+                # 'model_names': ['ppo_model', 'sac_model'], # list of model names to evaluate
+
+                'policy_types': ['ppo', 'ppo', 'ppo'], # list of policy types to evaluate
+                'model_names': ['ppo_model', 'ppo_model1', 'ppo_model2'], # list of model names to evaluate
+                # ppo_mode --> beta3000, ppo_model1 --> beta1000, ppo_model2 --> beta0
+
+                # 'model_path': 'models/maze', # path to the models
+                'model_path': None, # path to the models
+
                 'maze_version': 1, # list of maze versions to evaluate
             },
         }

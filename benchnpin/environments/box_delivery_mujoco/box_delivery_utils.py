@@ -384,6 +384,8 @@ def build_xml(robot_qpos, stl_model_path, extra_xml, ARENA_X1, ARENA_Y1, goal_ha
       <geom name="floor" type="box" size="{ARENA_X1/2} {ARENA_Y1/2} 0.01" friction="0.5 0.05 0.0001" contype="1" conaffinity="1"/>
     </body>
 
+    <camera name="centered_cam" pos="-0 -2 2.5" quat="1 0.3 0  0" fovy="60"/>
+
     <!-- Corner 1 -->
     <body name="corner_1" pos="{-ARENA_X1/2} {-ARENA_Y1/2} 0.06" euler="-3.14 0.0 0">
       <geom name="corner_1_1" type="mesh" mesh="corner_1" rgba="0.0 0.3 1.0 1.0" contype="1" conaffinity="1"/>
@@ -558,6 +560,7 @@ def transport_box_from_recept(model, data, joint_id_boxes, ARENA_X1, ARENA_Y1, g
     xmin, xmax = goal_center[0] - GOAL_HALF[0], goal_center[0] + GOAL_HALF[0]
     ymin, ymax = goal_center[1] - GOAL_HALF[1], goal_center[1] + GOAL_HALF[1]
 
+    completed_ids = []
     for jid in joint_id_boxes[:]:
 
         qadr = model.jnt_qposadr[jid]
@@ -585,9 +588,10 @@ def transport_box_from_recept(model, data, joint_id_boxes, ARENA_X1, ARENA_Y1, g
         if inside:
             data.qpos[qadr:qadr+3] = DROP_POS
             joint_id_boxes.remove(jid)
+            completed_ids.append(jid)
 
     # number of boxes that are transported
     final_len = len(joint_id_boxes)
     num_boxes = initial_len - final_len
     
-    return joint_id_boxes, num_boxes
+    return joint_id_boxes, num_boxes, completed_ids

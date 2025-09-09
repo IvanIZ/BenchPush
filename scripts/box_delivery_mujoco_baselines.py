@@ -57,7 +57,7 @@ def main(cfg, job_id):
             #     sac_policy = BoxDeliverySAC(model_name=model_name, model_path=model_path, cfg=cfg)
             #     benchmark_results.append(sac_policy.evaluate(num_eps=num_eps))
 
-        # BaseMetric.plot_algs_scores(benchmark_results, save_fig_dir='./', plot_success=True)
+        BaseMetric.plot_algs_scores(benchmark_results, save_fig_dir='./', plot_success=True)
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
@@ -88,7 +88,7 @@ if __name__ == '__main__':
         # High level configuration for the box delivery task
         cfg={
             'render': {
-                'show': False,           # if true display the environment
+                'show': True,           # if true display the environment
                 'show_obs': False,       # if true show observation
             },
             'agent': {
@@ -102,20 +102,20 @@ if __name__ == '__main__':
                 'obstacle_config': 'small_empty', # options are small_empty, small_columns, large_columns, large_divider
             },
             'train': {
-                'train_mode': True,
+                'train_mode': False,
                 'job_type': 'sam', # 'sam', 'ppo', 'sac'
                 'job_name': 'first_test',
                 'resume_training': False,
                 'job_id_to_resume': None,
             },
             'evaluate': {
-                'eval_mode': False,
-                'num_eps': 10,
+                'eval_mode': True,
+                'num_eps': 5,
                 'policy_types': ['sam', 'sam', 'sam'], # list of policy types to evaluate
                 'action_types': ['position', 'position', 'position'], # list of action types to evaluate
-                'model_names': ['base_se'], # list of model names to evaluate
+                'model_names': ['sam_small_empty', 'sam_small_columns'], # list of model names to evaluate
                 'model_path': 'models/box_delivery_mujoco', # path to the models
-                'obs_configs': ['small_empty', 'small_empty', 'small_empty'], # list of observation configurations
+                'obs_configs': ['small_empty', 'small_columns', 'small_empty'], # list of observation configurations
             }
         }
         

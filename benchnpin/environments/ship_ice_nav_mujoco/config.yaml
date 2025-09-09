@@ -51,8 +51,8 @@ occ:
 environment:
   channel_len:  10000.0        # m (X axis)
   channel_wid:  2000.0         # m (Y axis)
-  icefield_len: 1000
-  icefield_wid: 200
+  icefield_len: 1500
+  icefield_wid: 600
 
 
 ############### TUNABLE PARAMETERS ###############

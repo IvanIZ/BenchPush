@@ -200,10 +200,13 @@ class BoxDeliveryMujocoSAM(BasePolicy):
 
     def train(self, job_id) -> None:
         # create environment
-        # env = gym.make('box-delivery-mujoco-v0', cfg=self.cfg)
-        env = gym.make('box-delivery-mujoco-v0', render_mode = "human", cfg=self.cfg)
+        render_mode = "human" if self.cfg.render.show else None
+        env = gym.make('box-delivery-mujoco-v0', render_mode=render_mode, cfg=self.cfg)
         env = env.unwrapped
         self.cfg = env.cfg # update cfg with env-specific config
+
+        for key in self.cfg:
+            print(f"{key}: {self.cfg[key]}")
 
         job_id = job_id
         params = self.cfg['train']
@@ -370,8 +373,8 @@ class BoxDeliveryMujocoSAM(BasePolicy):
 
     def evaluate(self, num_eps: int, model_eps: str ='latest'):
 
-        # env = gym.make('box-delivery-mujoco-v0', cfg=self.cfg)
-        env = gym.make('box-delivery-mujoco-v0', render_mode = "human", cfg=self.cfg)
+        render_mode = "human" if self.cfg.render.show else None
+        env = gym.make('box-delivery-mujoco-v0', render_mode=render_mode, cfg=self.cfg)
         env = env.unwrapped
 
         if model_eps == 'latest':
@@ -382,26 +385,26 @@ class BoxDeliveryMujocoSAM(BasePolicy):
             self.model = DenseActionSpacePolicy(env.action_space.high, env.num_channels, 0.0,
                                                 train=False, evaluate=True, model_name=model_checkpoint)
         
-        # metric = TaskDrivenMetric(alg_name="SAM", robot_mass=env.cfg.agent.mass)
+        metric = TaskDrivenMetric(alg_name="SAM", robot_mass=env.cfg.agent.mass)
 
         rewards_list = []
         for eps_idx in range(num_eps):
-            print("Progress: ", eps_idx, " / ", num_eps, " episodes")
+            print("Progress: ", eps_idx, " / ", num_eps, " episodes", end='\r')
             obs, info = env.reset()
-            # metric.reset(info)
+            metric.reset(info)
             done = truncated = False
             eps_reward = 0.0
             while True:
                 action, _ = self.model.predict(obs)
                 obs, reward, done, truncated, info = env.step(action)
-                # metric.update(info=info, reward=reward, eps_complete=(done or truncated))
+                metric.update(info=info, reward=reward, eps_complete=(done or truncated))
                 if done or truncated:
                     break
+        print()
         
         env.close()
-        # metric.plot_scores(save_fig_dir=env.cfg.output_dir)
-        # return metric.success_rates, metric.efficiency_scores, metric.effort_scores, metric.rewards, f"SAM_{self.model_name}"
-        return None, None, None, None, None
+        metric.plot_scores(save_fig_dir=env.cfg.output_dir)
+        return metric.success_rates, metric.efficiency_scores, metric.effort_scores, metric.rewards, f"SAM_{self.model_name}"
 
 
     

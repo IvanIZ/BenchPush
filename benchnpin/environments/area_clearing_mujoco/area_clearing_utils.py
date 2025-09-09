@@ -318,6 +318,8 @@ def build_xml(stl_model_path, extra_xml, ARENA_X1, ARENA_Y1, env_type, wall_clea
     <body pos="0 0 0">
       <geom name="floor" type="box" size="{ARENA_X1 / 2 + wall_clearence_outer[0] + 0.25} {ARENA_Y1 / 2 + wall_clearence_outer[1] + 0.25} 0.01" friction="0.5 0.05 0.0001" contype="1" conaffinity="1"/>
     </body>
+
+    <camera name="centered_cam" pos="-0 -2 2.5" quat="1 0.3 0  0" fovy="60"/>
     
     <!-- Marked area -->
     <body pos="0 0 0.001">
