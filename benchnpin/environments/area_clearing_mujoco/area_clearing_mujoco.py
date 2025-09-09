@@ -1165,6 +1165,7 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
         self.robot_cumulative_boxes = 0
         self.robot_cumulative_reward = 0
         self.total_work = [0, []]
+        self.completed_boxes_id = []
 
         self.update_configuration_space()
 
