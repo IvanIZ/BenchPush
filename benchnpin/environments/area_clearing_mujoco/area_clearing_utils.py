@@ -107,7 +107,7 @@ def dynamic_vertices(model, data, qpos_idx_robot: int, joint_ids_boxes: list[int
 
     return Robot_vertices, Boxes_vertices
 
-def receptacle_vertices(receptacle_position, receptacle_half_dimensions):
+def receptacle_vertices(receptacle_position, receptacle_local_dimension):
     """
     Returns the vertices of the receptacle in the world frame.
     """
@@ -115,7 +115,7 @@ def receptacle_vertices(receptacle_position, receptacle_half_dimensions):
     x, y = receptacle_position
 
         # half-width and half-height
-    hx, hy = receptacle_half_dimensions
+    hx, hy = receptacle_local_dimension
 
     # local corners around (0,0)
     local = np.array([
@@ -204,11 +204,11 @@ def intersects_keepout(x, y, keep_out):
 def sample_scene(n_boxes, keep_out, ROBOT_R, BOXES_clear, ARENA_X, ARENA_Y, internal_clearance_length):
     """returns robot pose + list of box poses (x,y,theta)"""
 
-    # compute inset bounds once, centered around (0,0)
-    xmin = -ARENA_X[1]/2 + internal_clearance_length
-    xmax = ARENA_X[1]/2 - internal_clearance_length
-    ymin = -ARENA_Y[1]/2 + internal_clearance_length
-    ymax = ARENA_Y[1]/2 - internal_clearance_length
+    # compute inset bounds once
+    xmin = ARENA_X[0] + internal_clearance_length
+    xmax = ARENA_X[1] - internal_clearance_length
+    ymin = ARENA_Y[0] + internal_clearance_length
+    ymax = ARENA_Y[1] - internal_clearance_length
 
     # Robot iteration for its placement
     for _ in range(2000):
@@ -355,48 +355,9 @@ def build_xml(stl_model_path, extra_xml, ARENA_X1, ARENA_Y1, env_type, wall_clea
       size="{ARENA_X1 / 2 + wall_clearence_outer[0]} 0.125 0.15"
       rgba="0.2 0.2 0.2 0.6" contype="1" conaffinity="1"
       friction="0.45 0.01 0.003"/>
-    
-     <!-- robot -->
-    <body name="base" pos="{robot_qpos}" euler="0 0 3.141592653589793">
-      <joint type="free" name="base_joint"/>
-      <!-- chassis -->
-      <geom name="base_chasis" pos="-0.032 0 0.01" type="mesh" rgba="{robot_rgb[0]} {robot_rgb[1]} {robot_rgb[2]} 1" mesh="burger_base" friction="0.1 0.02 0.0001" mass="0.8" contype="1" conaffinity="1"/>
-      <!-- small box sensor -->
-      <geom name="base_sensor_1" size="0.015 0.0045 0.01" pos="-0.081 7.96327e-07 0.005" quat="0.707388 -0.706825 0 0" type="box" rgba="{robot_rgb[0]} {robot_rgb[1]} {robot_rgb[2]} 1" mass="0.05" contype="1" conaffinity="1"/>
-      <!-- LDS sensor -->
-      <geom name="base_sensor_2" pos="-0.032 0 0.182" quat="1 0 0 0" type="mesh" rgba="{robot_rgb[0]} {robot_rgb[1]} {robot_rgb[2]} 1" mesh="lds" mass="0.131" contype="1" conaffinity="1"/>
-      <!-- Bumper -->
-      <geom name="base_bumper" pos="-0.04 -0.09 0.01" quat="1 0 0 0" type="mesh" rgba="0.3 0.13 0.08 1" mesh="bumper" mass="0.100" contype="1" conaffinity="1"/>
-      
-      <!-- Left wheel -->
-      <body name="wheel_left_link" pos="0 0.08 0.033" quat="0.707388 -0.706825 0 0">
-        <inertial pos="0 0 0" quat="-0.000890159 0.706886 0.000889646 0.707326" mass="0.0284989" diaginertia="2.07126e-05 1.11924e-05 1.11756e-05"/>
-        <joint name="wheel_left_joint" pos="0 0 0" axis="0 0 1"/>
-        <geom quat="0.707388 0.706825 0 0" type="mesh" rgba="{robot_rgb[0]+0.1} {robot_rgb[1]+0.1} {robot_rgb[2]+0.1} 1" mesh="left_tire" friction="1.2 0.01 0.001"/>
-      </body>
-      
-      <!-- Right wheel -->
-      <body name="wheel_right_link" pos="0 -0.08 0.033" quat="0.707388 -0.706825 0 0">
-        <inertial pos="0 0 0" quat="-0.000890159 0.706886 0.000889646 0.707326" mass="0.0284989" diaginertia="2.07126e-05 1.11924e-05 1.11756e-05"/>
-        <joint name="wheel_right_joint" pos="0 0 0" axis="0 0 1"/>
-        <geom quat="0.707388 0.706825 0 0" type="mesh" rgba="{robot_rgb[0]+0.1} {robot_rgb[1]+0.1} {robot_rgb[2]+0.1} 1" mesh="right_tire" friction="1.2 0.01 0.001"/>
-      </body>
-    </body>
 
-    # {generate_waypoint_sites(100)}
-      
+      # {generate_waypoint_sites(100)}
 """
-    
-    #Data to be written for boxes
-    box_xml = ""
-    for i, (x, y, th) in enumerate(boxes):
-        qw, qx, qy, qz = quat_z(th)
-        box_xml += f"""
-    <body name="box{i}" pos="{x:.4f} {y:.4f} {Z_BOX:.3f}">
-      <joint name="box{i}_joint" type="free" />
-      <geom type="box" size="{box_size} {box_size} {box_size}" material="blue_mat" mass="0.075"
-            quat="{qw:.6f} {qx:.6f} {qy:.6f} {qz:.6f}" friction="0.4 0.015 0.002" contype="1" conaffinity="1"/>
-    </body>"""
 
 
     #Data to be written for footers
