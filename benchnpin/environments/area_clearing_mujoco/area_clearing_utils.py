@@ -87,8 +87,8 @@ def dynamic_vertices(model, data, qpos_idx_robot: int, joint_ids_boxes: list[int
                             [ robot_full[0]/2, -robot_full[1]/2-0.03],
                             [ robot_full[0]/2,  robot_full[1]/2-0.03],
                             [-robot_full[0]/2,  robot_full[1]/2-0.03]])
-    Robot_vertices = ["robot",
-                      corners_xy(np.array([cx, cy]), yaw, local_robot).tolist(),yaw,(cx, cy)]
+    robot_properties = ["robot",
+                      corners_xy(np.array([cx, cy]), yaw, local_robot).tolist(), yaw, (cx, cy)]
 
     # boxes vertices
     local_box = np.array([[-box_half, -box_half],
@@ -105,7 +105,7 @@ def dynamic_vertices(model, data, qpos_idx_robot: int, joint_ids_boxes: list[int
         verts = corners_xy(np.array([bx, by]), yaw, local_box).tolist()
         Boxes_vertices.append([verts])
 
-    return Robot_vertices, Boxes_vertices
+    return robot_properties, Boxes_vertices
 
 def receptacle_vertices(receptacle_position, receptacle_local_dimension):
     """

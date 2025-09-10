@@ -3,11 +3,12 @@ output_dir: "logs/"
 render:
   show: true
   show_obs: false
+  log_obs: true
 
 train:
   train_mode: false
-  job_type: 'sam'
-  job_name: 'sam_model'
+  job_type: 'ppo' # options are ppo, sac, sam
+  job_name: 'ppo_model'
   batch_size: 32
   checkpoint_freq: 6000
   exploration_timesteps: 6000

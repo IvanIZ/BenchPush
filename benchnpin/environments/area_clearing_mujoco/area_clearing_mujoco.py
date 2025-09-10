@@ -1,3 +1,4 @@
+from PIL import Image
 from gymnasium import utils
 from gymnasium.envs.mujoco import MujocoEnv
 from gymnasium.spaces import Box
@@ -36,7 +37,7 @@ except ImportError as e:
 
 
 DEFAULT_CAMERA_CONFIG = {
-    "distance": 4.0,
+    "distance": 5.0,
 }
 
 DEFAULT_SIZE = 480
@@ -313,13 +314,29 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
 
         self.position_controller = None
 
+        ### DEBUG: Seperate figures for paper
+        self.state_figs = []
+        self.state_axes = []
+
+        for i in range(self.num_channels):
+            fig, ax = plt.subplots(figsize=(6, 6))
+            self.state_figs.append(fig)
+            self.state_axes.append(ax)
+
+        self.colorbars = [None] * self.num_channels
+
     def render_env(self, mode='human', close=False):
         """Renders the environment."""
 
         if self.cfg.render.show:
-            self.render()
+            self.render()    
+        
+        if self.cfg.render.log_obs:
+            directory = os.path.join(self.cfg.output_dir, 't' + str(self.episode_idx))
+            if not os.path.exists(directory):
+                os.makedirs(directory)
 
-        if self.cfg.render.show_obs and self.show_observation and self.observation is not None:# and self.t % self.cfg.render.frequency == 1:
+        if self.show_observation and self.observation is not None:# and self.t % self.cfg.render.frequency == 1:
             self.show_observation = False
             channel_name = ["Occupancy", "Footprint", "Egocentric DT", "Goal DT"]
             for ax, i in zip(self.state_ax, range(self.num_channels)):
@@ -333,9 +350,32 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
                 # else:
                 #     self.colorbars[i] = self.state_fig.colorbar(im, ax=ax)
             
-            self.state_plot.draw()
-            # self.state_plot.pause(0.001)
-            self.state_plot.pause(0.1)
+            ### DEBUG: Seperate figures for paper
+                
+            # for i in range(self.num_channels):
+            #     self.state_axes[i].clear()
+            #     im = self.state_axes[i].imshow(self.observation[:,:,i], cmap='hot', interpolation='nearest')
+            #     if self.colorbars[i] is not None:
+            #         self.colorbars[i].update_normal(im)
+            #     else:
+            #         self.colorbars[i] = self.state_figs[i].colorbar(im, ax=self.state_axes[i])
+
+            #     self.state_axes[i].axis('off')
+            #     self.state_figs[i].savefig(os.path.join(self.cfg.output_dir, 't' + str(self.episode_idx), str(self.t) + f'_obs_{i}.png'), bbox_inches='tight', pad_inches=0)
+
+            if self.cfg.render.show_obs:
+                self.state_plot.draw()
+                # self.state_plot.pause(0.001)
+                self.state_plot.pause(0.1)
+            
+            if self.cfg.render.log_obs:
+                self.state_fig.savefig(os.path.join(directory, str(self.t) + '_obs.png'))
+
+                frame = self.mujoco_renderer.render(render_mode='rgb_array')
+                Image.fromarray(frame).save(os.path.join(directory, str(self.t) + '_mujoco.png'))
+
+        self.t += 1
+
 
     def render(self):
         """
@@ -346,9 +386,9 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
 
 
     def update_path(self, waypoints):
-        for i, point in enumerate(waypoints):
-            self.model.site(f"wp{i}").pos[:2] = point[:2]           # set visualization point (x, y)
-            self.model.site(f"wp{i}").pos[2] = 0.3                  # set visualization point z-axis
+        # for i, point in enumerate(waypoints):
+        #     self.model.site(f"wp{i}").pos[:2] = point[:2]           # set visualization point (x, y)
+        #     self.model.site(f"wp{i}").pos[2] = 0.3                  # set visualization point z-axis
 
         # Move the rest out of view
         for i in range(len(waypoints), 100):
@@ -400,8 +440,6 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
     def step(self, action):
 
         self.robot_hit_obstacle = False
-        robot_boxes = 0
-        robot_reward = 0
 
         robot_initial_position = get_body_pose_2d(self.model, self.data, self.robot_name_in_xml)[:2]
         robot_initial_heading = self.restrict_heading_range(quat_z_yaw(*self.data.qpos[self.qpos_index_base+3:self.qpos_index_base+7]))
@@ -458,7 +496,6 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
         robot_heading = self.restrict_heading_range(quat_z_yaw(*self.data.qpos[self.qpos_index_base+3:self.qpos_index_base+7]))
 
         # items to return
-        self.observation=self.generate_observation(done=terminated)
         reward = self._get_rew()
         self.robot_cumulative_distance += self.robot_distance
         self.robot_cumulative_boxes = self.num_completed_boxes
@@ -477,6 +514,8 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
             'box_completed_statuses': self.box_clearance_statuses,
             'goal_positions': self.goal_points,
         }
+        
+        self.observation=self.generate_observation(done=terminated)
 
         # render environment
         if self.cfg.render.show:
@@ -580,21 +619,23 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
             return None
 
         # Getting the robot and boxes vertices
-        robot_properties, boxes_vertices = dynamic_vertices(self.model, self.data, self.qpos_index_base, self.joint_id_boxes, self.robot_dimen, self.cfg.boxes.box_half_size)
+        robot_properties, boxes_vertices = dynamic_vertices(self.model, self.data, self.qpos_index_base, 
+                                                            self.joint_id_boxes, self.robot_dimen, 
+                                                            self.cfg.boxes.box_half_size)
 
         # Update the global overhead map with the current robot and boundaries
         self.update_global_overhead_map(robot_properties[1], boxes_vertices)
 
-        robot_postition = robot_properties[3]
+        robot_position = robot_properties[3]
         robot_angle = robot_properties[2]
 
         # Create the robot state channel
         channels = []
-        
-        channels.append(self.get_local_map(self.global_overhead_map, robot_postition, robot_angle))
+
+        channels.append(self.get_local_map(self.global_overhead_map, robot_position, robot_angle))
         channels.append(self.robot_state_channel)
-        channels.append(self.get_local_distance_map(self.create_global_shortest_path_map(robot_postition), robot_postition, robot_angle))
-        channels.append(self.get_local_distance_map(self.goal_point_global_map, robot_postition, robot_angle))
+        channels.append(self.get_local_distance_map(self.create_global_shortest_path_map(robot_position), robot_position, robot_angle))
+        channels.append(self.get_local_distance_map(self.goal_point_global_map, robot_position, robot_angle))
         observation = np.stack(channels, axis=2)
         observation = (observation * 255).astype(np.uint8)
         return observation
@@ -1035,6 +1076,13 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
         Teleport them in simulation using sim.data.qpos.
         """
         positions=[]
+        
+        if self.episode_idx is None:
+            self.episode_idx = 0
+        else:
+            self.episode_idx += 1
+
+        self.t = 0
 
         def is_valid(pos, radius):
             # unpack immediately
