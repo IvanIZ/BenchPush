@@ -3,7 +3,7 @@ output_dir: "logs/"
 render:
   show: true
   show_obs: false
-  log_obs: false
+  log_obs: true
 
 train:
   train_mode: false
@@ -43,7 +43,7 @@ env:
   shortest_path_channel_scale: 0.25
   local_map_pixel_width: 224
   local_map_pixel_width_sam: 96
-  wall_thickness: 50.0 # Really high wall thickness to ensure nothing in vicinity of local maps
+  wall_thickness: 100.0 # Really high wall thickness to ensure nothing in vicinity of local maps
   invert_receptacle_map: false
   sim_timestep: 0.01
 

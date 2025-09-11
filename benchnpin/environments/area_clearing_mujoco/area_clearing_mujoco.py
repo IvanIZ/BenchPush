@@ -690,8 +690,8 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
         """ Creates a padded room of zeros with the size of the local map."""
 
         return np.zeros((
-            int(2 * np.ceil((self.room_width_inner * self.local_map_pixels_per_meter + self.local_map_pixel_width * np.sqrt(2)) / 2)),
-            int(2 * np.ceil((self.room_length_inner * self.local_map_pixels_per_meter + self.local_map_pixel_width * np.sqrt(2)) / 2))
+            int(2 * np.ceil((self.room_width * self.local_map_pixels_per_meter + self.local_map_pixel_width * np.sqrt(2)) / 2)),
+            int(2 * np.ceil((self.room_length * self.local_map_pixels_per_meter + self.local_map_pixel_width * np.sqrt(2)) / 2))
         ), dtype=np.float32)
     
     def create_global_shortest_path_to_goal_points(self):
