@@ -3,7 +3,7 @@ output_dir: "logs/"
 render:
   show: true
   show_obs: false
-  log_obs: true
+  log_obs: false
 
 train:
   train_mode: false
@@ -33,7 +33,8 @@ train:
 ### ENVIRONMENT PARAMS
 env:
   area_clearing_version: "Fully_open_area" # Choose from one of them: Fully_open_area, Partially_closed_with_walls, Partially_closed_with_static
-  room_width: 2.845 # From inside of wall to inside of wall
+  # room_width: 2.845 # From inside of wall to inside of wall
+  room_width: 1.575 # From inside of wall to inside of wall
   room_length: 1.575 # From inside of wall to inside of wall
   distance_between_inner_goal_and_outer_wall_width: 0.25
   distance_between_inner_goal_and_outer_wall_length: 0.25
@@ -48,7 +49,7 @@ env:
 
 boxes:
   num_boxes: 10
-  clearance: 0.1
+  clearance: 0.05
   box_half_size: 0.04
   box_mass: 0.075 # mass(kg) for each box without wheels
   box_sliding_friction: 0.4
