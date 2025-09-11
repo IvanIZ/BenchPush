@@ -4,10 +4,10 @@ An example script for training and evaluating baselines for area clearing task
 import argparse
 
 # from benchnpin.baselines.area_clearing.ppo.policy import AreaClearingPPO
-# from benchnpin.baselines.area_clearing.sac.policy import AreaClearingSAC
 # from benchnpin.baselines.area_clearing.planning_based.policy import PlanningBasedPolicy
 from benchnpin.baselines.area_clearing_mujoco.sam.policy import AreaClearingMujocoSAM
 from benchnpin.baselines.area_clearing_mujoco.ppo.policy import AreaClearingMujocoPPO
+from benchnpin.baselines.area_clearing_mujoco.sac.policy import AreaClearingMujocoSAC
 
 from benchnpin.common.metrics.base_metric import BaseMetric
 
@@ -36,10 +36,10 @@ def main(cfg, job_id):
             ppo_policy = AreaClearingMujocoPPO(model_name=model_name, cfg=cfg)
             ppo_policy.train(total_timesteps=cfg.train.total_timesteps, checkpoint_freq=cfg.train.checkpoint_freq, from_model_eps=cfg.train.from_model_eps)
 
-        # elif cfg.train.job_type == 'sac':
-        #     # ================================ SAC Policy =================================
-        #     sac_policy = AreaClearingSAC(model_name=model_name, cfg=cfg)
-        #     sac_policy.train(total_timesteps=cfg.train.total_timesteps, checkpoint_freq=cfg.train.checkpoint_freq, from_model_eps=cfg.train.from_model_eps)
+        elif cfg.train.job_type == 'sac':
+            # ================================ SAC Policy =================================
+            sac_policy = AreaClearingMujocoSAC(model_name=model_name, cfg=cfg)
+            sac_policy.train(total_timesteps=cfg.train.total_timesteps, checkpoint_freq=cfg.train.checkpoint_freq, from_model_eps=cfg.train.from_model_eps)
 
     if cfg.evaluate.eval_mode:
         benchmark_results = []
@@ -56,10 +56,10 @@ def main(cfg, job_id):
                 ppo_policy = AreaClearingMujocoPPO(model_name=model_name, model_path=model_path, cfg=cfg)
                 benchmark_results.append(ppo_policy.evaluate(num_eps=num_eps))
 
-            # elif policy_type == 'sac':
-            #     # ================================ SAC Policy =================================
-            #     sac_policy = AreaClearingSAC(model_name=model_name, model_path=model_path, cfg=cfg)
-            #     benchmark_results.append(sac_policy.evaluate(num_eps=num_eps))
+            elif policy_type == 'sac':
+                # ================================ SAC Policy =================================
+                sac_policy = AreaClearingMujocoSAC(model_name=model_name, model_path=model_path, cfg=cfg)
+                benchmark_results.append(sac_policy.evaluate(num_eps=num_eps))
 
             # elif policy_type == 'planning_based':
             #     # ========================== Planning Based Policy =============================
@@ -108,7 +108,7 @@ if __name__ == '__main__':
                 'num_boxes': 6,
             },
             'render': {
-                'log_obs': False, # log occupancy observations
+                'log_obs': True, # log occupancy observations
                 'show': True, # show the environment
                 'show_obs': False, # show the occupancy observation
             },
@@ -120,20 +120,20 @@ if __name__ == '__main__':
             },
             'train': {
                 'train_mode': True,
-                'job_type': 'ppo', # 'sam', 'ppo', 'sac'
-                'job_name': 'ppo_clear_env',
+                'job_type': 'sac', # 'sam', 'ppo', 'sac'
+                'job_name': 'sac_clear_env',
                 'resume_training': False, 
                 # 'from_model_eps': 230000,
                 'from_model_eps': None,
                 'total_timesteps': 5e5,
                 'checkpoint_freq': 10000,
-                'job_id_to_resume': 'ppo_clear_env', # job id to resume training from
+                'job_id_to_resume': 'sac_clear_env', # job id to resume training from
             },
             'evaluate': {
                 'eval_mode': False,
                 'num_eps': 2,
-                'policy_types': ['ppo'], # list of policy types to evaluate
-                'model_names': ['ppo_clear_env_None_230000_steps.zip'], # list of model names to evaluate
+                'policy_types': ['sac'], # list of policy types to evaluate
+                'model_names': ['sac_clear_env_None_230000_steps.zip'], # list of model names to evaluate
                 'model_path': 'models/area_clearing', # path to the models
                 'obs_configs': [None], # list of obstacle configurations to evaluate
             },
