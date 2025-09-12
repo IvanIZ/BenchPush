@@ -13,7 +13,8 @@ cfg = {
         'show_obs': False,       # if true show observation
     },
     'agent': {
-                'action_type': 'position', # 'position', 'heading', 'velocity'
+            'action_type': 'position', # 'position', 'heading', 'velocity'
+            'random_start': False
             },
     'boxes': {
         'num_boxes_small': 10, # number of boxes to include in the small environments
@@ -21,6 +22,9 @@ cfg = {
     },
     'env': {
         'obstacle_config': 'small_empty', # options are small_empty, small_columns, large_columns, large_divider
+    },
+    'train': {
+        'job_type': 'sam', 
     },
     "render_scale": 50,         # Scalar applied to rendering window to fit the screen. Reducing this value makes rendering window smaller
 }

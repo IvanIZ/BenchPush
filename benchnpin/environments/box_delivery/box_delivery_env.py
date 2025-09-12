@@ -47,7 +47,7 @@ OBSTACLE_SEG_INDEX = 0
 FLOOR_SEG_INDEX = 1
 RECEPTACLE_SEG_INDEX = 3
 BOX_SEG_INDEX = 4
-ROBOT_SEG_INDEX = 5
+ROBOT_SEG_INDEX = 6
 MAX_SEG_INDEX = 8
 
 MOVE_STEP_SIZE = 0.05
@@ -253,7 +253,7 @@ class BoxDeliveryEnv(gym.Env):
 
         # initialize sim objects
         self.robot = generate_sim_agent(self.space, self.robot_info, label='robot',
-                                        body_type=pymunk.Body.KINEMATIC, wheel_vertices_list=self.robot_info['wheel_vertices'])
+                                        body_type=pymunk.Body.KINEMATIC, wheel_vertices_list=self.robot_info['wheel_vertices'], front_bumper_vertices=self.robot_info['front_bumper_vertices'])
         self.boxes = generate_sim_boxes(self.space, self.boxes_dicts, self.cfg.boxes.box_density)
         self.boundaries = generate_sim_bounds(self.space, self.boundary_dicts)
         self.robot.collision_type = 1
@@ -1052,8 +1052,8 @@ class BoxDeliveryEnv(gym.Env):
         channels = []
         channels.append(self.get_local_map(self.global_overhead_map, self.robot.body.position, self.robot.body.angle))
         channels.append(self.robot_state_channel)
-        channels.append(self.get_local_distance_map(self.create_global_shortest_path_to_receptacle_map(), self.robot.body.position, self.robot.body.angle))
         channels.append(self.get_local_distance_map(self.create_global_shortest_path_map(self.robot.body.position), self.robot.body.position, self.robot.body.angle))
+        channels.append(self.get_local_distance_map(self.create_global_shortest_path_to_receptacle_map(), self.robot.body.position, self.robot.body.angle))
         observation = np.stack(channels, axis=2)
         observation = (observation * 255).astype(np.uint8)
         return observation
