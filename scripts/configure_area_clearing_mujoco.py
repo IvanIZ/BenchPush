@@ -29,8 +29,8 @@ for i in range(num_epochs):
         action = goal_pos
 
         observation, reward, terminated, truncated, info = env.step(action)
-        frame = env.mujoco_renderer.render(render_mode='rgb_array')
-        Image.fromarray(frame).save('snap_shot_' + str(t) + '.png')
+        # frame = env.mujoco_renderer.render(render_mode='rgb_array')
+        # Image.fromarray(frame).save('snap_shot_' + str(t) + '.png')
 
         if terminated or truncated:
             break
