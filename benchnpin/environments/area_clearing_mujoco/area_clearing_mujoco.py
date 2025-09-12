@@ -1,3 +1,4 @@
+import time
 from PIL import Image
 from gymnasium import utils
 from gymnasium.envs.mujoco import MujocoEnv
@@ -1002,8 +1003,20 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
             (x,           0.0),              # bottom edge   (y = 0)
             (x,  self.room_length_inner),          # top    edge   (y = L)
         ]
-        # return the minimum SPFA distance
-        return min(self.shortest_path_distance(xy, t) for t in targets)
+        
+        # # # compute straight-line distance to each target
+        straight_dists = [self.distance(xy, t) for t in targets]
+        dist = min(straight_dists)  # quick exit if possible
+
+        # # return the minimum SPFA distance
+        # # TODO: Enable for environments with columns
+        # dist = min(self.shortest_path_distance(xy, t) for t in targets)
+        
+        print('Distance to nearest edge:', dist)
+        print('Time taken for distance to nearest edge:', time.time() - self.start_time)
+        self.start_time = time.time()
+
+        return dist
 
     def update_motion_dict(self, motion_dict):
         """
@@ -1278,6 +1291,8 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
         self.num_completed_boxes = 0
         self.num_completed_boxes_new = 0
         self.completed_box_ids=[]
+
+        self.start_time = time.time()
 
         return observation
 
