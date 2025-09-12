@@ -60,7 +60,7 @@ scale_factor = (2.845/10) # scales thresholds to be proportionately the same as 
 MOVE_STEP_SIZE = 0.05 * scale_factor
 TURN_STEP_SIZE = np.radians(15)
 
-WAYPOINT_MOVING_THRESHOLD = 0.2 * scale_factor
+WAYPOINT_MOVING_THRESHOLD = 0.6 * scale_factor
 WAYPOINT_TURNING_THRESHOLD = np.radians(10)
 NOT_MOVING_THRESHOLD = 0.005 * scale_factor
 NOT_TURNING_THRESHOLD = np.radians(0.05)
@@ -76,7 +76,6 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
             "human",
             "rgb_array",
             "depth_array",
-            "None"
         ],
     }
 
@@ -126,6 +125,7 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
         # environment
         self.local_map_pixel_width = self.cfg.env.local_map_pixel_width if self.cfg.train.job_type != 'sam' else self.cfg.env.local_map_pixel_width_sam
         self.local_map_width = max(self.room_length, self.room_width)
+        # self.local_map_width = max(self.room_length_inner + 2 * self.cfg.env.distance_between_inner_goal_and_outer_wall_length, self.room_width_inner + 2 * self.cfg.env.distance_between_inner_goal_and_outer_wall_width)
         self.local_map_pixels_per_meter = self.local_map_pixel_width / self.local_map_width
         self.wall_thickness = self.cfg.env.wall_thickness
         self.num_boxes = self.cfg.boxes.num_boxes
@@ -498,7 +498,7 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
         # items to return
         reward = self._get_rew()
         self.robot_cumulative_distance += self.robot_distance
-        self.robot_cumulative_boxes = self.num_completed_boxes
+        self.robot_cumulative_boxes += self.num_completed_boxes_new
         self.robot_cumulative_reward += reward
         ministeps = self.robot_distance / self.ministep_size
         info = {
@@ -529,8 +529,8 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
         robot_heading = robot_initial_heading
         robot_is_moving = True
         self.robot_distance = 0
-        robot_waypoint_index = 1
 
+        robot_waypoint_index = 1
         robot_waypoint_positions = [(waypoint[0], waypoint[1]) for waypoint in self.path]
         robot_waypoint_headings = [waypoint[2] for waypoint in self.path]
 
@@ -958,7 +958,7 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
             robot_reward -= self.collision_penalty
     
         # penalty for small movements
-        if self.robot_distance < NONMOVEMENT_DIST_THRESHOLD and abs(abs(self.robot_turn_angle)) < NONMOVEMENT_TURN_THRESHOLD:
+        if self.robot_distance < NONMOVEMENT_DIST_THRESHOLD and abs(self.robot_turn_angle) < NONMOVEMENT_TURN_THRESHOLD:
             robot_reward -= self.non_movement_penalty
         
         # Compute stats
@@ -1252,7 +1252,7 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
         self.robot_cumulative_boxes = 0
         self.robot_cumulative_reward = 0
         self.total_work = [0, []]
-        self.completed_boxes_id = []
+        self.completed_box_ids = []
 
         self.update_configuration_space()
 

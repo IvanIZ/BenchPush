@@ -45,7 +45,9 @@ def main(cfg, job_id):
         benchmark_results = []
         num_eps = cfg.evaluate.num_eps
         model_path = cfg.evaluate.model_path
-        for policy_type, model_name in zip(cfg.evaluate.policy_types, cfg.evaluate.model_names):
+        for policy_type, action_type, model_name in zip(cfg.evaluate.policy_types, cfg.evaluate.action_types, cfg.evaluate.model_names):
+            cfg.train.job_type = policy_type
+            cfg.agent.action_type = action_type
             if policy_type == 'sam':
                 # ========================= Spatial Action Map Policy =========================
                 sam_policy = AreaClearingMujocoSAM(model_name=model_name, model_path=model_path, cfg=cfg)
@@ -103,19 +105,18 @@ if __name__ == '__main__':
     else:
         # High level configuration for the area clearing task
         cfg={
-            # 'env': 'clear_env', # 'clear_env_small', 'clear_env', walled_env', 'walled_env_with_columns'
             'boxes': {
                 'num_boxes': 6,
             },
             'render': {
-                'log_obs': True, # log occupancy observations
+                'log_obs': False, # log occupancy observations
                 'show': True, # show the environment
                 'show_obs': False, # show the occupancy observation
             },
             'agent': {
                 # Options: 'position', 'heading', 'velocity'
-                'action_type': 'heading', # Use for PPO and SAC
-                # 'action_type': 'position', # Used by default for SAM
+                # 'action_type': 'heading', # Use for PPO and SAC
+                'action_type': 'position', # Used by default for SAM
                 # action_type: 'velocity', # Use for GTSP
             },
             'train': {
@@ -132,8 +133,9 @@ if __name__ == '__main__':
             'evaluate': {
                 'eval_mode': False,
                 'num_eps': 2,
-                'policy_types': ['sac'], # list of policy types to evaluate
-                'model_names': ['sac_clear_env_None_230000_steps.zip'], # list of model names to evaluate
+                'policy_types': ['sam'], # list of policy types to evaluate
+                'action_types': ['position'], # list of action types to evaluate
+                'model_names': ['clear_env'], # list of model names to evaluate
                 'model_path': 'models/area_clearing', # path to the models
                 'obs_configs': [None], # list of obstacle configurations to evaluate
             },
