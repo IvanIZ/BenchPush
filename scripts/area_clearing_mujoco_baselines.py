@@ -134,6 +134,7 @@ if __name__ == '__main__':
                 'eval_mode': False,
                 'num_eps': 2,
                 'policy_types': ['ppo'], # list of policy types to evaluate
+                'action_types': ['position'], # list of action types to evaluate
                 'model_names': ['sac_clear_env_None_230000_steps.zip'], # list of model names to evaluate
                 'model_path': 'models/area_clearing', # path to the models
                 'obs_configs': [None], # list of obstacle configurations to evaluate

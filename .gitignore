@@ -29,6 +29,7 @@ benchnpin/baselines/area_clearing_mujoco/sam/checkpoint/
 __pycache__/
 
 venv/
+npin-env/
 
 configs/
 
