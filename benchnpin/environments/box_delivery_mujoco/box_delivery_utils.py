@@ -153,7 +153,7 @@ def changing_per_configuration(env_type: str, clearance_poly,
     <body name="{name}" pos="{cx:.3f} {cy:.3f} {zh:.3f}">
       <joint name="{name}_joint" type="free"/>
       <geom name="{name}" type="box" size="{xh:.3f} {yh:.3f} {zh:.3f}" mass="{heavy_mass:.1f}" 
-      contype="1" conaffinity="1" rgba="0.33 0.39 0.46 0.4"/>
+      contype="1" conaffinity="1" rgba="0.4 0.4 0.4 1.0"/>
     </body>
 """
         Coordinates=[(cx-xh, cy-yh),(cx+xh, cy-yh),(cx+xh, cy+yh),(cx-xh, cy+yh)]
@@ -167,16 +167,16 @@ def changing_per_configuration(env_type: str, clearance_poly,
       Text=f"""
     <!-- Corner 4 -->
     <body name="corner_4" pos="{ARENA_X[1]/2} {cy+hy} 0.00" euler="-3.14 3.14 0">
-      <geom name="corner_4_1" type="mesh" mesh="corner_1" rgba="0.0 0.3 1.0 1.0" contype="1" conaffinity="1"/>
-      <geom name="corner_4_2" type="mesh" mesh="corner_2" rgba="0.0 0.3 1.0 1.0" contype="1" conaffinity="1"/>
-      <geom name="corner_4_3" type="mesh" mesh="corner_3" rgba="0.0 0.3 1.0 1.0" contype="1" conaffinity="1"/>
+      <geom name="corner_4_1" type="mesh" mesh="corner_1" rgba="0.4 0.4 0.4 1.0" contype="1" conaffinity="1"/>
+      <geom name="corner_4_2" type="mesh" mesh="corner_2" rgba="0.4 0.4 0.4 1.0" contype="1" conaffinity="1"/>
+      <geom name="corner_4_3" type="mesh" mesh="corner_3" rgba="0.4 0.4 0.4 1.0" contype="1" conaffinity="1"/>
     </body>
 
     <!-- Corner 5 -->
-    <body name="corner_5" pos="{ARENA_X[1]/2} {cy-hy} 0.06" euler="0.0 3.14 0">
-      <geom name="corner_5_1" type="mesh" mesh="corner_1" rgba="0.0 0.3 1.0 1.0" contype="1" conaffinity="1"/>
-      <geom name="corner_5_2" type="mesh" mesh="corner_2" rgba="0.0 0.3 1.0 1.0" contype="1" conaffinity="1"/>
-      <geom name="corner_5_3" type="mesh" mesh="corner_3" rgba="0.0 0.3 1.0 1.0" contype="1" conaffinity="1"/>
+    <body name="corner_5" pos="{ARENA_X[1]/2} {cy-hy} 0.3" euler="0.0 3.14 0">
+      <geom name="corner_5_1" type="mesh" mesh="corner_1" rgba="0.4 0.4 0.4 1.0" contype="1" conaffinity="1"/>
+      <geom name="corner_5_2" type="mesh" mesh="corner_2" rgba="0.4 0.4 0.4 1.0" contype="1" conaffinity="1"/>
+      <geom name="corner_5_3" type="mesh" mesh="corner_3" rgba="0.4 0.4 0.4 1.0" contype="1" conaffinity="1"/>
     </body>"""
       return Text
     
@@ -243,7 +243,7 @@ def changing_per_configuration(env_type: str, clearance_poly,
       # divider geometry (half-sizes)
       hx = 0.8 * ARENA_X[1] / 2          # spans  -X/2  …  +0.6·X/2
       hy = divider_thickness / 2         # 0.1-m total thickness → 0.05 half-thickness
-      hz = 0.1
+      hz = 0.1499
 
       # x-centre of the divider strip
       cx = 0.2 * ARENA_X[1] / 2         # centre of [-X/2 , +0.6·X/2]
@@ -345,9 +345,9 @@ def build_xml(robot_qpos, stl_model_path, extra_xml, ARENA_X1, ARENA_Y1, goal_ha
   <asset>
     <texture type="skybox" builtin="gradient" width="512" height="512"/>
     <material name="blue_mat" rgba="0.4 0.3 0.2 1"/>
-    <mesh name="corner_1" file="corner1.stl" scale="0.001 0.001 0.001"/>
-    <mesh name="corner_2" file="corner2.stl" scale="0.001 0.001 0.001"/>
-    <mesh name="corner_3" file="corner3.stl" scale="0.001 0.001 0.001"/>
+    <mesh name="corner_1" file="corner1.stl" scale="0.001 0.001 0.005"/>
+    <mesh name="corner_2" file="corner2.stl" scale="0.001 0.001 0.005"/>
+    <mesh name="corner_3" file="corner3.stl" scale="0.001 0.001 0.005"/>
     <mesh name="burger_base" file="burger_base.stl" scale="0.001 0.001 0.001"/>
     <mesh name="left_tire"   file="left_tire.stl"   scale="0.001 0.001 0.001"/>
     <mesh name="right_tire"  file="right_tire.stl"  scale="0.001 0.001 0.001"/>
@@ -373,9 +373,10 @@ def build_xml(robot_qpos, stl_model_path, extra_xml, ARENA_X1, ARENA_Y1, goal_ha
   </asset>
 
   <visual>
-    <quality shadowsize="4096"/>
-    <headlight ambient="1 1 1" diffuse="1 1 1" specular="0.1 0.1 0.1"/>
-  </visual>
+  <quality shadowsize="4096"/>
+  <map shadowclip="1" shadowscale="0.5"/>
+  <headlight ambient="1 1 1" diffuse="0.8 0.8 0.8" specular="0.1 0.1 0.1"/>
+</visual>
 
   <worldbody>
   
@@ -387,24 +388,24 @@ def build_xml(robot_qpos, stl_model_path, extra_xml, ARENA_X1, ARENA_Y1, goal_ha
     <camera name="centered_cam" pos="-0 -2 2.5" quat="1 0.3 0  0" fovy="60"/>
 
     <!-- Corner 1 -->
-    <body name="corner_1" pos="{-ARENA_X1/2} {-ARENA_Y1/2} 0.06" euler="-3.14 0.0 0">
-      <geom name="corner_1_1" type="mesh" mesh="corner_1" rgba="0.0 0.3 1.0 1.0" contype="1" conaffinity="1"/>
-      <geom name="corner_1_2" type="mesh" mesh="corner_2" rgba="0.0 0.3 1.0 1.0" contype="1" conaffinity="1"/>
-      <geom name="corner_1_3" type="mesh" mesh="corner_3" rgba="0.0 0.3 1.0 1.0" contype="1" conaffinity="1"/>
+    <body name="corner_1" pos="{-ARENA_X1/2} {-ARENA_Y1/2} 0.3" euler="-3.14 0.0 0">
+      <geom name="corner_1_1" type="mesh" mesh="corner_1" rgba="0.4 0.4 0.4 1" contype="1" conaffinity="1"/>
+      <geom name="corner_1_2" type="mesh" mesh="corner_2" rgba="0.4 0.4 0.4 1" contype="1" conaffinity="1"/>
+      <geom name="corner_1_3" type="mesh" mesh="corner_3" rgba="0.4 0.4 0.4 1" contype="1" conaffinity="1"/>
     </body>
     
     <!-- Corner 2 -->
     <body name="corner_2" pos="{ARENA_X1/2} {-ARENA_Y1/2} 0.00" euler="-3.14 3.14 0">
-      <geom name="corner_2_1" type="mesh" mesh="corner_1" rgba="0.0 0.3 1.0 1.0" contype="1" conaffinity="1"/>
-      <geom name="corner_2_2" type="mesh" mesh="corner_2" rgba="0.0 0.3 1.0 1.0" contype="1" conaffinity="1"/>
-      <geom name="corner_2_3" type="mesh" mesh="corner_3" rgba="0.0 0.3 1.0 1.0" contype="1" conaffinity="1"/>
+      <geom name="corner_2_1" type="mesh" mesh="corner_1" rgba="0.4 0.4 0.4 1" contype="1" conaffinity="1"/>
+      <geom name="corner_2_2" type="mesh" mesh="corner_2" rgba="0.4 0.4 0.4 1" contype="1" conaffinity="1"/>
+      <geom name="corner_2_3" type="mesh" mesh="corner_3" rgba="0.4 0.4 0.4 1" contype="1" conaffinity="1"/>
     </body>
     
     <!-- Corner 3 -->
     <body name="corner_3" pos="{-ARENA_X1/2} {ARENA_Y1/2} 0.00" euler="0 0.0 0">
-      <geom name="corner_3_1" type="mesh" mesh="corner_1" rgba="0.0 0.3 1.0 1.0" contype="1" conaffinity="1"/>
-      <geom name="corner_3_2" type="mesh" mesh="corner_2" rgba="0.0 0.3 1.0 1.0" contype="1" conaffinity="1"/>
-      <geom name="corner_3_3" type="mesh" mesh="corner_3" rgba="0.0 0.3 1.0 1.0" contype="1" conaffinity="1"/>
+      <geom name="corner_3_1" type="mesh" mesh="corner_1" rgba="0.4 0.4 0.4 1" contype="1" conaffinity="1"/>
+      <geom name="corner_3_2" type="mesh" mesh="corner_2" rgba="0.4 0.4 0.4 1" contype="1" conaffinity="1"/>
+      <geom name="corner_3_3" type="mesh" mesh="corner_3" rgba="0.4 0.4 0.4 1" contype="1" conaffinity="1"/>
     </body>
         
     <!-- Marked area -->
@@ -417,54 +418,54 @@ def build_xml(robot_qpos, stl_model_path, extra_xml, ARENA_X1, ARENA_Y1, goal_ha
       friction="0.5 0.05 0.0001"/>
       
     <!-- transporting area -->
-    <geom name="transporting_area" type="box" pos="{ARENA_X1/2+0.05} {ARENA_Y1/2+0.07} 0.01" size="0.05 0.05 0.05" rgba="0.33 0.39 0.46 1.0"/>
+    <geom name="transporting_area" type="box" pos="{ARENA_X1/2+0.05} {ARENA_Y1/2+0.07} -5.99" size="0.05 0.05 0.05" rgba="0.33 0.39 0.46 1.0"/>
       
     <!-- transporting area Y-walls -->
     <geom name="transporting_wall_y1" type="box"
-      pos="{ARENA_X1/2+0.05} {ARENA_Y1/2+0.01} 1.0"
+      pos="{ARENA_X1/2+0.05} {ARENA_Y1/2+0.01} -5.0"
       size="0.05 0.01 1.0"
-      rgba="1 1 1 0.1" contype="1" conaffinity="1"/>
+      rgba="1 1 1 0.2" contype="1" conaffinity="1"/>
       
     <geom name="transporting_wall_y2" type="box"
-      pos="{ARENA_X1/2+0.05} {ARENA_Y1/2+0.12} 1.0"
+      pos="{ARENA_X1/2+0.05} {ARENA_Y1/2+0.12} -5.0"
       size="0.05 0.01 1.0"
-      rgba="1 1 1 0.1" contype="1" conaffinity="1"/>
+      rgba="1 1 1 0.2" contype="1" conaffinity="1"/>
       
     <!-- transporting area X-walls -->
     <geom name="transporting_wall_x1" type="box"
-      pos="{ARENA_X1/2-0.01} {ARENA_Y1/2+0.07} 1.0"
+      pos="{ARENA_X1/2-0.01} {ARENA_Y1/2+0.07} -5.0"
       size="0.01 0.05 1.0"
-      rgba="1 1 1 0.1" contype="1" conaffinity="1"/>
+      rgba="1 1 1 0.2" contype="1" conaffinity="1"/>
       
     <geom name="transporting_wall_x2" type="box"
-      pos="{ARENA_X1/2+0.11} {ARENA_Y1/2+0.07} 1.0"
+      pos="{ARENA_X1/2+0.11} {ARENA_Y1/2+0.07} -5.0"
       size="0.01 0.05 1.0"
-      rgba="1 1 1 0.1" contype="1" conaffinity="1"/>
+      rgba="1 1 1 0.2" contype="1" conaffinity="1"/>
       
     <!-- X-walls: left and right sides -->
     <geom name="Wall_X1" type="box"
-      pos="{-ARENA_X1/2-0.01} 0 0.15"
-      size="0.01 {ARENA_Y1/2} 0.15"
-      rgba="1 1 1 0.1" contype="1" conaffinity="1"
+      pos="{-ARENA_X1/2-10} 0 0.15"
+      size="10 10 0.15"
+      rgba="0.4 0.4 0.4 1" contype="1" conaffinity="1"
       friction="0.45 0.01 0.003"/>
 
     <geom name="Wall_X2" type="box"
-      pos="{ARENA_X1/2+0.01} 0 0.15"
-      size="0.01 {ARENA_Y1/2} 0.15"
-      rgba="1 1 1 0.1" contype="1" conaffinity="1"
+      pos="{ARENA_X1/2+10} 0 0.15"
+      size="10 10 0.15"
+      rgba="0.4 0.4 0.4 1" contype="1" conaffinity="1"
       friction="0.45 0.01 0.003"/>
 
     <!-- Y-walls: bottom and top -->
     <geom name="Wall_Y1" type="box"
-      pos="0 {-ARENA_Y1/2-0.01} 0.15"
-      size="{ARENA_X1/2} 0.01 0.15"
-      rgba="1 1 1 0.1" contype="1" conaffinity="1"
+      pos="0 {-ARENA_Y1/2-10} 0.15"
+      size="10 10 0.15"
+      rgba="0.4 0.4 0.4 1" contype="1" conaffinity="1"
       friction="0.45 0.01 0.003"/>
 
     <geom name="Wall_Y2" type="box"
-      pos="0 {ARENA_Y1/2+0.01} 0.15"
-      size="{ARENA_X1/2} 0.01 0.15"
-      rgba="1 1 1 0.1" contype="1" conaffinity="1"
+      pos="0 {ARENA_Y1/2+10} 0.15"
+      size="10 10 0.15"
+      rgba="0.4 0.4 0.4 1" contype="1" conaffinity="1"
       friction="0.45 0.01 0.003"/>
     
     {generate_waypoint_sites(50)}
@@ -555,7 +556,7 @@ def transport_box_from_recept(model, data, joint_id_boxes, ARENA_X1, ARENA_Y1, g
     ])
     
     GOAL_HALF   = np.array([goal_half, goal_half])
-    DROP_POS    = np.array([ARENA_X1/2+0.05, ARENA_Y1/2+0.07, 1.0])
+    DROP_POS    = np.array([ARENA_X1/2+0.05, ARENA_Y1/2+0.07, -5.0])
     
     xmin, xmax = goal_center[0] - GOAL_HALF[0], goal_center[0] + GOAL_HALF[0]
     ymin, ymax = goal_center[1] - GOAL_HALF[1], goal_center[1] + GOAL_HALF[1]
