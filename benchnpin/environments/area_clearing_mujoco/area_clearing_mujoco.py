@@ -1011,10 +1011,6 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
         # # return the minimum SPFA distance
         # # TODO: Enable for environments with columns
         # dist = min(self.shortest_path_distance(xy, t) for t in targets)
-        
-        print('Distance to nearest edge:', dist)
-        print('Time taken for distance to nearest edge:', time.time() - self.start_time)
-        self.start_time = time.time()
 
         return dist
 
