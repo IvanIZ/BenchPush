@@ -13,7 +13,7 @@ from shapely.geometry import Polygon, LineString, Point
 
 # Bench-NPIN imports
 from benchnpin.common.controller.position_controller import PositionController
-from benchnpin.common.evaluation.metrics import total_work_done
+from benchnpin.common.evaluation.metrics import total_work_done, obs_to_goal_difference
 from benchnpin.common.utils.utils import DotDict
 from benchnpin.environments.area_clearing_mujoco.area_clearing_utils import generate_area_clearing_xml, precompute_static_vertices, dynamic_vertices, intersects_keepout, receptacle_vertices, transport_box_from_recept
 from benchnpin.common.utils.mujoco_utils import vw_to_wheels, make_controller, quat_z, inside_poly, quat_z_yaw, get_body_pose_2d
@@ -60,7 +60,7 @@ scale_factor = (2.845/10) # scales thresholds to be proportionately the same as 
 MOVE_STEP_SIZE = 0.05 * scale_factor
 TURN_STEP_SIZE = np.radians(15)
 
-WAYPOINT_MOVING_THRESHOLD = 0.6 * scale_factor
+WAYPOINT_MOVING_THRESHOLD = 0.2 * scale_factor
 WAYPOINT_TURNING_THRESHOLD = np.radians(10)
 NOT_MOVING_THRESHOLD = 0.005 * scale_factor
 NOT_TURNING_THRESHOLD = np.radians(0.05)
@@ -1026,6 +1026,7 @@ class AreaClearingMujoco(MujocoEnv, utils.EzPickle):
         live_bodies = {self.model.jnt_bodyid[jid] for jid in live_bodies_joint_id}
         boxes_total_distance=0
 
+        # obs_to_goal_difference(self.prev_obs, updated_obstacles, self.goal_points, self.boundary_polygon)
         for body_id in live_bodies:
 
             length, last_xy, mass = motion_dict[body_id]

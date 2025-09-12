@@ -3,7 +3,7 @@ output_dir: "logs/"
 render:
   show: true
   show_obs: false
-  log_obs: true
+  log_obs: false
 
 train:
   train_mode: false
@@ -19,7 +19,7 @@ train:
   learning_rate: 0.01
   learning_starts: 1000
   n_epochs: 10
-  n_steps: 256s
+  n_steps: 256
   replay_buffer_size: 10000
   resume_training: false
   target_update_freq: 1000
@@ -83,12 +83,12 @@ agent:
   # Turlebot 3: length=0.138, width=0.183, robot_clear=0.15
   # Jackal: length=0.51, width=0.43, robot_clear=0.75
   agent_type: 'turtlebot_3' # options are turtlebot_3 or jackal
-  action_type: 'position' # options are velocity, heading, position
+  action_type: 'heading' # options are velocity, heading, position
   length: 0.138
   width: 0.183
   robot_clear: 0.15
   type_of_bumper: 'straight' # Choose from one of them: curved_inwards, straight, curved_outwards
-  movement_step_size: 0.1
+  movement_step_size: 0.4
   bumper_mass: 0.1 # mass (kg) for the bumper so that can switch between different plastic materials
   mass: 1.07
 
