@@ -101,6 +101,7 @@ agent:
   length: 0.138
   width: 0.183
   robot_clear: 0.15
+  movement_step_size: 0.4
   type_of_bumper: 'straight'  # Choose from one of them: curved_inwards, straight, curved_outwards
   bumper_mass: 0.1 # mass (kg) for the bumper so that can switch between different plastic materials
   mass: 1.07

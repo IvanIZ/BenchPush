@@ -376,6 +376,25 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
         robot_initial_position = get_body_pose_2d(self.model, self.data, self.robot_name_in_xml)[:2]
         robot_initial_heading = self.restrict_heading_range(quat_z_yaw(*self.data.qpos[self.qpos_index_base+3:self.qpos_index_base+7]))
 
+        if self.cfg.agent.action_type == 'heading':
+            ################################ Heading Control ################################
+            # convert heading action to a pixel index in order to use the position control code
+
+            # rescale heading action to be in range [0, 2*pi]
+            angle = (action + 1) * np.pi + np.pi / 2
+            step_size = self.cfg.agent.movement_step_size
+
+            # calculate target position
+            x_movement = step_size * np.cos(angle)
+            y_movement = step_size * np.sin(angle)
+
+            # convert target position to pixel coordinates
+            x_pixel = int(self.local_map_pixel_width / 2 + x_movement * self.local_map_pixels_per_meter)
+            y_pixel = int(self.local_map_pixel_width / 2 - y_movement * self.local_map_pixels_per_meter)
+
+            # convert pixel coordinates to a single index
+            action = y_pixel * self.local_map_pixel_width + x_pixel
+
         # TODO check if move_sign is necessary
         self.path, robot_move_sign = self.position_controller.get_waypoints_to_spatial_action(robot_initial_position, robot_initial_heading, action)
 
