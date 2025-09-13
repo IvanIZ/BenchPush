@@ -151,7 +151,6 @@ def changing_per_configuration(env_type: str, clearance_poly,
         Text = f"""
     <!-- pillar {name} -->
     <body name="{name}" pos="{cx:.3f} {cy:.3f} {zh:.3f}">
-      <joint name="{name}_joint" type="free"/>
       <geom name="{name}" type="box" size="{xh:.3f} {yh:.3f} {zh:.3f}" mass="{heavy_mass:.1f}" 
       contype="1" conaffinity="1" rgba="0.4 0.4 0.4 1.0"/>
     </body>
@@ -243,7 +242,7 @@ def changing_per_configuration(env_type: str, clearance_poly,
       # divider geometry (half-sizes)
       hx = 0.8 * ARENA_X[1] / 2          # spans  -X/2  …  +0.6·X/2
       hy = divider_thickness / 2         # 0.1-m total thickness → 0.05 half-thickness
-      hz = 0.1499
+      hz = 0.15
 
       # x-centre of the divider strip
       cx = 0.2 * ARENA_X[1] / 2         # centre of [-X/2 , +0.6·X/2]

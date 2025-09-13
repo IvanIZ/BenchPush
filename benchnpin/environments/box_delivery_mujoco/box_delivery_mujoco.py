@@ -1071,16 +1071,18 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
 
             # Teleporting the divider body (joint) to the new pose
 
-            # FIXME: What happened to the joint_name variable?
-            j_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_JOINT,"large_divider_joint")
+            # TODO: (MegnathR) Commenting this for now  as the divider should be static and this should not be needed.
+            # However, we need to build a divider for variable y position in future.
+            #  
+            # j_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_JOINT,"large_divider_joint")
 
-            if j_id < 0:
-                raise RuntimeError(f"Joint {joint_name} not found in model")
+            # if j_id < 0:
+            #     raise RuntimeError(f"Joint {j_id} not found in model")
 
-            adr = self.model.jnt_qposadr[j_id]
-            self.data.qpos[adr     : adr+3] = [cx, cy, hz]
-            self.data.qpos[adr+3   : adr+7] = [1, 0, 0, 0]
-            self.data.qvel[adr     : adr+6] = 0
+            # adr = self.model.jnt_qposadr[j_id]
+            # self.data.qpos[adr     : adr+3] = [cx, cy, hz]
+            # self.data.qpos[adr+3   : adr+7] = [1, 0, 0, 0]
+            # self.data.qvel[adr     : adr+6] = 0
 
             corner_4_coordinates, corner_5_coordinates = large_divider_corner_vertices(cx, cy, hy, self.room_length/2)
 
