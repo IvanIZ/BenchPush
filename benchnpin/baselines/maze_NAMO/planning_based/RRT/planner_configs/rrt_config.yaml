@@ -1,0 +1,29 @@
+step: 0.3
+goal_radius: 0.1
+goal_bias: 0.15
+max_nodes: 8000
+densify_ds: 0.08
+seed: 42
+
+### SHIP MODEL AND CONTROLLER PARAMS
+controller:
+  dt: 0.8  # the ship dynamics model was discretized with this dt (originally 0.02)
+  # States: [r, u, v] : yaw rate (deg/s), surge velocity (m/s), sway velocity (m/s)
+  A:
+    - [ 0.9909, 0., 0. ]
+    - [ 0., 0.9980, 0. ]
+    - [ 0., 0., 0.9953 ]
+  # Input matrix: differential fore/aft (rps), side tunnel (rps), main prop (rps) (Assume pure motions)
+  B: [ 0.04515, 4.321e-5, 1.730e-4 ]
+  # Input limits
+  # To calculate yaw rate given min turn radius r and surge velocity v
+  # 360 / ((2 pi r) / v)
+  input_lims: [8.6, 0.5, 0.05]
+  # look ahead distance
+  Lfc: 0.5
+  # target speed
+  target_speed: 0.15  # m/s
+  PID_gains:  # gains for 3 PIDs
+    - [ 5, 0, 5 ]
+    - [ 10, 0, 20 ]
+    - [ 10, 0, 20 ]

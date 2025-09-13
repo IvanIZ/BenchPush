@@ -2,6 +2,7 @@
 import benchnpin.environments
 import gymnasium as gym
 #Non-learning Planners for Maze NAMO
+from benchnpin.baselines.maze_NAMO.planning_based.RRT.rrt import RRTPlanner
 #Base Policy Class
 from benchnpin.baselines.base_class import BasePolicy
 #Benchnpin Metrics 
@@ -25,7 +26,7 @@ class PlanningBasedPolicy(BasePolicy):
     then outputs actions to track the planned path.
     """
 
-    def __init__(self, planner_type, cfg=None) -> None:
+    def __init__(self, planner_type, cfg=None, planner_config=None) -> None:
         super().__init__()
 
         if planner_type not in ['RRT', 'Astar']:
@@ -34,14 +35,53 @@ class PlanningBasedPolicy(BasePolicy):
 
         self.path = None
 
+        self.RRTPlanner = RRTPlanner(config_file=None)
+        
         self.cfg = cfg
 
+        
 
-    def plan_path(self, start, goal, observation, obstacles=None):
-        pass
+
+    def plan_path(self, start, goal, observation, maze_vertices, obstacles=None, robot_radius = None):
+        if self.planner_type == 'RRT':
+           self.path = self.RRTPlanner.plan(start=start, goal=goal, maze_vertices=maze_vertices,
+                                             movable_obstacles=obstacles, 
+                                             robot_size= {'radius': robot_radius+0.8},
+                                             bounds_pad=2.5)
+           self.path = np.array(self.path)
+                                         
 
     def act(self, observation, **kwargs):
-        pass
+        robot_pos = kwargs.get('robot_pos', None)
+        robot_radius = kwargs.get('robot_radius', None)
+        goal = kwargs.get('goal', None)
+        maze_vertices = kwargs.get('maze_vertices', None)
+        obstacles = kwargs.get('obstacles', None)
+        action_scale = kwargs.get('action_scale', 1.0)
+
+        #plan path offline
+        if self.path is None:
+            self.plan_path(start=robot_pos[0:2], goal=goal, observation=observation, 
+                           maze_vertices=maze_vertices, obstacles=obstacles,
+                           robot_radius=robot_radius)
+            
+        #traverse the path using a DP controller
+        # setup dp controller to track the planned path
+        cx = self.path.T[0]
+        cy = self.path.T[1]
+        ch = np.zeros_like(cx)  # desired heading is a dummy value here
+        self.dp = DP(x=robot_pos[0], y=robot_pos[1], yaw=robot_pos[2],
+                cx=cx, cy=cy, ch=ch, **self.RRTPlanner.cfg.controller)
+        self.dp_state = self.dp.state
+        
+        # call ideal controller to get angular velocity control
+        omega, _ = self.dp.ideal_control(robot_pos[0], robot_pos[1], robot_pos[2])
+
+        # update setpoint
+        x_s, y_s, h_s = self.dp.get_setpoint()
+        self.dp.setpoint = np.asarray([x_s, y_s, np.unwrap([self.dp_state.yaw, h_s])[1]])
+
+        return omega / action_scale
         
 
     def evaluate(self,  num_eps: int, model_eps: str ='latest') -> Tuple[List[float], List[float], List[float], str]:
@@ -63,17 +103,22 @@ class PlanningBasedPolicy(BasePolicy):
             obstacles = info['obs']
             done = truncated = False
 
-            #parameters per episode
+            #parameters that do not change per step
             goal = info['goal']
-            maze_vertices = info['maze_vertices']
+            maze_vertices = env.maze_walls
+            if env.cfg.robot.min_r is not None:
+                robot_radius = env.cfg.robot.min_r
+            else:
+                robot_radius = env.cfg.agent.robot_r
 
             while not (done or truncated):
-                #paramters per step
+                #paramters that change per step
                 robot_pos = info['state']
                 obstacles = info['obs']
                 #compute the next action (angular velocity)
                 action = self.act(observation=(observation/255.0).astype(np.float64), 
                                     robot_pos=robot_pos, 
+                                    robot_radius=robot_radius,
                                     goal=goal, 
                                     maze_vertices=maze_vertices,
                                     obstacles=obstacles,
@@ -107,28 +152,25 @@ if __name__ == "__main__":
     policy = PlanningBasedPolicy(planner_type='RRT')
     done = False
     total_reward = 0
-    #print info in a line each
-    for key, value in info.items():
-        print(f"{key}")    
-    #plot obstacles in key 'obs' from vertices
-    plt.figure()
-    for obs in env.obstacles:
+    #visualize the path
+    print("walls: ", env.maze_walls)
+    robot_radius = env.cfg.robot.min_r if env.cfg.robot.min_r is not None else env.cfg.agent.robot_r
+    print("robot radius: ", robot_radius)
+    while True:
+        action = policy.act(observation=(obs/255.0).astype(np.float64),
+                            robot_pos=info['state'], 
+                            robot_radius=robot_radius,
+                            goal=env.goal, 
+                            maze_vertices= env.maze_walls,
+                            obstacles=info['obs'],
+                            action_scale=env.max_yaw_rate_step)
+        observation, reward, done, truncated, info = env.step(action)
+        if done or truncated:
+            break
+        rendered = env.render()
+
         
-        poly = Polygon(obs)
-        x,y = poly.exterior.xy
-        plt.plot(x, y)
     
-    for wall in env.maze_walls:
-        line = LineString(wall)
-        x,y = line.xy
-        plt.plot(x, y, color='black', linewidth=2)
-    #start and goal
-    plt.plot(env.start[0], env.start[1], 'go', markersize=10, label='Start')
-    plt.plot(env.goal[0], env.goal[1], 'ro', markersize=10, label='Goal')
-    plt.legend()
-    plt.axis('equal')
-    plt.savefig('maze_namo_env.png')
-    plt.show()
 
 
    
