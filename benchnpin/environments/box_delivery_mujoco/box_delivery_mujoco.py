@@ -548,7 +548,7 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
     def generate_observation(self, done=False):
         """ Generates the observation for the environment."""
 
-        if done:
+        if done and self.cfg.train.job_type == 'sam':
             return None
         
         # Getting the robot and boxes vertices
