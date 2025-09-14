@@ -29,7 +29,7 @@ class PlanningBasedPolicy(BasePolicy):
     def __init__(self, planner_type, cfg=None, planner_config=None) -> None:
         super().__init__()
 
-        if planner_type not in ['RRT', 'Astar']:
+        if planner_type not in ['RRT']: #only RRT is implemented for now
             raise Exception("Invalid planner type")
         self.planner_type = planner_type
 
@@ -93,7 +93,7 @@ class PlanningBasedPolicy(BasePolicy):
             algo_name = 'RRT'
         
         #metric instance for evaluation
-        metric = MazeNamoMetric(algorithm_name=algo_name, robot_mass= env.cfg.robot.mass)
+        metric = MazeNamoMetric(alg_name=algo_name, robot_mass= env.cfg.robot.mass)
         
         #episodes
         for eps_idx in range(num_eps):
@@ -104,7 +104,7 @@ class PlanningBasedPolicy(BasePolicy):
             done = truncated = False
 
             #parameters that do not change per step
-            goal = info['goal']
+            goal = env.goal
             maze_vertices = env.maze_walls
             if env.cfg.robot.min_r is not None:
                 robot_radius = env.cfg.robot.min_r
@@ -116,20 +116,26 @@ class PlanningBasedPolicy(BasePolicy):
                 robot_pos = info['state']
                 obstacles = info['obs']
                 #compute the next action (angular velocity)
-                action = self.act(observation=(observation/255.0).astype(np.float64), 
-                                    robot_pos=robot_pos, 
-                                    robot_radius=robot_radius,
-                                    goal=goal, 
-                                    maze_vertices=maze_vertices,
-                                    obstacles=obstacles,
-                                    action_scale=env.max_yaw_rate_step)
+                action = self.act(observation=(observation/255.0).astype(np.float64),
+                                robot_pos=robot_pos, 
+                                robot_radius=robot_radius,
+                                goal=env.goal, 
+                                maze_vertices= env.maze_walls,
+                                obstacles= obstacles,
+                                action_scale=env.max_yaw_rate_step)
+                #render
+                env.render()
+               
                 #take a step in the gym env
                 observation, reward, done, truncated, info = env.step(action)
                 #update the metric
                 metric.update(info=info, reward=reward, eps_complete=(done or truncated))
 
-           
+            #reset the policy (path) for the next episode
+            self.reset()
+        
         env.close()
+        
         #Save efficiency and effort plots
         metric.plot_scores(save_fig_dir=env.cfg.output_dir)
 
@@ -140,37 +146,15 @@ class PlanningBasedPolicy(BasePolicy):
 
 
     def reset(self):
-        pass
+        self.path = None
 
 
 
 if __name__ == "__main__":
-    env = gym.make('maze-NAMO-v0')
-    #unwrap env 
-    env = env.unwrapped
-    obs, info = env.reset()
     policy = PlanningBasedPolicy(planner_type='RRT')
-    done = False
-    total_reward = 0
-    #visualize the path
-    print("walls: ", env.maze_walls)
-    robot_radius = env.cfg.robot.min_r if env.cfg.robot.min_r is not None else env.cfg.agent.robot_r
-    print("robot radius: ", robot_radius)
-    while True:
-        action = policy.act(observation=(obs/255.0).astype(np.float64),
-                            robot_pos=info['state'], 
-                            robot_radius=robot_radius,
-                            goal=env.goal, 
-                            maze_vertices= env.maze_walls,
-                            obstacles=info['obs'],
-                            action_scale=env.max_yaw_rate_step)
-        observation, reward, done, truncated, info = env.step(action)
-        if done or truncated:
-            break
-        rendered = env.render()
+    policy.evaluate(num_eps=10)
 
-        
-    
+      
 
 
    
