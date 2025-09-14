@@ -428,8 +428,8 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
         robot_heading = self.restrict_heading_range(quat_z_yaw(*self.data.qpos[self.qpos_index_base+3:self.qpos_index_base+7]))
 
         # items to return
-        self.observation = self.generate_observation(done=terminated)
         reward = self._get_rew()
+        self.observation = self.generate_observation(done=terminated)
         self.robot_cumulative_distance += self.robot_distance
         self.robot_cumulative_boxes += self.num_completed_boxes_new
         self.robot_cumulative_reward += reward
@@ -1275,7 +1275,7 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
                 x = np.random.uniform(x_min, x_max)
                 y = np.random.uniform(y_min, y_max)
                 theta = np.random.uniform(-np.pi, np.pi)
-                # x, y = i * .25, 0
+                # x, y = .2 + i * .25, .6
                 # theta = 0
                 if is_valid((x, y, theta), box_r, positions):
                     positions.append(((x, y, theta), box_r))

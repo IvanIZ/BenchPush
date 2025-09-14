@@ -39,8 +39,8 @@ evaluate:
 ### ENVIRONMENT PARAMS
 env:
   obstacle_config: small_empty # options are small_empty, small_columns, large_columns, large_divider
-  room_length: 2.845
-  room_width_small: 1.575      # size of the test bed
+  room_length: 1.505
+  room_width_small: 1.55      # size of the test bed
   room_width_large: 2.845
   shortest_path_channel_scale: 0.25
   local_map_pixel_width: 224
@@ -51,7 +51,7 @@ env:
   sim_timestep: 0.01
 
 boxes:
-  num_boxes_small: 10
+  num_boxes_small: 7
   num_boxes_large: 20
   clearance: 0.1
   box_half_size: 0.04
@@ -97,7 +97,7 @@ agent:
   # Turlebot 3: length=0.138, width=0.183, robot_clear=0.15
   # Jackal: length=0.51, width=0.43, robot_clear=0.75
   agent_type: 'turtlebot_3' # options are turtlebot_3 or jackal
-  action_type: 'position' # options are velocity, heading, position
+  action_type: 'heading' # options are velocity, heading, position
   length: 0.138
   width: 0.183
   robot_clear: 0.15
@@ -112,3 +112,9 @@ rewards_sam:
   collision_penalty: 0.25
   non_movement_penalty: 0.25
   correct_direction_reward_scale: 1
+
+rewards:
+  partial_rewards_scale: 0.2
+  goal_reward: 10.0
+  collision_penalty: 0.25
+  non_movement_penalty: 0

@@ -4,8 +4,8 @@ Uncomment the code blocks to train/evaluate each baseline algorithms
 """
 import argparse
 from benchnpin.baselines.box_delivery_mujoco.SAM.policy import BoxDeliveryMujocoSAM
-# from benchnpin.baselines.box_delivery.ppo.policy import BoxDeliveryPPO
-# from benchnpin.baselines.box_delivery.sac.policy import BoxDeliverySAC
+from benchnpin.baselines.box_delivery_mujoco.ppo.policy import BoxDeliveryMujocoPPO
+from benchnpin.baselines.box_delivery_mujoco.sac.policy import BoxDeliveryMujocoSAC
 from benchnpin.common.metrics.base_metric import BaseMetric
 from benchnpin.common.utils.utils import DotDict
 from os.path import dirname
@@ -23,15 +23,17 @@ def main(cfg, job_id):
             sam_policy = BoxDeliveryMujocoSAM(model_name=model_name, cfg=cfg)
             sam_policy.train(job_id)
 
-        # elif cfg.train.job_type == 'ppo':
-        #     # ================================ PPO Policy =================================    
-        #     ppo_policy = BoxDeliveryPPO(model_name=model_name, cfg=cfg)
-        #     ppo_policy.train(resume_training=cfg.train.resume_training, n_steps=cfg.train.n_steps, batch_size=cfg.train.batch_size)
+        elif cfg.train.job_type == 'ppo':
+            # ================================ PPO Policy =================================    
+            ppo_policy = BoxDeliveryMujocoPPO(model_name=model_name, cfg=cfg)
+            # ppo_policy.train(resume_training=cfg.train.resume_training, n_steps=cfg.train.n_steps, batch_size=cfg.train.batch_size)
+            ppo_policy.train()
 
-        # elif cfg.train.job_type == 'sac':
-        #     # ================================ SAC Policy =================================
-        #     sac_policy = BoxDeliverySAC(model_name=model_name, cfg=cfg)
-        #     sac_policy.train(resume_training=cfg.train.resume_training, batch_size=cfg.train.batch_size, learning_starts=cfg.train.learning_starts)
+        elif cfg.train.job_type == 'sac':
+            # ================================ SAC Policy =================================
+            sac_policy = BoxDeliveryMujocoSAC(model_name=model_name, cfg=cfg)
+            # sac_policy.train(resume_training=cfg.train.resume_training, batch_size=cfg.train.batch_size, learning_starts=cfg.train.learning_starts)
+            sac_policy.train()
     
     if cfg.evaluate.eval_mode:
         benchmark_results = []
@@ -47,15 +49,15 @@ def main(cfg, job_id):
                 sam_policy = BoxDeliveryMujocoSAM(model_name=model_name, model_path=model_path, cfg=cfg)
                 benchmark_results.append(sam_policy.evaluate(num_eps=num_eps))
 
-            # elif policy_type == 'ppo':
-            #     # ================================ PPO Policy =================================    
-            #     ppo_policy = BoxDeliveryPPO(model_name=model_name, model_path=model_path, cfg=cfg)
-            #     benchmark_results.append(ppo_policy.evaluate(num_eps=num_eps))
-            #
-            # elif policy_type == 'sac':
-            #     # ================================ SAC Policy =================================
-            #     sac_policy = BoxDeliverySAC(model_name=model_name, model_path=model_path, cfg=cfg)
-            #     benchmark_results.append(sac_policy.evaluate(num_eps=num_eps))
+            elif policy_type == 'ppo':
+                # ================================ PPO Policy =================================    
+                ppo_policy = BoxDeliveryMujocoPPO(model_name=model_name, model_path=model_path, cfg=cfg)
+                benchmark_results.append(ppo_policy.evaluate(num_eps=num_eps))
+            
+            elif policy_type == 'sac':
+                # ================================ SAC Policy =================================
+                sac_policy = BoxDeliveryMujocoSAC(model_name=model_name, model_path=model_path, cfg=cfg)
+                benchmark_results.append(sac_policy.evaluate(num_eps=num_eps))
 
         BaseMetric.plot_algs_scores(benchmark_results, save_fig_dir='./', plot_success=True)
 
@@ -92,10 +94,10 @@ if __name__ == '__main__':
                 'show_obs': False,       # if true show observation
             },
             'agent': {
-                'action_type': 'position', # 'position', 'heading', 'velocity'
+                'action_type': 'heading', # 'position', 'heading', 'velocity'
             },
             'boxes': {
-                'num_boxes_small': 10,
+                'num_boxes_small': 7,
                 'num_boxes_large': 20,
             },
             'env': {
@@ -103,17 +105,17 @@ if __name__ == '__main__':
             },
             'train': {
                 'train_mode': False,
-                'job_type': 'sam', # 'sam', 'ppo', 'sac'
-                'job_name': 'first_test',
+                'job_type': 'sac', # 'sam', 'ppo', 'sac'
+                'job_name': 'sac_small_empty',
                 'resume_training': False,
                 'job_id_to_resume': None,
             },
             'evaluate': {
-                'eval_mode': True,
+                'eval_mode': False,
                 'num_eps': 5,
-                'policy_types': ['sam', 'sam', 'sam'], # list of policy types to evaluate
-                'action_types': ['position', 'position', 'position'], # list of action types to evaluate
-                'model_names': ['sam_small_empty', 'sam_small_columns'], # list of model names to evaluate
+                'policy_types': ['ppo', 'sam', 'sam'], # list of policy types to evaluate
+                'action_types': ['heading', 'position', 'position'], # list of action types to evaluate
+                'model_names': ['ppo_small_empty', 'sam_small_columns'], # list of model names to evaluate
                 'model_path': 'models/box_delivery_mujoco', # path to the models
                 'obs_configs': ['small_empty', 'small_columns', 'small_empty'], # list of observation configurations
             }

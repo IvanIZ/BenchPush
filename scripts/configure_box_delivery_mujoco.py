@@ -17,7 +17,7 @@ env.reset()
 
 terminated = truncated = False
 num_epochs = 20
-num_steps_per_epoch = 20
+num_steps_per_epoch = 20000
 
 for i in range(num_epochs):
 
@@ -28,12 +28,12 @@ for i in range(num_epochs):
 
     for t in range(num_steps_per_epoch):
 
-        action = 96*20 + 48
+        action = 0
 
         observation, reward, terminated, truncated, info = env.step(action)
         # input(reward)
-        frame = env.mujoco_renderer.render(render_mode='rgb_array')
-        Image.fromarray(frame).save('snap_shot_' + str(t) + '.png')
+        # frame = env.mujoco_renderer.render(render_mode='rgb_array')
+        # Image.fromarray(frame).save('snap_shot_' + str(t) + '.png')
 
         if terminated or truncated:
             break
