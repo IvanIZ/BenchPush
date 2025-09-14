@@ -149,12 +149,14 @@ class _Scene:
 # --------------------------- RRT Planner ---------------------------
 #Two-stage RRT planner: first stage with movable obstacles, second stage ignoring them
 class RRTPlanner:
-    def __init__(self,  config_file=None):
+    def __init__(self,  config_file=None, plot_path=False) -> None:
         if config_file is None:
             config_file = 'rrt_config.yaml'
         # construct absolute path to the env_config folder
         cfg_file = os.path.join(os.path.dirname(__file__), 'planner_configs', config_file)
         self.cfg = DotDict.load_from_file(cfg_file)
+        #plotting flag
+        self.plot_path = plot_path
         #set random seed for reproducibility
         random.seed(self.cfg.seed)
 
@@ -204,7 +206,7 @@ class RRTPlanner:
         if path is not None:
             print("RRT: found a collision-free path")
             return path
-        print("RRT: no path found with boxes blocking")
+        print("RRT: no path found that avoids boxes")
         print("Planning a path ignoring boxes...")
         # Pass 2: ignore boxes
         if ignore_boxes_fallback:
@@ -252,7 +254,8 @@ class RRTPlanner:
                 nodes.append(goal)
                 parent.append(len(nodes) - 2)
                 path = self._backtrack(nodes, parent, len(nodes) - 1)
-                self.plot_env(scene, nodes,parent,path)  # For debugging
+                if self.plot_path:
+                    self.plot_env(scene, nodes,parent,path)  # For debugging
                 return self._densify(path, self.cfg.densify_ds)
         
         
