@@ -385,7 +385,7 @@ class BoxDeliveryMujocoSAM(BasePolicy):
             self.model = DenseActionSpacePolicy(env.action_space.high, env.num_channels, 0.0,
                                                 train=False, evaluate=True, model_name=model_checkpoint)
         
-        metric = TaskDrivenMetric(alg_name="SAM", robot_mass=env.cfg.agent.mass)
+        metric = TaskDrivenMetric(alg_name="SAM", robot_mass=env.cfg.agent.mass, box_mass=env.cfg.boxes.box_mass)
 
         rewards_list = []
         for eps_idx in range(num_eps):

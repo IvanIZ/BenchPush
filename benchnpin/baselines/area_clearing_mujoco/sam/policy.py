@@ -384,7 +384,7 @@ class AreaClearingMujocoSAM(BasePolicy):
         # env.cfg.agent.action_type = 'position'
         # env.cfg.sim.t_max = 50
 
-        metric = TaskDrivenMetric(alg_name="SAM", robot_mass=env.cfg.agent.mass)
+        metric = TaskDrivenMetric(alg_name="SAM", robot_mass=env.cfg.agent.mass, box_mass=env.cfg.boxes.box_mass)
 
         if model_eps == 'latest':
             self.model = DenseActionSpacePolicy(env.action_space.high, env.num_channels, 0.0,

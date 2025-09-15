@@ -93,7 +93,7 @@ def obs_to_goal_difference(obs_initial, obs_final, goal_points, boundary_polygon
 
     return total_diff
 
-def total_work_done(obs_initial, obs_final, debug=False):
+def total_work_done(obs_initial, obs_final, debug=False, mass=None):
     """
     Computes an approximation of the total work done by ship by computing
     the displacements of the obstacles and multiplying by obstacle area
@@ -107,7 +107,10 @@ def total_work_done(obs_initial, obs_final, debug=False):
         centre_a = np.abs(poly_centroid(ob_a))
         centre_b = np.abs(poly_centroid(ob_b))
 
-        work += euclid_dist(centre_a, centre_b) * area
+        if mass is not None:
+            work += euclid_dist(centre_a, centre_b) * mass
+        else:
+            work += euclid_dist(centre_a, centre_b) * area
 
         # plot to debug
         if debug:

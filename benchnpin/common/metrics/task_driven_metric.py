@@ -11,7 +11,7 @@ class TaskDrivenMetric(BaseMetric):
     Link: https://ieeexplore.ieee.org/stamp/stamp.jsp?arnumber=8954627
     """
 
-    def __init__(self, alg_name, robot_mass) -> None:
+    def __init__(self, alg_name, robot_mass, box_mass=None) -> None:
         super().__init__(alg_name=alg_name)
 
         self.eps_reward = 0
@@ -23,6 +23,8 @@ class TaskDrivenMetric(BaseMetric):
 
         self.robot_mass = robot_mass          # m_0
         self.total_robot_dist = 0                    # l_0
+        if box_mass is not None:
+            self.box_mass = box_mass
     
     def compute_mst_cost_for_successful_boxes(self):
         """
@@ -109,7 +111,10 @@ class TaskDrivenMetric(BaseMetric):
             min_dist = np.inf
             for goal in self.goal_positions:
                 min_dist = min(min_dist, np.linalg.norm(np.array([goal[0], goal[1]]) - np.array([obstacle.centroid.x, obstacle.centroid.y])))
-            min_mass_dist += min_dist * area
+            if self.box_mass is not None:
+                min_mass_dist += min_dist * self.box_mass
+            else:
+                min_mass_dist += min_dist * area
 
         effort = (self.robot_mass * self.total_robot_dist + min_mass_dist) / (self.robot_mass * self.total_robot_dist + self.total_mass_dist)
         return effort

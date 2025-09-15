@@ -418,7 +418,7 @@ class BoxDeliveryMujoco(MujocoEnv, utils.EzPickle):
         # work
         _, self.wheeled_boxes_vertices, self.non_wheeled_boxes_vertices = dynamic_vertices(self.model, self.data, self.qpos_index_base, self.joint_id_boxes, self.robot_dimen, self.cfg.boxes.box_half_size, self.names_boxes_without_wheels)
         updated_boxes = [np.array(poly[0]) for poly in self.wheeled_boxes_vertices + self.non_wheeled_boxes_vertices]
-        work = total_work_done(self.prev_boxes, updated_boxes)
+        work = total_work_done(self.prev_boxes, updated_boxes, mass=self.cfg.boxes.box_mass)
         self.total_work[0] += work
         self.total_work[1].append(work)
         self.prev_boxes = updated_boxes

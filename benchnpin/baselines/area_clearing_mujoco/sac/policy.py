@@ -95,7 +95,7 @@ class AreaClearingMujocoSAC(BasePolicy):
 
         env = gym.make('area-clearing-mujoco-v0', render_mode='human', cfg=self.cfg)
         env = env.unwrapped
-        # metric = TaskDrivenMetric(alg_name="SAC", robot_mass=env.cfg.agent.mass)
+        # metric = TaskDrivenMetric(alg_name="SAC", robot_mass=env.cfg.agent.mass, box_mass=env.cfg.boxes.box_mass)
 
         rewards_list = []
         for eps_idx in range(num_eps):
