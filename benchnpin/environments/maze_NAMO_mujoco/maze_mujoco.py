@@ -274,6 +274,7 @@ class MazeNAMOMujoco(MujocoEnv, utils.EzPickle):
             trial_success = True
 
         # Optionally, we can add additional info
+        updated_boxes = [np.array(poly[0]) for poly in self.wheeled_boxes_vertices + self.non_wheeled_boxes_vertices]
         info = {'state': get_body_pose_2d(self.model, self.data, body_name='base'), 
             'total_work': self.total_work[0], 
             'collision reward': collision_reward, 
@@ -536,11 +537,13 @@ class MazeNAMOMujoco(MujocoEnv, utils.EzPickle):
 
 
     def _get_reset_info(self):
+        obs, _ = self.get_current_boxes()
         info = {'state': get_body_pose_2d(self.model, self.data, body_name='base'), 
                 'total_work': self.total_work[0], 
                 'box_count': 0, 
                 'goal_dt': self.unnormalized_dist_map, 
                 'm_to_pix_scale': self.cfg.occ.m_to_pix_scale,
+                'obs': obs,
             }
 
         return info

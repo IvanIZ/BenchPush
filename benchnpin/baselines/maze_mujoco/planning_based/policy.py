@@ -135,6 +135,7 @@ class PlanningBasedPolicy(BasePolicy):
         maze_vertices = kwargs.get('maze_vertices', None)
         obstacles = kwargs.get('obstacles', None)
         action_scale = kwargs.get('action_scale', 1.0)
+        
 
         #plan path offline
         if self.path is None:
@@ -162,7 +163,7 @@ class PlanningBasedPolicy(BasePolicy):
         
 
     def evaluate(self,  num_eps: int, model_eps: str ='latest') -> Tuple[List[float], List[float], List[float], str]:
-        env = gym.make('maze-NAMO-v0', cfg=self.cfg)
+        env = gym.make('maze-NAMO-mujoco-v0', cfg=self.cfg, render_mode=None)
         env = env.unwrapped
 
         #algorithm name for metrics
@@ -170,7 +171,7 @@ class PlanningBasedPolicy(BasePolicy):
             algo_name = 'RRT'
         
         #metric instance for evaluation
-        metric = MazeNamoMetric(alg_name=algo_name, robot_mass= env.cfg.robot.mass)
+        metric = MazeNamoMetric(alg_name=algo_name, robot_mass= 1.07)
         
         #episodes
         for eps_idx in range(num_eps):
@@ -181,22 +182,25 @@ class PlanningBasedPolicy(BasePolicy):
             done = truncated = False
 
             #parameters that do not change per step
-            goal = env.goal
+            goal = env.cfg.env.goal_position
             maze_vertices = env.maze_walls
-            if env.cfg.robot.min_r is not None:
-                robot_radius = env.cfg.robot.min_r
-            else:
-                robot_radius = env.cfg.agent.robot_r
+            robot_radius = env.cfg.agent.robot_r
 
             while not (done or truncated):
                 #paramters that change per step
                 robot_pos = info['state']
                 obstacles = info['obs']
                 #compute the next action (angular velocity)
+
+                room_length = env.cfg.env.room_length
+                room_width = env.cfg.env.room_width
+
+
+
                 action = self.act(observation=(observation/255.0).astype(np.float64),
                                 robot_pos=robot_pos, 
                                 robot_radius=robot_radius,
-                                goal=env.goal, 
+                                goal=env.cfg.env.goal_position, 
                                 maze_vertices= env.maze_walls,
                                 obstacles= obstacles,
                                 action_scale=env.max_yaw_rate_step)
