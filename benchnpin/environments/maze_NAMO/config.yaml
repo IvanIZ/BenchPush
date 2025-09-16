@@ -6,7 +6,7 @@ target_speed: 0.15  # m/s
 robot:
   mass: 1  # mass of the NRC ship in kg
   padding: 0.25  # adds padding to ship footprint
-  min_r: 0.6      # the smaller size of the robot
+  min_r: 0.86     # the smaller size of the robot
 
   vertices: [
               [0.7, -0.5],

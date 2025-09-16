@@ -274,13 +274,14 @@ class MazeNAMOMujoco(MujocoEnv, utils.EzPickle):
             trial_success = True
 
         # Optionally, we can add additional info
-        updated_boxes = [np.array(poly[0]) for poly in self.wheeled_boxes_vertices + self.non_wheeled_boxes_vertices]
+        obs, _ = self.get_current_boxes()
         info = {'state': get_body_pose_2d(self.model, self.data, body_name='base'), 
             'total_work': self.total_work[0], 
             'collision reward': collision_reward, 
             'scaled collision reward': collision_reward * self.beta, 
             'dist increment reward': dist_increment_reward, 
             'trial_success': trial_success,
+            'obs': obs
         }
         return observation, reward, terminated, False, info
 

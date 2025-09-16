@@ -2,7 +2,7 @@
 import benchnpin.environments
 import gymnasium as gym
 #Non-learning Planners for Maze NAMO
-from benchnpin.baselines.maze_NAMO.planning_based.RRT.rrt import RRTPlanner
+from benchnpin.baselines.maze_mujoco.planning_based.RRT.rrt import RRTPlanner
 #Base Policy Class
 from benchnpin.baselines.base_class import BasePolicy
 #Benchnpin Metrics 
@@ -17,7 +17,18 @@ import numpy as np
 import matplotlib.pyplot as plt
 from shapely.geometry import Polygon, LineString, Point
 
+scale_factor = (2.845/10) # NOTE: this scales thresholds to be proportionately the same as in the 2d environment
 
+MOVE_STEP_SIZE = 0.05 * scale_factor
+TURN_STEP_SIZE = np.radians(15)
+
+WAYPOINT_MOVING_THRESHOLD = 0.6 * scale_factor
+WAYPOINT_TURNING_THRESHOLD = np.radians(10)
+NOT_MOVING_THRESHOLD = 0.005 * scale_factor
+NOT_TURNING_THRESHOLD = np.radians(0.05)
+NONMOVEMENT_DIST_THRESHOLD = 0.05 * scale_factor
+NONMOVEMENT_TURN_THRESHOLD = np.radians(0.05)
+STEP_LIMIT = 4000
 
 class PlanningBasedPolicy(BasePolicy):
     """
@@ -46,10 +57,11 @@ class PlanningBasedPolicy(BasePolicy):
         if self.planner_type == 'RRT':
            self.path = self.RRTPlanner.plan(start=start, goal=goal, maze_vertices=maze_vertices,
                                              movable_obstacles=obstacles, 
-                                             robot_size= {'radius': robot_radius*1.5},
-                                             bounds_pad=2.5)
+                                             robot_size= {'width': self.env.cfg.agent.width,
+                                                          'length': self.env.cfg.agent.length},
+                                             bounds_pad=0)
            self.path = np.array(self.path)
-           self.path = self.prune_by_distance(self.path, min_dist=0.3)
+        #    self.path = self.prune_by_distance(self.path, min_dist=0.3/1.5)
            self.RRTPlanner.plot_env(self.path)
     
     def prune_by_distance(self, path, min_dist=0.5):
@@ -63,8 +75,6 @@ class PlanningBasedPolicy(BasePolicy):
         # input()
         # Always include start and end points
         # path = path / self.diffusion_policy.scale
-        print(path.shape)
-        print(len(path))
         pruned = [path[0]]
         prev_point = path[0]
         final_point = path[-1]
@@ -79,54 +89,7 @@ class PlanningBasedPolicy(BasePolicy):
         pruned.append(path[-1]) # goal is always included
         pruned = np.stack(pruned, axis=0)
         # pruned = pruned[np.newaxis, :] #* self.diffusion_policy.scale
-        print(pruned.shape)
-        print(len(pruned))
         return pruned
-    
-    def plot_env(self, nodes, parent, path, ax=None):
-        
-        """Plot the scene: walls (inflated), boxes.
-        path and tree"""
-
-        print("Plotting environment...")
-        if ax is None:
-            fig, ax = plt.subplots(figsize=(8, 8))
-        if self.RRTPlanner.scene.walls_infl:
-            x, y = self.RRTPlanner.scene.walls_infl.exterior.xy
-            ax.fill(x, y, color='lightgray', alpha=0.7, label='Inflated Walls')
-            #holes
-            for interior in self.RRTPlanner.scene.walls_infl.interiors:
-                x, y = interior.xy
-                ax.fill(x, y, color='white')
-            
-        if self.RRTPlanner.scene.boxes:
-            for i, box in enumerate(self.RRTPlanner.scene.boxes):
-                if isinstance(box, Polygon):
-                    x, y = box.exterior.xy
-                    ax.fill(x, y, color='orange', alpha=0.7, label='Box' if i == 0 else "")
-                elif isinstance(box, LineString):
-                    x, y = box.xy
-                    ax.plot(x, y, color='orange', linewidth=4, label='Box' if i == 0 else "")
-        # Plot RRT tree
-        for i, node in enumerate(nodes):
-            if parent[i] != -1:
-                p_node = nodes[parent[i]]
-                ax.plot([node[0], p_node[0]], [node[1], p_node[1]], color='blue', linewidth=0.5, alpha=0.5)
-        
-        # Plot path if available
-        if path is not None and len(path) > 1:
-            path_array = np.array(path)
-            ax.plot(path_array[:, 0], path_array[:, 1], 'r', linewidth=2, label='Planned Path')
-        # Plot start and goal
-        ax.plot(nodes[0][0], nodes[0][1], 'go', markersize=10, label='Start')
-        ax.plot(nodes[-1][0], nodes[-1][1], 'ro', markersize=10, label='Goal')
-        ax.set_aspect('equal')
-        ax.set_xlim(scene.bounds[0], scene.bounds[1])
-        ax.set_ylim(scene.bounds[2], scene.bounds[3])
-        ax.set_title('RRT Planning Environment')
-        ax.legend()
-        plt.savefig('maze_namo_rrt_environment.png')
-                                         
 
     def act(self, observation, **kwargs):
         robot_pos = kwargs.get('robot_pos', None)
@@ -163,8 +126,8 @@ class PlanningBasedPolicy(BasePolicy):
         
 
     def evaluate(self,  num_eps: int, model_eps: str ='latest') -> Tuple[List[float], List[float], List[float], str]:
-        env = gym.make('maze-NAMO-mujoco-v0', cfg=self.cfg, render_mode=None)
-        env = env.unwrapped
+        env = gym.make('maze-NAMO-mujoco-v0', cfg=self.cfg, render_mode='human')
+        self.env = env.unwrapped
 
         #algorithm name for metrics
         if self.planner_type == 'RRT':
@@ -176,15 +139,15 @@ class PlanningBasedPolicy(BasePolicy):
         #episodes
         for eps_idx in range(num_eps):
             print("Planning Based Progress: ", eps_idx, " / ", num_eps, " episodes")
-            observation, info = env.reset()
+            observation, info = self.env.reset()
             metric.reset(info)
             obstacles = info['obs']
             done = truncated = False
 
             #parameters that do not change per step
-            goal = env.cfg.env.goal_position
-            maze_vertices = env.maze_walls
-            robot_radius = env.cfg.agent.robot_r
+            goal = self.env.cfg.env.goal_position
+            maze_vertices = self.env.maze_walls
+            robot_radius = self.env.cfg.agent.robot_r
 
             while not (done or truncated):
                 #paramters that change per step
@@ -192,34 +155,40 @@ class PlanningBasedPolicy(BasePolicy):
                 obstacles = info['obs']
                 #compute the next action (angular velocity)
 
-                room_length = env.cfg.env.room_length
-                room_width = env.cfg.env.room_width
+                room_length = self.env.cfg.env1.length
+                room_width = self.env.cfg.env1.width
 
+                maze_walls = [[(0,0),(room_width,0)] , [(0,0),(0,room_length)],
+                    [(room_width,0),(room_width, room_length)], 
+                    [(0,room_length),(room_width,room_length)],
+                    [(room_width/2,0),(room_width/2,room_length - room_length/4.5)]]
+
+                robot_position = (robot_pos[0], robot_pos[1])
+                robot_heading = robot_pos[2]
 
 
                 action = self.act(observation=(observation/255.0).astype(np.float64),
                                 robot_pos=robot_pos, 
                                 robot_radius=robot_radius,
-                                goal=env.cfg.env.goal_position, 
-                                maze_vertices= env.maze_walls,
+                                goal=self.env.cfg.env.goal_position, 
+                                maze_vertices= maze_walls,
                                 obstacles= obstacles,
-                                action_scale=env.max_yaw_rate_step)
-                print(maze_vertices)
+                                action_scale=self.env.max_yaw_rate_step)
                 #render
-                env.render()
+                self.env.render()
                
                 #take a step in the gym env
-                observation, reward, done, truncated, info = env.step(action)
+                observation, reward, done, truncated, info = self.env.step(action)
                 #update the metric
                 metric.update(info=info, reward=reward, eps_complete=(done or truncated))
 
             #reset the policy (path) for the next episode
             self.reset()
         
-        env.close()
+        self.env.close()
         
         #Save efficiency and effort plots
-        metric.plot_scores(save_fig_dir=env.cfg.output_dir)
+        metric.plot_scores(save_fig_dir=self.env.cfg.output_dir)
 
         return metric.success_rates, metric.efficiency_scores, metric.effort_scores, metric.rewards, algo_name
 

@@ -46,8 +46,7 @@ class PlanningBasedPolicy(BasePolicy):
         if self.planner_type == 'RRT':
            self.path = self.RRTPlanner.plan(start=start, goal=goal, maze_vertices=maze_vertices,
                                              movable_obstacles=obstacles, 
-                                             robot_size= {'radius': robot_radius*1.5},
-                                             bounds_pad=2.5)
+                                             robot_size= {'radius': robot_radius*1.5})
            self.path = np.array(self.path)
            self.path = self.prune_by_distance(self.path, min_dist=0.3)
            self.RRTPlanner.plot_env(self.path)
@@ -200,7 +199,7 @@ class PlanningBasedPolicy(BasePolicy):
                                 maze_vertices= env.maze_walls,
                                 obstacles= obstacles,
                                 action_scale=env.max_yaw_rate_step)
-                print(maze_vertices)
+                print(obstacles)
                 #render
                 env.render()
                

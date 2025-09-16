@@ -43,8 +43,9 @@ class _Scene:
     """
 
     def __init__(self, walls_union, boxes_polys, r_robot: float, bounds_pad: float):
+        self.walls_original = walls_union
         # Inflate walls (lines or polys) by robot radius
-        self.walls_infl = walls_union.buffer(r_robot, cap_style=1, join_style=1) if walls_union else None
+        self.walls_infl = walls_union.buffer(r_robot*2, cap_style=1, join_style=1) if walls_union else None
         self.walls_prep = prep(self.walls_infl) if self.walls_infl else None
 
         # Boxes as area polygons; build spatial index
@@ -188,6 +189,7 @@ class RRTPlanner:
                 r_robot = math.hypot(w / 2.0, l / 2.0)
 
         pad = bounds_pad if bounds_pad is not None else max(0.25, 1.5 * r_robot)
+        pad =0.0
         print(f"RRT: robot radius {r_robot:.3f}, sampling bounds pad {pad:.3f}")
 
         # Build scene
@@ -255,7 +257,7 @@ class RRTPlanner:
                 parent.append(len(nodes) - 2)
                 path = self._backtrack(nodes, parent, len(nodes) - 1)
                 # if self.plot_path:
-                #     self.plot_env(scene, nodes,parent,path)  # For debugging
+                #     self.plot_env(path, parent, nodes)  # For debugging
                 return self._densify(path, self.cfg.densify_ds)
         
         
@@ -305,6 +307,16 @@ class RRTPlanner:
         print("Plotting environment...")
         if ax is None:
             fig, ax = plt.subplots(figsize=(8, 8))
+        # Plot original walls (without inflation)
+        if self.scene.walls_original:
+            if hasattr(self.scene.walls_original, 'geoms'):  # MultiPolygon or MultiLineString
+                for geom in self.scene.walls_original.geoms:
+                    self._plot_single_wall(ax, geom, color='black', alpha=1.0, label='Original Walls')
+            else:  # Single geometry
+                self._plot_single_wall(ax, self.scene.walls_original, color='black', alpha=1.0, label='Original Walls')
+
+        # if ax is None:
+        #     fig, ax = plt.subplots(figsize=(8, 8))
         if self.scene.walls_infl:
             x, y = self.scene.walls_infl.exterior.xy
             ax.fill(x, y, color='lightgray', alpha=0.7, label='Inflated Walls')
@@ -342,4 +354,17 @@ class RRTPlanner:
         ax.set_title('RRT Planning Environment')
         ax.legend()
         plt.savefig('maze_namo_rrt_environment.png')
- 
+
+    def _plot_single_wall(self, ax, geom, color, alpha, label):
+        """Helper to plot a single wall geometry"""
+        if isinstance(geom, Polygon):
+            x, y = geom.exterior.xy
+            ax.fill(x, y, color=color, alpha=alpha, label=label)
+            # Plot holes
+            for interior in geom.interiors:
+                x, y = interior.xy
+                ax.fill(x, y, color='white')
+        elif isinstance(geom, LineString):
+            x, y = geom.xy
+            ax.plot(x, y, color=color, linewidth=2, alpha=alpha, label=label)
+    

@@ -1,7 +1,7 @@
-step: 0.05
-goal_radius: 0.1
+step: 0.01
+goal_radius: 0.01
 goal_bias: 0.15
-max_nodes: 8000
+max_nodes: 26000
 densify_ds: 0.08
 seed: 42
 
@@ -22,7 +22,7 @@ controller:
   # look ahead distance
   Lfc: 0.5
   # target speed
-  target_speed: 0.15  # m/s
+  target_speed: 0.1  # m/s
   PID_gains:  # gains for 3 PIDs
     - [ 5, 0, 5 ]
     - [ 10, 0, 20 ]

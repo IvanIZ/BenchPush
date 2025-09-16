@@ -44,7 +44,7 @@ class _Scene:
 
     def __init__(self, walls_union, boxes_polys, r_robot: float, bounds_pad: float):
         # Inflate walls (lines or polys) by robot radius
-        self.walls_infl = walls_union.buffer(r_robot, cap_style=1, join_style=1) if walls_union else None
+        self.walls_infl = walls_union.buffer(r_robot*1.5, cap_style=1, join_style=1) if walls_union else None
         self.walls_prep = prep(self.walls_infl) if self.walls_infl else None
 
         # Boxes as area polygons; build spatial index
@@ -58,6 +58,8 @@ class _Scene:
         for bx in self.boxes:
             bounds_list.append(bx.bounds)
         if bounds_list:
+            print("pounds pad:", bounds_pad)
+            print("bounds_list:", bounds_list)
             xmin = min(b[0] for b in bounds_list) - bounds_pad
             ymin = min(b[1] for b in bounds_list) - bounds_pad
             xmax = max(b[2] for b in bounds_list) + bounds_pad
@@ -95,7 +97,7 @@ class _Scene:
 
         # Boxes: prefer polygons; if segments, convert to thin polygons with tiny buffer
         boxes_polys = []
-        for verts in (box_items or []):
+        for verts in (box_items):
             v = _clean_xy_list(verts)
             if len(v) >= 3:
                 try:
@@ -165,7 +167,7 @@ class RRTPlanner:
         self,
         start: Vec2,
         goal: Vec2,
-        movable_obstacles: Optional[List[PolyLike]] = None,            # boxes: list of polygons or segments
+        movable_obstacles = None,            # boxes: list of polygons or segments
         maze_vertices: Optional[List[PolyLike]] = None,  # walls: list of polygons or segments
         robot_size: Optional[Dict[str, float]] = None,   # {"radius": r} OR {"width": w, "length": l}
         bounds_pad: Optional[float] = None,              # if None: auto from robot size
@@ -187,7 +189,7 @@ class RRTPlanner:
                 w = float(robot_size["width"]); l = float(robot_size["length"])
                 r_robot = math.hypot(w / 2.0, l / 2.0)
 
-        pad = bounds_pad if bounds_pad is not None else max(0.25, 1.5 * r_robot)
+        pad = bounds_pad if bounds_pad is not None else max(0*0.25, 0*1.5 * r_robot)
         print(f"RRT: robot radius {r_robot:.3f}, sampling bounds pad {pad:.3f}")
 
         # Build scene
