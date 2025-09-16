@@ -304,17 +304,22 @@ def generate_maze_xml(N, maze_version, file_name,ROBOT_R,CLEAR,Z_CUBE,ARENA_X,AR
     return XML_OUT, np.array(walls)
 
 
-def total_work_done(prev_obstacles, curr_obstacles, obs_area):
+def total_work_done(prev_obstacles, curr_obstacles, obs_area, box_mass=None):
   """
   Compute the total approximated work done
+  if box_mass is None, use box area as an approximation
   """
   work = 0
 
   for ob_a, ob_b, area in zip(prev_obstacles, curr_obstacles, obs_area):
     prev_x, prev_y = ob_a
     curr_x, curr_y = ob_b
-
     dist = ((prev_x - curr_x)**2 + (prev_y - curr_y)**2)**(0.5)
-    work += dist * area
+
+    if box_mass is None:
+      work += dist * area
+    else:
+      work += dist * box_mass
+      
 
   return work

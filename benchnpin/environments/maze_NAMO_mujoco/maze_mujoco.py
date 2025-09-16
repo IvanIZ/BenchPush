@@ -237,7 +237,7 @@ class MazeNAMOMujoco(MujocoEnv, utils.EzPickle):
         collide_wall = wall_collision(self.data, self.model)
 
         # get updated obstacles and compute work done
-        work = total_work_done(self.prev_obs_positions, obs_positions, self.areas)
+        work = total_work_done(self.prev_obs_positions, obs_positions, self.areas, box_mass=self.cfg.boxes.box_mass)
         self.total_work[0] += work
         self.total_work[1].append(work)
         self.prev_obs_positions = obs_positions

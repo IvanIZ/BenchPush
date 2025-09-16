@@ -55,7 +55,7 @@ boxes:
   num_boxes: 0
   clearance: 0.1
   box_half_size: 0.04
-  box_mass: 0.075 # mass(kg) for each box without wheels
+  box_mass: 0.1 # mass(kg) for each box without wheels
   box_sliding_friction: 0.4
   box_torsional_friction: 0.015
   box_rolling_friction: 0.002
