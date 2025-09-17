@@ -102,7 +102,7 @@ class MazeNAMOMujoco(MujocoEnv, utils.EzPickle):
         self.k_increment = 300
         self.episode_idx = None     # the increment of this index is handled in reset()
 
-        print("beta: ", self.beta, "; k_increment: ", self.k_increment, "; frame skip: ", frame_skip, "; boundary cost: ", BOUNDARY_PENALTY, "; num box: ", self.cfg.boxes.num_boxes)
+        print("beta: ", self.beta, "; k_increment: ", self.k_increment, "; frame skip: ", frame_skip, "; boundary cost: ", BOUNDARY_PENALTY, "; num box: ", self.cfg.boxes.num_boxes, "; box mass: ", self.cfg.boxes.box_mass)
 
         # Define observation space
         self.low_dim_state = self.cfg.low_dim_state
