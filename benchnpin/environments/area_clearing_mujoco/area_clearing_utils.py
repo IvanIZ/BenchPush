@@ -146,7 +146,7 @@ def changing_per_configuration(env_type: str,
     <body name="{name}" pos="{cx:.3f} {cy:.3f} {zh:.3f}">
       <joint name="{name}_joint" type="free"/>
       <geom name="{name}" type="box" size="{xh:.3f} {yh:.3f} {zh:.3f}" mass="{heavy_mass:.1f}" 
-      contype="1" conaffinity="1" rgba="0.33 0.39 0.46 0.4"/>
+      contype="1" conaffinity="1" rgba="0.4 0.4 0.4 1.0"/>
     </body>
 """
         Coordinates=[(cx-xh, cy-yh),(cx+xh, cy-yh),(cx+xh, cy+yh),(cx-xh, cy+yh)]
@@ -318,7 +318,7 @@ def build_xml(stl_model_path, extra_xml, ARENA_X1, ARENA_Y1, env_type, wall_clea
     <body pos="0 0 0">
       <geom name="floor" type="box" size="{ARENA_X1 / 2 + wall_clearence_outer[0] + 0.25} {ARENA_Y1 / 2 + wall_clearence_outer[1] + 0.25} 0.01" friction="0.5 0.05 0.0001" contype="1" conaffinity="1"/>
     </body>
-
+    <camera name="angle_cam" pos="-2.0 -2 1.5" quat="0.80010315  0.46193977 -0.19134172 -0.33141357" fovy="60"/>    
     <camera name="centered_cam" pos="-0 -2 2.5" quat="1 0.3 0  0" fovy="60"/>
     
     <!-- Marked area -->
