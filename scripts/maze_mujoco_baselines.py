@@ -6,6 +6,7 @@ import argparse
 import pickle
 from benchnpin.baselines.maze_mujoco.ppo.policy import MazeMujocoPPO
 from benchnpin.baselines.maze_mujoco.sac.policy import MazeMujocoSAC
+from benchnpin.baselines.maze_mujoco.planning_based.policy import PlanningBasedPolicy
 from benchnpin.common.metrics.base_metric import BaseMetric
 from benchnpin.common.utils.utils import DotDict
 from os.path import dirname
@@ -43,8 +44,13 @@ def main(cfg, job_id):
                 # ================================ SAC Policy =================================
                 sac_policy = MazeMujocoSAC(model_name=model_name, model_path=model_path, cfg=cfg)
                 benchmark_results.append(sac_policy.evaluate(num_eps=num_eps))
+
+            elif policy_type == 'planning_based':
+                # ================================ Planning Based Policy =================================
+                planning_policy = PlanningBasedPolicy(planner_type='RRT', cfg=cfg)
+                benchmark_results.append(planning_policy.evaluate(num_eps=num_eps))
         
-        BaseMetric.plot_algs_scores(benchmark_results, save_fig_dir='./')
+        BaseMetric.plot_algs_scores(benchmark_results, save_fig_dir='./', plot_success=True)
 
         # save eval results to disk
         pickle_dict = {
@@ -104,7 +110,7 @@ if __name__ == '__main__':
                 # 'policy_types': ['ppo', 'sac'], # list of policy types to evaluate
                 # 'model_names': ['ppo_model', 'sac_model'], # list of model names to evaluate
 
-                'policy_types': ['ppo', 'ppo', 'ppo'], # list of policy types to evaluate
+                'policy_types': ['planning_based'], # list of policy types to evaluate
                 'model_names': ['ppo_model', 'ppo_model1', 'ppo_model2'], # list of model names to evaluate
                 # ppo_mode --> beta3000, ppo_model1 --> beta1000, ppo_model2 --> beta0
 

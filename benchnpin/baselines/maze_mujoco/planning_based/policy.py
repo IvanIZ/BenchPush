@@ -28,6 +28,7 @@ NOT_MOVING_THRESHOLD = 0.005 * scale_factor
 NOT_TURNING_THRESHOLD = np.radians(0.05)
 NONMOVEMENT_DIST_THRESHOLD = 0.05 * scale_factor
 NONMOVEMENT_TURN_THRESHOLD = np.radians(0.05)
+ANGLE_TOL                 = np.deg2rad(3) 
 STEP_LIMIT = 4000
 
 class PlanningBasedPolicy(BasePolicy):
@@ -61,8 +62,22 @@ class PlanningBasedPolicy(BasePolicy):
                                                           'length': self.env.cfg.agent.length},
                                              bounds_pad=0)
            self.path = np.array(self.path)
-        #    self.path = self.prune_by_distance(self.path, min_dist=0.3/1.5)
+           self.path = self.prune_by_distance(self.path, min_dist=0.3/2)
            self.RRTPlanner.plot_env(self.path)
+           self.path = self.get_path_headings()
+
+    def get_path_headings(self):
+        # compute waypoint headings
+        headings = [None]
+        for i in range(1, len(self.path)):
+            x_diff = self.path[i][0] - self.path[i - 1][0]
+            y_diff = self.path[i][1] - self.path[i - 1][1]
+            waypoint_headings = self.restrict_heading_range(np.arctan2(y_diff, x_diff))
+            headings.append(waypoint_headings)
+
+        headings = np.array(headings).reshape(-1, 1)
+        path = np.concatenate((self.path, headings), axis=1)
+        return path 
     
     def prune_by_distance(self, path, min_dist=0.5):
         """
@@ -91,20 +106,15 @@ class PlanningBasedPolicy(BasePolicy):
         # pruned = pruned[np.newaxis, :] #* self.diffusion_policy.scale
         return pruned
 
-    def act(self, observation, **kwargs):
+    def act(self, **kwargs):
         robot_pos = kwargs.get('robot_pos', None)
-        robot_radius = kwargs.get('robot_radius', None)
-        goal = kwargs.get('goal', None)
-        maze_vertices = kwargs.get('maze_vertices', None)
-        obstacles = kwargs.get('obstacles', None)
         action_scale = kwargs.get('action_scale', 1.0)
-        
 
         #plan path offline
-        if self.path is None:
-            self.plan_path(start=robot_pos[0:2], goal=goal, observation=observation, 
-                           maze_vertices=maze_vertices, obstacles=obstacles,
-                           robot_radius=robot_radius)
+        # if self.path is None:
+        #     self.plan_path(start=robot_pos[0:2], goal=goal, observation=observation, 
+        #                    maze_vertices=maze_vertices, obstacles=obstacles,
+        #                    robot_radius=robot_radius)
             
         #traverse the path using a DP controller
         # setup dp controller to track the planned path
@@ -126,7 +136,7 @@ class PlanningBasedPolicy(BasePolicy):
         
 
     def evaluate(self,  num_eps: int, model_eps: str ='latest') -> Tuple[List[float], List[float], List[float], str]:
-        env = gym.make('maze-NAMO-mujoco-v0', cfg=self.cfg, render_mode='human')
+        env = gym.make('maze-NAMO-mujoco-v0', cfg=self.cfg, render_mode=None)
         self.env = env.unwrapped
 
         #algorithm name for metrics
@@ -161,13 +171,15 @@ class PlanningBasedPolicy(BasePolicy):
                 maze_walls = [[(0,0),(room_width,0)] , [(0,0),(0,room_length)],
                     [(room_width,0),(room_width, room_length)], 
                     [(0,room_length),(room_width,room_length)],
-                    [(room_width/2,0),(room_width/2,room_length - room_length/4.5)]]
+                    [(room_width/2,0),(room_width/2,room_length - room_length/3)]]
 
                 robot_position = (robot_pos[0], robot_pos[1])
                 robot_heading = robot_pos[2]
 
 
-                action = self.act(observation=(observation/255.0).astype(np.float64),
+                action = self.execute_robot_path(robot_initial_position=robot_position, 
+                                robot_initial_heading=robot_heading,
+                                observation=observation,
                                 robot_pos=robot_pos, 
                                 robot_radius=robot_radius,
                                 goal=self.env.cfg.env.goal_position, 
@@ -192,8 +204,152 @@ class PlanningBasedPolicy(BasePolicy):
 
         return metric.success_rates, metric.efficiency_scores, metric.effort_scores, metric.rewards, algo_name
 
-                
+    def execute_robot_path(self, robot_initial_position, robot_initial_heading, **kwargs):
+        observation = kwargs.get('observation', None)
+        robot_pos = kwargs.get('robot_pos', None)
+        robot_radius = kwargs.get('robot_radius', None)
+        goal = kwargs.get('goal', None)
+        maze_vertices = kwargs.get('maze_vertices', None)
+        obstacles = kwargs.get('obstacles', None)
+        action_scale = kwargs.get('action_scale', 1.0)
+        if self.path is None:
+            self.plan_path(start=robot_pos[0:2], goal=goal, observation=observation, 
+                           maze_vertices=maze_vertices, obstacles=obstacles,
+                           robot_radius=robot_radius)
 
+            robot_position = robot_initial_position
+            robot_heading = robot_initial_heading
+            robot_is_moving = True
+            self.robot_distance = 0
+
+            self.robot_waypoint_index = 1
+            self.robot_waypoint_positions = [(waypoint[0], waypoint[1]) for waypoint in self.path]
+            self.robot_waypoint_headings = [waypoint[2] for waypoint in self.path]
+
+            self.robot_prev_waypoint_position = self.robot_waypoint_positions[self.robot_waypoint_index - 1]
+            self.robot_waypoint_position = self.robot_waypoint_positions[self.robot_waypoint_index]
+            self.robot_waypoint_heading = self.robot_waypoint_headings[self.robot_waypoint_index]
+            
+            sim_steps = 0
+            self.done_turning = False
+            self.heading_diff = 0
+            self.prev_heading_diff = 0
+
+        if self.check_robot_moving(robot_initial_position, robot_initial_heading):
+            # if not robot_is_moving:
+            #     break
+
+            # store pose to determine distance moved during simulation step
+            robot_prev_position = robot_initial_position
+            robot_prev_heading = robot_initial_heading
+
+            # compute robot pose for new constraint
+            # robot_new_position = robot_position
+            # robot_new_heading = robot_heading
+            self.heading_diff = self.heading_difference(robot_prev_heading, self.robot_waypoint_heading)
+            if np.abs(self.heading_diff) > TURN_STEP_SIZE / 2 and np.abs(self.heading_diff - self.prev_heading_diff) > 0.001:
+                pass
+            else:
+                self.done_turning = True
+                if self.distance(robot_prev_position, self.robot_waypoint_position) < MOVE_STEP_SIZE:
+                    robot_new_position = self.robot_waypoint_position
+
+            # change robot pose (use controller)
+            v, w, _ = self.make_controller(robot_prev_position, robot_prev_heading, self.robot_waypoint_position)
+            # w = self.act(**kwargs)
+            if not self.done_turning:
+                v = 0
+            # v_l, v_r = vw_to_wheels(v, w)
+
+            # apply the control 'frame_skip' steps
+            # self.do_simulation([v_l, v_r], self.frame_skip)
+        return v, w
+        
+    def check_robot_moving(self, robot_position, robot_heading):
+        robot_is_moving = True
+        # get new robot pose
+        # robot_position = get_body_pose_2d(self.model, self.data, self.robot_name_in_xml)[:2]
+        # robot_heading = self.restrict_heading_range(quat_z_yaw(*self.data.qpos[self.qpos_index_base+3:self.qpos_index_base+7]))
+        self.prev_heading_diff = self.heading_diff
+        
+        # stop moving if robot collided with obstacle
+        # self.robot_hit_obstacle = self.robot_hits_static()
+        # if self.distance(robot_prev_waypoint_position, robot_position) > MOVE_STEP_SIZE:
+        #     if self.robot_hit_obstacle:
+        #         robot_is_moving = False
+                # break   # Note: self.robot_distance does not get updated
+
+        # stop if robot reached waypoint
+        if (self.distance(robot_position, self.robot_waypoint_positions[self.robot_waypoint_index]) < WAYPOINT_MOVING_THRESHOLD/2
+                and np.abs(robot_heading - self.robot_waypoint_headings[self.robot_waypoint_index]) < WAYPOINT_TURNING_THRESHOLD):
+
+            # update distance moved
+            self.robot_distance += self.distance(self.robot_prev_waypoint_position, robot_position)
+
+            # increment waypoint index or stop moving if done
+            if self.robot_waypoint_index == len(self.robot_waypoint_positions) - 1:
+                robot_is_moving = False
+            else:
+                self.robot_waypoint_index += 1
+                self.robot_prev_waypoint_position = self.robot_waypoint_positions[self.robot_waypoint_index - 1]
+                self.robot_waypoint_position = self.robot_waypoint_positions[self.robot_waypoint_index]
+                self.robot_waypoint_heading = self.robot_waypoint_headings[self.robot_waypoint_index]
+                self.done_turning = False
+                self.path = self.path[1:]
+
+        # sim_steps += 1
+        # if sim_steps % 10 == 0 and self.cfg.render.show:
+        #     self.render_env()
+
+        # break if robot is stuck
+        # if sim_steps > STEP_LIMIT:
+        #     break
+
+        # robot_angle = quat_z_yaw(*self.data.qpos[self.qpos_index_base+3:self.qpos_index_base+7])
+        # robot_heading = self.restrict_heading_range(robot_angle)
+        # self.robot_turn_angle = self.heading_difference(robot_initial_heading, robot_heading) 
+        return robot_is_moving
+
+    def make_controller(self, curr_pos, curr_yaw, goal_pos):
+        """Simple proportional controller instead of PI controller due to ease of
+        computation and faster training. Chosen Kp to be sufficiently large so that
+        the steady state error for step input is sufficiently low"""
+
+        # Current position and angle of robot  
+        # pos = data.qpos[qpos_index : qpos_index + 2]
+        # qw, qx, qy, qz = data.qpos[qpos_index + 3 : qpos_index + 7]
+        # yaw = np.arctan2(2*(qw*qz + qx*qy), 1 - 2*(qy*qy + qz*qz))
+        
+        # The distance to the set goal
+        # vec  = goal_xy - pos
+        vec = np.array(goal_pos) - np.array(curr_pos)
+        dist = np.linalg.norm(vec)
+        
+        
+        # Angle computations
+        goal_head = np.arctan2(vec[1], vec[0])
+        err_yaw   = np.arctan2(np.sin(goal_head - curr_yaw), np.cos(goal_head - curr_yaw))
+        
+        # Controller characteristics
+        k_v, k_w = 0.2, 8.0
+
+        # Rotation
+        if abs(err_yaw) > ANGLE_TOL:
+            return 0.0, k_w * err_yaw, dist
+
+        # # Moving to required position
+        # else:
+            # return k_v * dist, 0.0, dist
+        return k_v, k_w * err_yaw, dist
+
+    def restrict_heading_range(self, heading):
+        return np.mod(heading + np.pi, 2 * np.pi) - np.pi
+
+    def heading_difference(self, heading1, heading2):
+        return self.restrict_heading_range(heading1 - heading2)
+    
+    def distance(self, position1, position2):
+        return np.linalg.norm(np.asarray(position1)[:2] - np.asarray(position2)[:2])
 
 
     def reset(self):

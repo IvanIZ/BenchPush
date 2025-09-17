@@ -78,7 +78,7 @@ class _Scene:
     ):
         # Walls: accept polygons (>=3 pts) or segments (>=2 pts → LineString)
         wall_geoms = []
-        for verts in (wall_items or []):
+        for verts in (wall_items):
             v = _clean_xy_list(verts)
             if len(v) >= 3:
                 try:
@@ -96,7 +96,7 @@ class _Scene:
 
         # Boxes: prefer polygons; if segments, convert to thin polygons with tiny buffer
         boxes_polys = []
-        for verts in (box_items or []):
+        for verts in (box_items):
             v = _clean_xy_list(verts)
             if len(v) >= 3:
                 try:
@@ -194,8 +194,8 @@ class RRTPlanner:
 
         # Build scene
         self.scene = _Scene.from_any(
-            wall_items=maze_vertices or [],
-            box_items=movable_obstacles or [],
+            wall_items=maze_vertices,
+            box_items=movable_obstacles,
             r_robot=r_robot,
             bounds_pad=pad,
         )

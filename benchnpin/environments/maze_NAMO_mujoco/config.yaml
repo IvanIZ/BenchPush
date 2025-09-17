@@ -52,7 +52,7 @@ env2:
   goal_size: 0.15
 
 boxes:
-  num_boxes: 0
+  num_boxes: 3
   clearance: 0.1
   box_half_size: 0.04
   box_mass: 0.1 # mass(kg) for each box without wheels

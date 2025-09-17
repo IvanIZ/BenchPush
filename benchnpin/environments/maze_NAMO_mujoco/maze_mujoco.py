@@ -208,9 +208,12 @@ class MazeNAMOMujoco(MujocoEnv, utils.EzPickle):
 
         if isinstance(action, np.ndarray):
             action = action[0]
-
-        v = self.cfg.agent.forward_speed
-        w = action * self.cfg.agent.max_angular_speed
+        
+        if isinstance(action, tuple):
+            v, w = action
+        else:
+            v = self.cfg.agent.forward_speed
+            w = action * self.cfg.agent.max_angular_speed
 
         # otherwise drive as normal
         v_l, v_r = vw_to_wheels(v, w)
