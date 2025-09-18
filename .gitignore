@@ -21,6 +21,8 @@ benchnpin/baselines/box_delivery_mujoco/SAM/checkpoint/
 benchnpin/baselines/area_clearing_mujoco/sam/vector_logs/
 benchnpin/baselines/area_clearing_mujoco/sam/output_logs/
 benchnpin/baselines/area_clearing_mujoco/sam/checkpoint/
+benchnpin/baselines/area_clearing_mujoco/training/
+benchnpin/baselines/box_delivery/training/
 
 /plots
 

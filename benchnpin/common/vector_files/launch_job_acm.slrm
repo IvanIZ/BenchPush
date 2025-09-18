@@ -1,13 +1,12 @@
 #!/bin/sh
 # Node resource configurations
-#SBATCH --exclude=gpu138
-#SBATCH --job-name=SAM
+#SBATCH -A aip-sl2smith
 #SBATCH --mem=20G
-#SBATCH --gres=gpu:rtx6000:1
+#SBATCH --gres=gpu:l40s:1
 #SBATCH -c 4
 #SBATCH --qos=normal
 #SBATCH --time=12:00:00
-#SBATCH --output=benchnpin/baselines/box_delivery/SAM/vector_logs/slurm-%j.out
+#SBATCH --output=benchnpin/baselines/area_clearing_mujoco/training/slurm_logs/slurm-%j.out
 #SBATCH --mail-user=steven.caro@uwaterloo.ca
 #SBATCH --mail-type=ALL
 
@@ -21,7 +20,7 @@ scontrol update JobName=$job_name JobId=$SLURM_JOB_ID
 echo `date`: Job $SLURM_JOB_ID is allocated resource
 
 # the recommendation is to keep everything that defines the workload itself in a separate script
-bash $PWD/benchnpin/common/vector_files/run_train_bd_sam.sh
+bash $PWD/benchnpin/common/vector_files/run_train_acm.sh
 
 echo `date`: "Job $SLURM_JOB_ID finished running, exit code: $?"
 
@@ -29,5 +28,5 @@ date=$(date '+%Y-%m-%d')
 archive=$HOME/finished_jobs/$date/$SLURM_JOB_ID
 mkdir -p $archive
 
-cp $PWD/benchnpin/baselines/box_delivery/SAM/vector_logs/slurm-$SLURM_JOB_ID.out $archive/job.out
-cp $PWD/benchnpin/baselines/box_delivery/SAM/vector_logs/slurm-$SLURM_JOB_ID.out $archive/job.err
+cp $PWD/benchnpin/baselines/area_clearing_mujoco/training/slurm_logs/slurm-$SLURM_JOB_ID.out $archive/job.out
+cp $PWD/benchnpin/baselines/area_clearing_mujoco/training/slurm_logs/slurm-$SLURM_JOB_ID.out $archive/job.err
