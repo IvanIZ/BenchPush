@@ -6,6 +6,8 @@ from stable_baselines3 import PPO
 from stable_baselines3.common.env_checker import check_env
 from stable_baselines3.common.callbacks import CheckpointCallback
 import os
+import numpy as np
+from tqdm.auto import tqdm
 
 from benchnpin.common.metrics.task_driven_metric import TaskDrivenMetric
 
@@ -73,6 +75,61 @@ class AreaClearingPPO(BasePolicy):
         self.model.save(os.path.join(self.model_path, self.model_name))
         env.close()
 
+
+    def transitions(self, num_eps: int, model_eps: str ='latest'):
+        """
+        For collecting experience transitions to use in other offline methods
+        """
+        if model_eps == 'latest':
+            self.model = PPO.load(os.path.join(self.model_path, self.model_name))
+        else:
+            model_checkpoint = self.model_name + '_' + model_eps + '_steps'
+            self.model = PPO.load(os.path.join(self.model_path, model_checkpoint))
+
+        env = gym.make('area-clearing-v0', cfg=self.cfg)
+        env = env.unwrapped
+        
+        rewards_list = [] 
+        obs_list = []
+        action_list = []
+        for eps_idx in range(num_eps):
+            # print("PPO Progress: ", eps_idx, " / ", num_eps, " episodes")
+            obs, info = env.reset()
+            done = truncated = False
+            
+            eps_reward = 0.0
+            eps_obs = [obs]
+            eps_actions = []
+            
+            # step_bar = tqdm(desc=f'Ep {eps_idx} steps', leave=False)
+            while True:
+                action, _ = self.model.predict(obs)
+                # print(action.shape)
+                obs, reward, done, truncated, info = env.step(action)
+                # print(obs.shape)
+                
+                eps_obs.append(obs)
+                eps_actions.append(action)
+                eps_reward += reward
+                # env.render()
+                # step_bar.update(1)
+                if done or truncated:
+                    rewards_list.append(eps_reward)
+                    obs_list.append(eps_obs[:-1])  # so obs length aligns w/ action length
+                    action_list.append(eps_actions)
+                    break
+        
+        env.close()
+        
+        obs_eps = [np.stack(ep_obs, axis=0) for ep_obs in obs_list]  # list of per episode obs 
+        obs_flat = np.concatenate(obs_eps, axis=0, dtype=obs.dtype)
+        
+        act_eps = [np.stack(ep_actions, axis=0) for ep_actions in action_list]
+        act_flat = np.concatenate(act_eps, axis=0, dtype=action.dtype) 
+        
+        episode_ends = np.cumsum([arr.shape[0] for arr in act_eps], dtype=np.int64)
+        
+        return obs_flat, act_flat, episode_ends
 
 
     def evaluate(self, num_eps: int, model_eps: str ='latest'):
