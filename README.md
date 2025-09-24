@@ -215,7 +215,7 @@ BaseMetric.plot_algs_scores(benchmark_results, save_fig_dir='./')
 
 <b id="f1">5</b>: [Spatial Action Maps](https://www.roboticsproceedings.org/rss16/p035.pdf) policy.
 
-<b id="f1">6</b>: A Generalized Traveling Salesman Problem (GTSP) policy. Please see Appendix I of our paper for details. 
+<b id="f1">6</b>: A Generalized Traveling Salesman Problem (GTSP) policy. Please see the [Appendix](./Bench_Push_Appendix.pdf) for details. 
 
 ### Trained Models
 
