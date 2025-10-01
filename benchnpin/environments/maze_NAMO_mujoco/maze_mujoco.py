@@ -284,7 +284,8 @@ class MazeNAMOMujoco(MujocoEnv, utils.EzPickle):
             'scaled collision reward': collision_reward * self.beta, 
             'dist increment reward': dist_increment_reward, 
             'trial_success': trial_success,
-            'obs': obs
+            'obs': obs, 
+            'crashed': collide_wall
         }
         return observation, reward, terminated, False, info
 
