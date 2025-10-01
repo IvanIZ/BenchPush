@@ -97,25 +97,25 @@ A public PyPI release will be added after the review period.
 
 1. Download the project
 
-2. Clone the submodules (spfa and GLNS)
+
+2. Go to the project directory and install dependencies.
 ```bash
 cd BenchPush-CDF6
-git submodule update --init --recursive
-```
-
-3. Install dependencies.
-```bash
 pip install -r requirements.txt
 ```
+
 
 4. Install Gym environment
 ```bash
 pip install -e .
 ```
+The steps above are sufficient to run all _Ship-Ice_ and _Maze_ environments. To run _Box-Delivery_ and _Area-Clearing_, please install shortest path module as follows.
 
-5. Install shortest path module
+
+3. Install The `spfa` package.
 ```bash
-cd deps/spfa
+git clone https://github.com/IvanIZ/spfa.git
+cd spfa
 pip install -e .
 ```
 
