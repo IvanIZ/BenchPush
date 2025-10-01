@@ -129,6 +129,9 @@ def header_block(hfield, stl_model_path, sim_timestep, channel_len, channel_wid,
             <!-- For generating snapshots -->
             <camera name="overview_cam0" pos="300 250 200" euler="40 0 0" fovy="60"/>
             <camera name="overview_forward" pos="300 250 200" euler="50 0 0" fovy="60"/>
+            <camera name="overview_forward1" pos="300 150 230" euler="55 0 0" fovy="60"/>
+            <camera name="overview_forward2" pos="300 180 220" euler="52 0 0" fovy="60"/>
+
             <camera name="overview_high" pos="150 250 300" euler="40 0 0" fovy="60"/>
             
             <camera name="overview_cam" pos="50 -200 200" euler="60 0 0" fovy="60"/>
