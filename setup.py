@@ -36,7 +36,7 @@ def get_git_dependencies(filename):
     return git_deps
 
 setup(
-    name="benchnpin",
+    name="benchpush",
     version="0.1.1",
     license="MIT",
     description= "Benchmarking Non-prehensile Interactive Navigation",
@@ -48,8 +48,8 @@ setup(
     python_requires=">=3.10",
     packages=find_packages() , 
     include_package_data=True,
-    package_data={"benchnpin": ["**/*.yaml"] , 
-                  "benchnpin": ["**/*.pk"]},
+    package_data={"benchpush": ["**/*.yaml"] , 
+                  "benchpush": ["**/*.pk"]},
     classifiers=[
         "Programming Language :: Python :: 3.10",
         "License :: OSI Approved :: MIT License",

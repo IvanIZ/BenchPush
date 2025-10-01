@@ -1,0 +1,1 @@
+from benchpush.environments.ship_ice_nav_mujoco.ship_ice_nav_mujoco import ShipIceMujoco

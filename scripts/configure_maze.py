@@ -1,7 +1,7 @@
 """
 An example script to show configurable parameters for Maze
 """
-import benchnpin.environments
+import benchpush.environments
 import gymnasium as gym
 
 

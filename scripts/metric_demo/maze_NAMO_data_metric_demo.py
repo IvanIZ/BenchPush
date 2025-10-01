@@ -13,13 +13,13 @@ This script save the teleoperated path into the pickle file under the 'action' k
 This is intended for plotting
 """
 
-import benchnpin.environments
+import benchpush.environments
 import gymnasium as gym
 import numpy as np
 import pickle
 from pynput import keyboard
 import time
-from benchnpin.common.metrics.maze_namo_metric import MazeNamoMetric
+from benchpush.common.metrics.maze_namo_metric import MazeNamoMetric
 
 env = gym.make('maze-NAMO-v0')
 env = env.unwrapped

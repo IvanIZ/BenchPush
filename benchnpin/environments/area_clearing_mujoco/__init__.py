@@ -1,1 +1,0 @@
-from benchnpin.environments.area_clearing_mujoco.area_clearing_mujoco import AreaClearingMujoco

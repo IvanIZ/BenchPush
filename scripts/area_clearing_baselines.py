@@ -3,14 +3,14 @@ An example script for training and evaluating baselines for area clearing task
 """
 import argparse
 
-from benchnpin.baselines.area_clearing.ppo.policy import AreaClearingPPO
-from benchnpin.baselines.area_clearing.sac.policy import AreaClearingSAC
-from benchnpin.baselines.area_clearing.planning_based.policy import PlanningBasedPolicy
-from benchnpin.baselines.area_clearing.sam.policy import AreaClearingSAM
+from benchpush.baselines.area_clearing.ppo.policy import AreaClearingPPO
+from benchpush.baselines.area_clearing.sac.policy import AreaClearingSAC
+from benchpush.baselines.area_clearing.planning_based.policy import PlanningBasedPolicy
+from benchpush.baselines.area_clearing.sam.policy import AreaClearingSAM
 
-from benchnpin.common.metrics.base_metric import BaseMetric
+from benchpush.common.metrics.base_metric import BaseMetric
 
-from benchnpin.common.utils.utils import DotDict
+from benchpush.common.utils.utils import DotDict
 from os.path import dirname
 
 import os

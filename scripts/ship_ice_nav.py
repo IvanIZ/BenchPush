@@ -2,12 +2,12 @@
 An example script for running baseline policy for ship ice navigation
 """
 
-import benchnpin.environments
+import benchpush.environments
 import gymnasium as gym
 import numpy as np
-from benchnpin.baselines.ship_ice_nav.planning_based.policy import PlanningBasedPolicy
-from benchnpin.baselines.ship_ice_nav.ppo.policy import ShipIcePPO
-from benchnpin.baselines.ship_ice_nav.sac.policy import ShipIceSAC 
+from benchpush.baselines.ship_ice_nav.planning_based.policy import PlanningBasedPolicy
+from benchpush.baselines.ship_ice_nav.ppo.policy import ShipIcePPO
+from benchpush.baselines.ship_ice_nav.sac.policy import ShipIceSAC 
 
 env = gym.make('ship-ice-v0')
 env = env.unwrapped

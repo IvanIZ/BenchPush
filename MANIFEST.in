@@ -1,3 +1,3 @@
-recursive-include benchnpin *.yaml
-recursive-include benchnpin/environments/ship_ice_nav/ice_environments * .pkl
+recursive-include benchpush *.yaml
+recursive-include benchpush/environments/ship_ice_nav/ice_environments * .pkl
 global-exclude *.zip

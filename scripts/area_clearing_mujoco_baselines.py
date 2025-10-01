@@ -3,15 +3,15 @@ An example script for training and evaluating baselines for area clearing task
 """
 import argparse
 
-# from benchnpin.baselines.area_clearing.ppo.policy import AreaClearingPPO
-# from benchnpin.baselines.area_clearing.planning_based.policy import PlanningBasedPolicy
-from benchnpin.baselines.area_clearing_mujoco.sam.policy import AreaClearingMujocoSAM
-from benchnpin.baselines.area_clearing_mujoco.ppo.policy import AreaClearingMujocoPPO
-from benchnpin.baselines.area_clearing_mujoco.sac.policy import AreaClearingMujocoSAC
+# from benchpush.baselines.area_clearing.ppo.policy import AreaClearingPPO
+# from benchpush.baselines.area_clearing.planning_based.policy import PlanningBasedPolicy
+from benchpush.baselines.area_clearing_mujoco.sam.policy import AreaClearingMujocoSAM
+from benchpush.baselines.area_clearing_mujoco.ppo.policy import AreaClearingMujocoPPO
+from benchpush.baselines.area_clearing_mujoco.sac.policy import AreaClearingMujocoSAC
 
-from benchnpin.common.metrics.base_metric import BaseMetric
+from benchpush.common.metrics.base_metric import BaseMetric
 
-from benchnpin.common.utils.utils import DotDict
+from benchpush.common.utils.utils import DotDict
 from os.path import dirname
 
 import os

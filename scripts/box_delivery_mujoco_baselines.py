@@ -3,11 +3,11 @@ An example script for training and evaluating baselines for box pushing navigati
 Uncomment the code blocks to train/evaluate each baseline algorithms
 """
 import argparse
-from benchnpin.baselines.box_delivery_mujoco.SAM.policy import BoxDeliveryMujocoSAM
-from benchnpin.baselines.box_delivery_mujoco.ppo.policy import BoxDeliveryMujocoPPO
-from benchnpin.baselines.box_delivery_mujoco.sac.policy import BoxDeliveryMujocoSAC
-from benchnpin.common.metrics.base_metric import BaseMetric
-from benchnpin.common.utils.utils import DotDict
+from benchpush.baselines.box_delivery_mujoco.SAM.policy import BoxDeliveryMujocoSAM
+from benchpush.baselines.box_delivery_mujoco.ppo.policy import BoxDeliveryMujocoPPO
+from benchpush.baselines.box_delivery_mujoco.sac.policy import BoxDeliveryMujocoSAC
+from benchpush.common.metrics.base_metric import BaseMetric
+from benchpush.common.utils.utils import DotDict
 from os.path import dirname
 
 def main(cfg, job_id):

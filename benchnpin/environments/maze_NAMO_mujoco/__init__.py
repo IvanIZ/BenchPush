@@ -1,1 +1,0 @@
-from benchnpin.environments.maze_NAMO_mujoco.maze_mujoco import MazeNAMOMujoco

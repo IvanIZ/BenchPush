@@ -2,11 +2,11 @@
 An example script for running baseline policy for ship ice navigation
 """
 
-import benchnpin.environments
+import benchpush.environments
 import gymnasium as gym
 import numpy as np
-from benchnpin.baselines.maze_mujoco.ppo.policy import MazeMujocoPPO
-from benchnpin.baselines.maze_mujoco.sac.policy import MazeMujocoSAC
+from benchpush.baselines.maze_mujoco.ppo.policy import MazeMujocoPPO
+from benchpush.baselines.maze_mujoco.sac.policy import MazeMujocoSAC
 env = gym.make('maze-NAMO-mujoco-v0', render_mode = "human")
 env = env.unwrapped
 

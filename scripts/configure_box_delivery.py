@@ -1,7 +1,7 @@
 """
 An example script to show configurable parameters for Box-Delivery
 """
-import benchnpin.environments
+import benchpush.environments
 import gymnasium as gym
 
 

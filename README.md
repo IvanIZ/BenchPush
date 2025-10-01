@@ -125,7 +125,7 @@ pip install -e .
 ### Running an interactive navigation environment
 
 ```python
-import benchnpin.environments
+import benchpush.environments
 import gymnasium as gym
 
 env = gym.make('ship-ice-v0')
@@ -144,7 +144,7 @@ To configure the parameters for each environment, please refer to the configurat
 
 ### Creating a custom policy from the policy template
 ```python
-from benchnpin.baselines.base_class import BasePolicy
+from benchpush.baselines.base_class import BasePolicy
 
 class CustomPolicy(BasePolicy):
 
@@ -173,7 +173,7 @@ class CustomPolicy(BasePolicy):
 
 ### Running benchmarks on policies
 ```python
-from benchnpin.common.metrics.base_metric import BaseMetric
+from benchpush.common.metrics.base_metric import BaseMetric
 import CustomPolicy1      # some custom policies
 import CustomPolicy2
 import CustomPolicy3

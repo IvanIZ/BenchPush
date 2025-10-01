@@ -1,4 +1,4 @@
-import benchnpin.environments
+import benchpush.environments
 import gymnasium as gym
 import random
 import numpy as np

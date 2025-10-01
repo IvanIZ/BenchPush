@@ -4,11 +4,11 @@ Uncomment the code blocks to train/evaluate each baseline algorithms
 """
 import argparse
 import pickle
-from benchnpin.baselines.maze_mujoco.ppo.policy import MazeMujocoPPO
-from benchnpin.baselines.maze_mujoco.sac.policy import MazeMujocoSAC
-from benchnpin.baselines.maze_mujoco.planning_based.policy import PlanningBasedPolicy
-from benchnpin.common.metrics.base_metric import BaseMetric
-from benchnpin.common.utils.utils import DotDict
+from benchpush.baselines.maze_mujoco.ppo.policy import MazeMujocoPPO
+from benchpush.baselines.maze_mujoco.sac.policy import MazeMujocoSAC
+from benchpush.baselines.maze_mujoco.planning_based.policy import PlanningBasedPolicy
+from benchpush.common.metrics.base_metric import BaseMetric
+from benchpush.common.utils.utils import DotDict
 from os.path import dirname
 
 def main(cfg, job_id):

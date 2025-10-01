@@ -1,4 +1,4 @@
-import benchnpin.environments
+import benchpush.environments
 import gymnasium as gym
 import random
 from PIL import Image
@@ -25,7 +25,7 @@ for i in range(num_epochs):
 
         w = 0
 
-        goal_pos = [w]
+        goal_pos = w
         action = goal_pos
 
         observation, reward, terminated, truncated, info = env.step(action)
