@@ -29,7 +29,7 @@ while True:
 
     forward_speed = 20.0      # 2 m/s
     angular_speed = 0.0     # no turning
-    action = [forward_speed, angular_speed]
+    action = [forward_speed, 0, angular_speed]
 
     observation, reward, terminated, truncated, info = env.step(action)
     if step_idx%15==0:
