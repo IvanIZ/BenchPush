@@ -104,7 +104,7 @@ def collect_demos():
 
     observation, info = env.reset()
     metric.reset(info)
-    # record_transition(0, [info['state'][0], info['state'][1]], 0, False, False)
+    record_transition(0, [info['state'][0], info['state'][1]], 0, False, False)
 
     terminated = False
     truncated = False
@@ -118,7 +118,7 @@ def collect_demos():
                 global command
                 _, reward, terminated, truncated, info = env.step(angular_velocity)
                 metric.update(info=info, reward=reward, eps_complete=(terminated or truncated))
-                # record_transition(0, [info['state'][0], info['state'][1]], reward, terminated, truncated)
+                record_transition(0, [info['state'][0], info['state'][1]], reward, terminated, truncated)
 
                 print("increment reward: ", info['dist increment reward'], "; col reward scaled: ", info['scaled collision reward'])
 
@@ -169,42 +169,42 @@ def collect_demos():
     print("current path length: ", path_length)
 
 
-    # try:
-    #     # load previous demos
-    #     with open('maze_metric_data.pkl', 'rb') as file:
-    #         pickle_dict = pickle.load(file)
+    try:
+        # load previous demos
+        with open('maze_metric_data.pkl', 'rb') as file:
+            pickle_dict = pickle.load(file)
         
-    #     # append current demonstration data
-    #     pickle_dict['observations'] = np.concatenate((pickle_dict['observations'], observations))
-    #     pickle_dict['actions'] = np.concatenate((pickle_dict['actions'], actions))
-    #     pickle_dict['rewards'] = np.concatenate((pickle_dict['rewards'], rewards))
-    #     pickle_dict['terminals'] = np.concatenate((pickle_dict['terminals'], terminals))
-    #     pickle_dict['timeouts'] = np.concatenate((pickle_dict['timeouts'], timeouts))
+        # append current demonstration data
+        pickle_dict['observations'] = np.concatenate((pickle_dict['observations'], observations))
+        pickle_dict['actions'] = np.concatenate((pickle_dict['actions'], actions))
+        pickle_dict['rewards'] = np.concatenate((pickle_dict['rewards'], rewards))
+        pickle_dict['terminals'] = np.concatenate((pickle_dict['terminals'], terminals))
+        pickle_dict['timeouts'] = np.concatenate((pickle_dict['timeouts'], timeouts))
 
-    # except:
-    #     # if pushing_demo file not exist, create one with current demos
-    #     pickle_dict = {
-    #         'observations': observations, 
-    #         'actions': actions, 
-    #         'rewards': rewards, 
-    #         'terminals': terminals,
-    #         'timeouts': timeouts, 
-    #         'efficiency_scores': metric.efficiency_scores[0],
-    #         'effort_scores': metric.effort_scores[0],
-    #         'rewards': metric.rewards[0]
-    #     }
+    except:
+        # if pushing_demo file not exist, create one with current demos
+        pickle_dict = {
+            'observations': observations, 
+            'actions': actions, 
+            'rewards': rewards, 
+            'terminals': terminals,
+            'timeouts': timeouts, 
+            'efficiency_scores': metric.efficiency_scores[0],
+            'effort_scores': metric.effort_scores[0],
+            'rewards': metric.rewards[0]
+        }
 
-    # print("Total Demonstration Data ======== \n")
-    # print("observation shape: ", pickle_dict['observations'].shape)
-    # print("actions shape: ", pickle_dict['actions'].shape)
-    # print("rewards shape: ", pickle_dict['rewards'].shape)
-    # print("terminals shape: ", pickle_dict['terminals'].shape)
-    # print("timeouts shape: ", pickle_dict['timeouts'].shape)
+    print("Total Demonstration Data ======== \n")
+    print("observation shape: ", pickle_dict['observations'].shape)
+    print("actions shape: ", pickle_dict['actions'].shape)
+    print("rewards shape: ", pickle_dict['rewards'].shape)
+    print("terminals shape: ", pickle_dict['terminals'].shape)
+    print("timeouts shape: ", pickle_dict['timeouts'].shape)
 
     
-    # # save demo data
-    # with open('maze_metric_data.pkl', 'wb') as f:
-    #     pickle.dump(pickle_dict, f)
+    # save demo data
+    with open('maze_metric_data.pkl', 'wb') as f:
+        pickle.dump(pickle_dict, f)
 
     print(metric.efficiency_scores, metric.effort_scores, metric.rewards)
 
