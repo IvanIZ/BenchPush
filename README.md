@@ -122,7 +122,7 @@ pip install -e .
 ## Usage
 
 
-### Running an interactive navigation environment
+### Running an environment
 
 ```python
 import benchpush.environments
