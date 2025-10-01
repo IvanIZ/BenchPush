@@ -112,7 +112,7 @@ pip install -e .
 The steps above are sufficient to run all _Ship-Ice_ and _Maze_ environments. To run _Box-Delivery_ and _Area-Clearing_, please install shortest path module as follows.
 
 
-3. Install The `spfa` package.
+3. Install the `spfa` package.
 ```bash
 git clone https://github.com/IvanIZ/spfa.git
 cd spfa
