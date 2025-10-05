@@ -6,6 +6,10 @@ from torchvision.models import resnet18
 from gymnasium import spaces
 from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
 
+from robomimic.models.base_nets import MLP
+from robomimic.models.obs_nets import ObservationEncoder
+import robomimic.utils.tensor_utils as TensorUtils
+import robomimic.utils.obs_utils as ObsUtils
 
 
 class ResNet18(BaseFeaturesExtractor):
@@ -222,3 +226,49 @@ class DenseActionSpaceDQN(nn.Module):
         x = F.relu(self.conv2(x))
         x = F.interpolate(x, scale_factor=2, mode='bilinear', align_corners=True)
         return self.conv3(x)
+    
+    
+    
+################ For diffusion policy ##########################
+class ResNet18_mod(nn.Module):
+    """
+    A custom feature extractor based on ResNet 18
+    """
+
+    def __init__(self, observation_space: spaces.Box):
+        super().__init__()
+
+        # We assume CxHxW images (channels first)
+        n_input_channels = observation_space.shape[0]
+        
+        self.obs_encoder = ObservationEncoder(feature_activation=torch.nn.ReLU)
+
+        net_kwargs = {
+            "input_shape": observation_space.shape,
+            "backbone_class": "ResNet18Conv", 
+            "backbone_kwargs": {"pretrained": False, "input_coord_conv": False},
+            "pool_class": "SpatialSoftmax",
+            "pool_kwargs": {"num_kp": 32},
+        }
+        
+        self.obs_encoder.register_obs_key(
+            name="observation",
+            shape=observation_space.shape,
+            net_class="VisualCore",
+            net_kwargs=net_kwargs
+        )
+        
+        # Before constructing the encoder, make sure we register all of our observation keys with corresponding modalities
+        # (this will determine how they are processed during training)
+        ObsUtils.initialize_obs_modality_mapping_from_dict({
+            "rgb": ["observation"],
+            "low_dim": []
+        })
+        
+        self.obs_encoder.make()
+        
+    
+    def forward(self, x):
+        inputs = {'observation': x}
+        output = self.obs_encoder(inputs)
+        return output

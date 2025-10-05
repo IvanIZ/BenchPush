@@ -126,6 +126,12 @@ def rollouts(model_path : str, num_eps : int, env_type="area-clearing-v0", confi
     policy.normalizer.load_state_dict(training_dict["normalizer"])
     policy.ema_model.load_state_dict(training_dict["ema_model"])
     
+    def count_params(module : torch.nn.Module):
+        total = sum(p.numel() for p in module.parameters() if p.requires_grad)
+        return total
+    
+    print(f"Total number of params (Encoder + UNet): {count_params(policy.model) + count_params(policy.obs_encoder)}")
+    
     # put policy in eval mode
     policy.model.eval()
     policy.obs_encoder.eval()
@@ -183,5 +189,5 @@ def rollouts(model_path : str, num_eps : int, env_type="area-clearing-v0", confi
     
 
 if __name__ == "__main__":
-    rollouts(model_path="baselines/area_clearing/diffusion_policy/checkpoints/20250922-1417/epoch_0200.pt",
+    rollouts(model_path="baselines/area_clearing/diffusion_policy/checkpoints/20250925-1707/epoch_0040.pt",
              num_eps=10)

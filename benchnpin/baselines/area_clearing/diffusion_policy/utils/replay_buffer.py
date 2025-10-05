@@ -157,7 +157,7 @@ class ReplayBuffer:
         if store is None:
             # numpy backend
             meta = dict()
-            for key, value in src_root['meta'].items():
+            for key, value in src_root['extra'].items():
                 if isinstance(value, zarr.Group):
                     continue
                 if len(value.shape) == 0:

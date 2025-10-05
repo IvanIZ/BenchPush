@@ -1,4 +1,3 @@
-import logging
 import torch
 import torch.nn as nn
 import einops
@@ -6,7 +5,6 @@ from typing import Union
 
 from benchnpin.baselines.area_clearing.diffusion_policy.policy_components.diffusion_components import *
 
-logger = logging.getLogger(__name__)
 
 class ConditionalUnet1D(nn.Module):
     """
@@ -17,7 +15,7 @@ class ConditionalUnet1D(nn.Module):
     """
     
     def __init__(self, input_dim, local_cond_dim=None, global_cond_dim=None, diffusion_step_embed_dim=256,
-                 down_dims=[256, 512, 1024], kernel_size=3, n_groups=8, cond_predict_scale=False):
+                 down_dims=[256, 512, 1024], kernel_size=3, n_groups=8, cond_predict_scale=False, device='cuda'):
         super().__init__()
         all_dims = [input_dim] + list(down_dims)
         start_dim = down_dims[0]
@@ -120,17 +118,14 @@ class ConditionalUnet1D(nn.Module):
         self.local_cond_encoder = local_cond_encoder
         self.up_modules = up_modules
         self.down_modules = down_modules
-        self.final_conv = final_conv  
+        self.final_conv = final_conv 
+        self.device = device
         
-        logger.info(
-            "number of parameters: %e", sum(p.numel() for p in self.parameters())
-        )
-        
-        
+    
     def forward(self, sample : torch.Tensor, timestep: Union[torch.Tensor, float, int],
                 local_cond=None, global_cond=None, **kwargs):
         """
-        # ! double check that T is horizon 
+        # T is horizon 
         x: (B, T, input_dim)
         timestep: (B,) or int (diffusion step)
         * IMP: this means one diffusion step per sample in the batch 

@@ -1,0 +1,25 @@
+# ! NOTE: this is used for training the diffusion policy only, does not include all dependencies for benchnpin
+# ! This includes everything needed for robomimic as well
+# benchnpin.egg==info
+diffusers
+transformers
+einops
+gymnasium
+numba
+numcodecs
+numpy
+torch
+torchvision
+tqdm
+zarr
+stable_baselines3
+tensorboard
+h5py
+psutil
+termcolor
+tensorboardX
+imageio
+imageio-ffmpeg
+shapely
+networkx
+matplotlib

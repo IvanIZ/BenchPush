@@ -93,11 +93,11 @@ class AreaClearingPPO(BasePolicy):
         obs_list = []
         action_list = []
         for eps_idx in range(num_eps):
-            # print("PPO Progress: ", eps_idx, " / ", num_eps, " episodes")
+            print("PPO Progress: ", eps_idx, " / ", num_eps, " episodes")
             obs, info = env.reset()
             done = truncated = False
             
-            eps_reward = 0.0
+            eps_reward = []
             eps_obs = [obs]
             eps_actions = []
             
@@ -110,13 +110,16 @@ class AreaClearingPPO(BasePolicy):
                 
                 eps_obs.append(obs)
                 eps_actions.append(action)
-                eps_reward += reward
+                eps_reward.append(reward)
                 # env.render()
                 # step_bar.update(1)
                 if done or truncated:
-                    rewards_list.append(eps_reward)
-                    obs_list.append(eps_obs[:-1])  # so obs length aligns w/ action length
-                    action_list.append(eps_actions)
+                    # store only the successful episodes
+                    if done:
+                        print(f"Num steps: {len(eps_obs)}")
+                        rewards_list.append(eps_reward)
+                        obs_list.append(eps_obs[:-1])  # so obs length aligns w/ action length
+                        action_list.append(eps_actions)
                     break
         
         env.close()
@@ -129,7 +132,10 @@ class AreaClearingPPO(BasePolicy):
         
         episode_ends = np.cumsum([arr.shape[0] for arr in act_eps], dtype=np.int64)
         
-        return obs_flat, act_flat, episode_ends
+        rewards_eps = [np.stack(ep_reward, axis=0) for ep_reward in rewards_list]
+        rewards_flat = np.concatenate(rewards_eps, axis=0, dtype=reward.dtype)
+        
+        return obs_flat, act_flat, episode_ends, rewards_flat
 
 
     def evaluate(self, num_eps: int, model_eps: str ='latest'):

@@ -8,6 +8,7 @@ from torch.utils.tensorboard import SummaryWriter
 import tqdm
 from itertools import chain
 from datetime import datetime
+# from line_profiler import profile
 
 from typing import Dict
 from diffusers.schedulers.scheduling_ddpm import DDPMScheduler
@@ -21,7 +22,7 @@ from benchnpin.baselines.area_clearing.diffusion_policy.dataset.area_clearing_da
 from benchnpin.baselines.area_clearing.diffusion_policy.policy_components.ema_model import EMAModel
 from benchnpin.baselines.area_clearing.diffusion_policy.policy_components.lr_scheduler import get_scheduler
 
-from benchnpin.common.metrics.task_driven_metric import TaskDrivenMetric
+# from benchnpin.common.metrics.task_driven_metric import TaskDrivenMetric
 
 
 class AreaClearingDiffusion(BasePolicy):
@@ -31,10 +32,10 @@ class AreaClearingDiffusion(BasePolicy):
     def __init__(self, 
                  shape_meta : dict, # * dict for storing shapes
                  noise_scheduler: DDPMScheduler,
-                 obs_encoder: MultiImageObsEncoder, # ? End-to-end trained visual encoder
+                 obs_encoder: MultiImageObsEncoder, 
                  horizon,
                  n_action_steps,
-                 n_obs_steps, # ? how's this different from horizon 
+                 n_obs_steps, 
                  num_inference_steps=None, 
                  obs_as_global_cond=True,
                  diffusion_step_embed_dim=256,
@@ -53,6 +54,13 @@ class AreaClearingDiffusion(BasePolicy):
         self.g = torch.Generator(device=self.device)
         self.g.manual_seed(self.seed)
         
+        if self.device.type == 'cuda':
+            self.amp_dtype = torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float16
+        elif self.device.type == 'mps':
+            self.amp_dtype = torch.float16
+        else:  # cpu
+            self.amp_dtype = torch.bfloat16
+
         # parse shapes
         action_shape = shape_meta['action']['shape']
         assert len(action_shape) == 1
@@ -87,11 +95,10 @@ class AreaClearingDiffusion(BasePolicy):
         
         # NOTE: End-to-end training so include encoder params too 
         params = chain(self.model.parameters(), self.obs_encoder.parameters())
-        self.optimizer = torch.optim.AdamW(params, lr=1.0e-4, betas=(0.95, 0.999), weight_decay=1.0e-6)
+        self.optimizer = torch.optim.AdamW(params, lr=1.0e-4, betas=(0.95, 0.999), weight_decay=1.0e-3)
         optimizer_to(self.optimizer, self.device)
 
         self.noise_scheduler = noise_scheduler
-        # ? what does this do 
         self.mask_generator = LowdimMaskGenerator(
             action_dim=action_dim,
             obs_dim=0 if obs_as_global_cond else obs_feature_dim,
@@ -156,9 +163,10 @@ class AreaClearingDiffusion(BasePolicy):
             trajectory[condition_mask] = condition_data[condition_mask]
             
             # 2. predict model output
-            model_output = model(trajectory, t,
-                                 local_cond=local_cond, 
-                                 global_cond=global_cond)
+            with torch.autocast(device_type=device.type, dtype=self.amp_dtype):
+                model_output = model(trajectory, t,
+                                    local_cond=local_cond, 
+                                    global_cond=global_cond)
             
             # 3. compute previous image: x_t -> x_{t-1}
             trajectory = scheduler.step(
@@ -269,7 +277,7 @@ class AreaClearingDiffusion(BasePolicy):
         train_dataloader = DataLoader(dataset, 
                                       batch_size=batch_size,
                                       num_workers=num_workers,
-                                      shuffle=True,
+                                      shuffle=False,
                                       pin_memory=True)
         normalizer = dataset.get_normalizer()
         
@@ -287,7 +295,7 @@ class AreaClearingDiffusion(BasePolicy):
         # NOTE: num_training_steps is used to derive the learning rate schedule
         total_train_steps = len(train_dataloader) * num_epochs
         lr_scheduler = get_scheduler(
-            "cosine", self.optimizer, num_warmup_steps=500, 
+            "cosine", self.optimizer, num_warmup_steps=int(0.05 * total_train_steps), 
             num_training_steps=total_train_steps,
         )
         
@@ -336,7 +344,7 @@ class AreaClearingDiffusion(BasePolicy):
                     
                     # step optimizer
                     self.optimizer.step()
-                    self.optimizer.zero_grad()
+                    self.optimizer.zero_grad(set_to_none=True)
                     lr_scheduler.step()
                     
                     # update ema 
@@ -360,19 +368,37 @@ class AreaClearingDiffusion(BasePolicy):
             # ****** validation for the epoch ********
             val_loss = None
             self.model.eval()
+            self.ema_model.eval()
             self.obs_encoder.eval()
             if (epoch % val_every) == 0:
                 with torch.no_grad():
                     val_batch_losses = []
+                    val_ema_batch_losses = []
                     with tqdm.tqdm(val_dataloader, desc=f"Val {epoch}", 
                                    leave=False, mininterval=1.0) as vepoch:
-                        for vbatch in vepoch:
+                        for vbatch_idx, vbatch in enumerate(vepoch):
+                            # ******* sampling metric on a val batch ********
+                            if vbatch_idx == 0:
+                                obs_dict = vbatch['obs']
+                                expected_act = vbatch['action'].to(self.device)
+                                
+                                pred = self.act(obs_dict)
+                                pred_action = pred['action_pred']
+                            
+                                mse = F.mse_loss(pred_action, expected_act)
+                                writer.add_scalar("val/action_mse", float(mse.detach().cpu()), epoch) 
+                            
                             vbatch = dict_apply(vbatch, lambda x: x.to(self.device, non_blocking=True))
-                            vloss = self.compute_loss(vbatch)
-                            val_batch_losses.append(float(vloss.detach().cpu()))
+                            vloss_model = self.compute_loss(vbatch, model=self.model)
+                            vloss_ema_model = self.compute_loss(vbatch, model=self.ema_model)
+                            val_batch_losses.append(float(vloss_model.detach().cpu()))
+                            val_ema_batch_losses.append(float(vloss_ema_model.detach().cpu()))
                     if val_batch_losses:
-                        val_loss = np.mean(val_batch_losses)
-                        writer.add_scalar("avg_val/loss", val_loss, epoch)
+                        val_loss = np.mean(val_batch_losses, axis=0)
+                        val_ema_loss = np.mean(val_ema_batch_losses, axis=0)
+                        writer.add_scalar("val/avg_loss", val_loss, epoch)
+                        writer.add_scalar("val/avg_loss_ema_model", val_ema_loss, epoch)
+                        
 
             # ******* sampling metric on a train batch ********
             if (epoch % sample_every) == 0 and train_sampling_batch:
@@ -424,11 +450,14 @@ class AreaClearingDiffusion(BasePolicy):
     def set_normalizer(self, normalizer : LinearNormalizer):
         self.normalizer.load_state_dict(normalizer.state_dict())
         
-    def compute_loss(self, batch):
+    def compute_loss(self, batch, model=None):
         """
         Computes loss on noise predictions. But can be configured for computing loss on the clean samples
         """
         device = self.device
+        
+        if model is None:
+            model = self.model
         
         # normalize input 
         assert 'valid_mask' not in batch 
@@ -485,10 +514,6 @@ class AreaClearingDiffusion(BasePolicy):
         # apply conditioning
         noisy_trajectory[condition_mask] = cond_data[condition_mask]
         
-        # pred the noise residual 
-        pred = self.model(noisy_trajectory, timesteps,
-                          local_cond=local_cond, global_cond=global_cond)
-        
         pred_type = self.noise_scheduler.config.prediction_type
         if pred_type == 'epsilon':
             target = noise
@@ -497,7 +522,11 @@ class AreaClearingDiffusion(BasePolicy):
         else:
             raise ValueError(f"Unsupported prediction type {pred_type}")
         
-        loss = F.mse_loss(pred, target, reduction='none')
-        loss = loss * loss_mask.to(loss.dtype)
-        loss = loss.view(loss.shape[0], -1).mean(dim=1).mean()
+        # pred the noise residual 
+        with torch.autocast(device_type=device.type, dtype=self.amp_dtype):
+            pred = model(noisy_trajectory, timesteps, local_cond=local_cond, global_cond=global_cond)
+            loss = F.mse_loss(pred, target, reduction='none')
+            loss = loss * loss_mask.to(loss.dtype)
+            loss = loss.view(loss.shape[0], -1).mean(dim=1).mean()
+        
         return loss

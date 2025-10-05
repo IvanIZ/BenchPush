@@ -9,7 +9,7 @@ from torch.utils.data import DataLoader
 
 from benchnpin.baselines.area_clearing.diffusion_policy.dataset.area_clearing_dataset import AreaClearingDataset
 from benchnpin.baselines.area_clearing.diffusion_policy.policy_components.multi_image_obs_encoder import MultiImageObsEncoder
-from benchnpin.baselines.feature_extractors import ResNet18
+from benchnpin.baselines.feature_extractors import ResNet18_mod
 from benchnpin.baselines.area_clearing.diffusion_policy.policy import AreaClearingDiffusion
 from benchnpin.baselines.area_clearing.diffusion_policy.dataset.dataset_collector import DatasetCollector
 
@@ -49,17 +49,17 @@ def main():
     parser.add_argument("--horizon", type=int, default=16, help="Number of steps predicted during model forward pass")
     parser.add_argument("--n_obs_steps", type=int, default=4, help="# of observation steps used for conditioning (To in the paper)")
     parser.add_argument("--n_action_steps", type=int, default=8, help="# of action steps executed (Ta in the paper)")
-    parser.add_argument("--epochs", type=int, default=1000)
+    parser.add_argument("--epochs", type=int, default=600)
     parser.add_argument("--batch_size", type=int, default=64)
     parser.add_argument("--num_workers", type=int, default=4)
     parser.add_argument("--val_every", type=int, default=1)
     parser.add_argument("--sample_every", type=int, default=5)
     # parser.add_argument("--rollout_every", type=int, default=50)
-    parser.add_argument("--checkpoint_every", type=int, default=100)
+    parser.add_argument("--checkpoint_every", type=int, default=20)
     parser.add_argument("--obs_as_global_cond", action="store_true", default=True)
     parser.add_argument("--scheduler_steps", type=int, default=100)
     parser.add_argument("--scheduler_beta_schedule", type=str, default="squaredcos_cap_v2")
-    parser.add_argument("--encoder_dim", type=int, default=512, help="ResNet18 feature embedding dim (flattened)")
+    # parser.add_argument("--encoder_dim", type=int, default=512, help="ResNet18 feature embedding dim (flattened)")
     parser.add_argument("--run_dir", type=str, default="baselines/area_clearing/diffusion_policy/runs")
     parser.add_argument("--checkpoint_dir", type=str, default="baselines/area_clearing/diffusion_policy/checkpoints")
     parser.add_argument("--seed", type=int, default=42)
@@ -72,6 +72,8 @@ def main():
     np.random.seed(seed)
     torch.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)    
+    
+    torch.backends.cudnn.benchmark = True  # optimize for fixed input size
     
     args.run_dir = os.path.abspath(args.run_dir)
     args.checkpoint_dir = os.path.abspath(args.checkpoint_dir)
@@ -99,12 +101,13 @@ def main():
     # Build the observation encoder
     C, H, W = shape_meta["obs"]["image"]["shape"]
     observation_space = spaces.Box(low=0, high=255, shape=(C, H, W), dtype=np.uint8)
-    rgb_backbone = ResNet18(observation_space=observation_space, features_dim=args.encoder_dim)
+    rgb_backbone = ResNet18_mod(observation_space=observation_space)
     obs_encoder = MultiImageObsEncoder(
         shape_meta=shape_meta,
         rgb_model=rgb_backbone,
         share_rgb_model=True,
         imagenet_norm=False, 
+        use_group_norm=True,
         resize_shape=None,  # keep same dataset resolution
         crop_shape=None,
         random_crop=False
@@ -128,7 +131,14 @@ def main():
         obs_as_global_cond=args.obs_as_global_cond,
         seed=args.seed
     )
-
+    
+    def count_params(module : torch.nn.Module):
+        total = sum(p.numel() for p in module.parameters() if p.requires_grad)
+        return total
+    
+    print(f"Total number of params (Encoder): {count_params(policy.obs_encoder)}")
+    print(f"Total number of params (UNet): {count_params(policy.model)}")
+    
     # start training 
     policy.train(
         dataset=dataset,

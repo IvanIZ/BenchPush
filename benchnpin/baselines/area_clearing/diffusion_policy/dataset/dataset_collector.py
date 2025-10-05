@@ -52,7 +52,7 @@ class DatasetCollector:
         store = zarr.DirectoryStore(str(out_p))
         root = zarr.group(store=store, overwrite=True)
         data_grp = root.require_group('data')
-        meta_grp = root.require_group('meta')
+        extra_grp = root.require_group('extra')
         
         compressor = Blosc(cname='zstd', clevel=3, shuffle=Blosc.BITSHUFFLE)
         
@@ -65,7 +65,7 @@ class DatasetCollector:
         for start in range(0, num_eps, batch_eps):
             n_eps = min(batch_eps, num_eps - start)  # if not divisble: num_eps / batch_eps
             
-            img, action, episode_ends = self.data_collection(num_eps=n_eps)
+            img, action, episode_ends, rewards = self.data_collection(num_eps=n_eps)
             H, W, C = img.shape[1:]
             action_dim = action.shape[1]
             
@@ -74,6 +74,7 @@ class DatasetCollector:
                 # choose chunk sizes (assuming at least 10 steps are taken per eps)
                 chunks_img_len = min(10 * batch_eps, img.shape[0])
                 chunks_act_len = min(10 * batch_eps, action.shape[0])
+                chunks_rew_len = min(10 * batch_eps, rewards.shape[0])
                 chunks_ends = len(episode_ends)
                 
                 img_ds = data_grp.create_dataset(
@@ -92,12 +93,20 @@ class DatasetCollector:
                     dtype='f4',
                     compressor=compressor,
                 )
-                ends_ds = meta_grp.create_dataset(
+                ends_ds = extra_grp.create_dataset(
                     'episode_ends',
                     shape=(0,),
                     maxshape=(None,),
                     chunks=(chunks_ends,),
                     dtype='i8',
+                    compressor=compressor,
+                )
+                rew_ds = extra_grp.create_dataset(
+                    'rewards_per_step',
+                    shape=(0,),
+                    maxshape=(None,),
+                    chunks=(chunks_rew_len,),
+                    dtype='f4',
                     compressor=compressor,
                 )
                 
@@ -109,7 +118,8 @@ class DatasetCollector:
                 # same handles
                 img_ds = data_grp['img']
                 act_ds = data_grp['action']
-                ends_ds = meta_grp['episode_ends']
+                ends_ds = extra_grp['episode_ends']
+                rew_ds = extra_grp['rewards_per_step']
                 
                 # check shape is still fine 
                 assert img_ds.shape[1:] == img_shape_cached, f"Error - Image shape changed: {img.shape[1:]}"
@@ -124,6 +134,9 @@ class DatasetCollector:
                 
             act_ds.resize(prev_N + B, action_dim_cached)
             act_ds[prev_N:prev_N + B, ...] = action.astype('f4', copy=False)
+            
+            rew_ds.resize(prev_N + B)
+            rew_ds[prev_N:prev_N + B] = rewards.astype('f4', copy=False)
 
             E = episode_ends.shape[0]
             prev_E = ends_ds.shape[0]
@@ -147,13 +160,13 @@ def main():
     policy_weights_path = None
     out_path = "data/area_clearing/replay.zarr"
     collector = DatasetCollector(policy_weights_path=policy_weights_path)
-    collector.save_to_zarr(out_path=out_path, num_eps=200, batch_eps=100)
+    collector.save_to_zarr(out_path=out_path, num_eps=2000, batch_eps=100)
 
     
 def test():
     # policy_weights_path = "benchnpin/baselines/area_clearing/ppo/model"
     policy_weights_path = None
-    out_path = "data/area_clearing/replay.zarr"
+    out_path = "data_test/area_clearing/replay.zarr"
     collector = DatasetCollector(policy_weights_path=policy_weights_path)
     collector.save_to_zarr(out_path=out_path, num_eps=20, batch_eps=2)
     
