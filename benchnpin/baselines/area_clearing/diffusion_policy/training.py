@@ -13,6 +13,10 @@ from benchnpin.baselines.feature_extractors import ResNet18_mod
 from benchnpin.baselines.area_clearing.diffusion_policy.policy import AreaClearingDiffusion
 from benchnpin.baselines.area_clearing.diffusion_policy.dataset.dataset_collector import DatasetCollector
 
+# multi-gpu training packages
+import torch.distributed as dist
+from torch.nn.parallel import DistributedDataParallel as DDP
+
 
 def build_shape_meta(sample, obs_key="image"):
     """
@@ -51,7 +55,7 @@ def main():
     parser.add_argument("--n_action_steps", type=int, default=8, help="# of action steps executed (Ta in the paper)")
     parser.add_argument("--epochs", type=int, default=600)
     parser.add_argument("--batch_size", type=int, default=64)
-    parser.add_argument("--num_workers", type=int, default=4)
+    # parser.add_argument("--num_workers", type=int, default=4)
     parser.add_argument("--val_every", type=int, default=1)
     parser.add_argument("--sample_every", type=int, default=5)
     # parser.add_argument("--rollout_every", type=int, default=50)
@@ -66,6 +70,8 @@ def main():
     args = parser.parse_args()
     
     assert args.n_action_steps <= args.horizon - (args.n_obs_steps - 1), "Need to follow: args.n_action_steps <= args.horizon - (args.n_obs_steps - 1)"
+    
+    os.environ['MASTER_PORT'] = '12355'
     
     # set seeds
     seed = args.seed
@@ -118,6 +124,21 @@ def main():
         num_train_timesteps=args.scheduler_steps,
         beta_schedule=args.scheduler_beta_schedule
     )
+    
+    # multi-gpu training setup
+    rank = int(os.environ["SLURM_PROCID"])
+    world_size = int(os.environ["WORLD_SIZE"])
+    gpus_per_node = int(os.environ["SLURM_GPUS_ON_NODE"])
+    num_workers = int(os.environ["SLURM_CPUS_PER_TASK"])
+    os.environ["TORCH_DISTRIBUTED_DEBUG"] = "DETAIL" 
+
+    assert gpus_per_node == torch.cuda.device_count(), f"gpus_per_node {gpus_per_node} != torch.cuda.device_count {torch.cuda.device_count()}"
+
+    dist.init_process_group("nccl", rank=rank, world_size=world_size)
+    if rank == 0: print(f"Group initialized? {dist.is_initialized()}", flush=True)
+
+    local_rank = rank % gpus_per_node
+    torch.cuda.set_device(local_rank)   
 
     # policy
     policy = AreaClearingDiffusion(
@@ -127,6 +148,8 @@ def main():
         horizon=args.horizon,
         n_action_steps=args.n_action_steps,
         n_obs_steps=args.n_obs_steps,
+        rank=rank,
+        local_rank=local_rank,
         num_inference_steps=args.scheduler_steps,
         obs_as_global_cond=args.obs_as_global_cond,
         seed=args.seed
@@ -144,13 +167,15 @@ def main():
         dataset=dataset,
         num_epochs=args.epochs,
         batch_size=args.batch_size,
-        num_workers=args.num_workers,
+        num_workers=num_workers,
         val_every=args.val_every,
         sample_every=args.sample_every,
         chkpoint_every=args.checkpoint_every,
         run_dir=args.run_dir,
         chkpoint_dir=args.checkpoint_dir
     )
+    
+    dist.destroy_process_group()
 
 
 if __name__ == "__main__":

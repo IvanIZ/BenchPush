@@ -64,6 +64,9 @@ class EMAModel:
         #     data_ptr = param.data_ptr()
         #     if data_ptr != 0:
         #         old_all_dataptrs.add(data_ptr)
+        
+        if hasattr(new_model, 'module'):
+            new_model = new_model.module  # unwrap DDP
 
         all_dataptrs = set()
         for module, ema_module in zip(new_model.modules(), self.averaged_model.modules()):            

@@ -5,7 +5,6 @@ import gymnasium as gym
 import os
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
-import tqdm
 from itertools import chain
 from datetime import datetime
 # from line_profiler import profile
@@ -23,6 +22,8 @@ from benchnpin.baselines.area_clearing.diffusion_policy.policy_components.ema_mo
 from benchnpin.baselines.area_clearing.diffusion_policy.policy_components.lr_scheduler import get_scheduler
 
 # from benchnpin.common.metrics.task_driven_metric import TaskDrivenMetric
+from torch.nn.parallel import DistributedDataParallel as DDP
+import torch.distributed as dist
 
 
 class AreaClearingDiffusion(BasePolicy):
@@ -36,6 +37,8 @@ class AreaClearingDiffusion(BasePolicy):
                  horizon,
                  n_action_steps,
                  n_obs_steps, 
+                 rank,
+                 local_rank,
                  num_inference_steps=None, 
                  obs_as_global_cond=True,
                  diffusion_step_embed_dim=256,
@@ -48,18 +51,11 @@ class AreaClearingDiffusion(BasePolicy):
                  ):
         super().__init__()
         
-        self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+        # set device using local rank
+        self.device = torch.device(f"cuda:{local_rank}")
+        self.local_rank = local_rank
+        self.rank = rank
         self.seed = seed
-        
-        self.g = torch.Generator(device=self.device)
-        self.g.manual_seed(self.seed)
-        
-        if self.device.type == 'cuda':
-            self.amp_dtype = torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float16
-        elif self.device.type == 'mps':
-            self.amp_dtype = torch.float16
-        else:  # cpu
-            self.amp_dtype = torch.bfloat16
 
         # parse shapes
         action_shape = shape_meta['action']['shape']
@@ -87,11 +83,26 @@ class AreaClearingDiffusion(BasePolicy):
             n_groups=n_groups,
             cond_predict_scale=cond_predict_scale
         )
-                
-        self.obs_encoder = obs_encoder.to(self.device)
-        self.model = model.to(self.device)
-        self.ema_model = copy.deepcopy(self.model)
-        self.ema_model = self.ema_model.to(self.device)
+        
+        # multi-gpu setup        
+        obs_encoder = obs_encoder.to(self.device)
+        model = model.to(self.device)
+        ema_model = copy.deepcopy(model)
+        self.ema_model = ema_model.to(self.device)
+        
+        self.obs_encoder = DDP(obs_encoder, device_ids=[local_rank], output_device=local_rank, 
+                               find_unused_parameters=True)
+        self.model = DDP(model, device_ids=[local_rank], output_device=local_rank)
+        
+        self.g = torch.Generator(device=str(self.device))
+        self.g.manual_seed(self.seed)
+        
+        if self.device.type == 'cuda':
+            self.amp_dtype = torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float16
+        elif self.device.type == 'mps':
+            self.amp_dtype = torch.float16
+        else:  # cpu
+            self.amp_dtype = torch.bfloat16
         
         # NOTE: End-to-end training so include encoder params too 
         params = chain(self.model.parameters(), self.obs_encoder.parameters())
@@ -144,7 +155,6 @@ class AreaClearingDiffusion(BasePolicy):
         if local_cond is not None:
             local_cond = dict_apply(local_cond, lambda x: x.to(device=device))
 
-        
         scheduler = self.noise_scheduler
         
         trajectory = torch.randn(
@@ -209,7 +219,7 @@ class AreaClearingDiffusion(BasePolicy):
         if self.obs_as_global_cond:
             # condtion through global feature
             # NOTE: * is used for argument unpacking (shape returns tuple that needs unpacking)
-            this_nobs = dict_apply(nobs, lambda x: x[:, :To,...].reshape(-1, *x.shape[2:]))
+            this_nobs = dict_apply(nobs, lambda x: x[:, :To,...].contiguous().reshape(-1, *x.shape[2:]))
             nobs_features = self.obs_encoder(this_nobs)
             # reshape back to B, Do
             global_cond = nobs_features.reshape(B, -1)
@@ -274,8 +284,14 @@ class AreaClearingDiffusion(BasePolicy):
         """
         os.makedirs(chkpoint_dir, exist_ok=True)
         
+        train_sampler = torch.utils.data.distributed.DistributedSampler(dataset,
+                                                                        num_replicas=dist.get_world_size(),
+                                                                        rank=self.rank,
+                                                                        drop_last=True)
+        
         train_dataloader = DataLoader(dataset, 
                                       batch_size=batch_size,
+                                      sampler=train_sampler,
                                       num_workers=num_workers,
                                       shuffle=False,
                                       pin_memory=True)
@@ -323,47 +339,64 @@ class AreaClearingDiffusion(BasePolicy):
         # save batch for sampling 
         train_sampling_batch = None
         global_step = 0
-        best_val = float('inf')
+        # best_val = float('inf')
         
         for epoch in range(num_epochs):
             self.model.train()
             self.obs_encoder.train()
             train_losses = []
+            show_bar = (epoch % 10 == 0)
+            train_sampler.set_epoch(epoch)
             
-            with tqdm.tqdm(train_dataloader, desc=f"Training epoch {epoch}", 
-                           leave=False, mininterval=1.0) as tepoch:
-                for batch_idx, batch in enumerate(tepoch):
-                    # device transfer
-                    batch = dict_apply(batch, lambda x: x.to(device, non_blocking=True))
-                    if train_sampling_batch is None:
-                        train_sampling_batch = batch
-                    
-                    # compute loss 
-                    loss = self.compute_loss(batch)
-                    loss.backward()
-                    
-                    # step optimizer
-                    self.optimizer.step()
-                    self.optimizer.zero_grad(set_to_none=True)
-                    lr_scheduler.step()
-                    
-                    # update ema 
-                    ema.step(self.model)
-                    
-                    # logs
-                    loss_val = float(loss.detach().cpu())
-                    train_losses.append(loss_val)
-                    tepoch.set_postfix(loss=loss_val, refresh=False)
+            for batch_idx, batch in enumerate(train_dataloader):
+                # device transfer
+                batch = dict_apply(batch, lambda x: x.to(device, non_blocking=True))
+                if train_sampling_batch is None:
+                    train_sampling_batch = batch
+                
+                # compute loss 
+                loss = self.compute_loss(batch)
+                loss.backward()
+                
+                # NOTE: did this to check if params were updating in the encoder, they are
+                # def module_checksum(module):
+                #     s = 0.0
+                #     for p in module.parameters():
+                #         with torch.no_grad():
+                #             s += p.float().norm().cpu()
+                #     return s
 
-                    # per-step logging
-                    writer.add_scalar("train/batch_loss", loss_val, global_step)
-                    writer.add_scalar("train/lr", self.optimizer.param_groups[0]['lr'], global_step)
+                # pre = module_checksum(self.obs_encoder)
 
-                    global_step += 1
+                # step optimizer
+                self.optimizer.step()
+                self.optimizer.zero_grad(set_to_none=True)
+                lr_scheduler.step()
+                
+                # post = module_checksum(self.obs_encoder)
+                # print("obs_encoder changed:", not (abs(post - pre) < 1e-12))
+                
+                # update ema 
+                # only need one process to update ema
+                if self.rank == 0:
+                    ema.step(self.model.module)  # unwrap DDP
+                
+                # logs
+                loss_val = float(loss.detach().cpu())
+                train_losses.append(loss_val)
+        
+                # per-step logging
+                writer.add_scalar("train/batch_loss", loss_val, global_step)
+                writer.add_scalar("train/lr", self.optimizer.param_groups[0]['lr'], global_step)
+
+                global_step += 1
             
             # epoch average 
             train_loss = np.mean(train_losses)
             writer.add_scalar("train/epoch_avg_loss", train_loss, epoch)
+            
+            if self.rank == 0 and show_bar:
+                print(f"Epoch {epoch} Average Train loss: {train_loss:.4f}")
             
             # ****** validation for the epoch ********
             val_loss = None
@@ -374,32 +407,33 @@ class AreaClearingDiffusion(BasePolicy):
                 with torch.no_grad():
                     val_batch_losses = []
                     val_ema_batch_losses = []
-                    with tqdm.tqdm(val_dataloader, desc=f"Val {epoch}", 
-                                   leave=False, mininterval=1.0) as vepoch:
-                        for vbatch_idx, vbatch in enumerate(vepoch):
-                            # ******* sampling metric on a val batch ********
-                            if vbatch_idx == 0:
-                                obs_dict = vbatch['obs']
-                                expected_act = vbatch['action'].to(self.device)
-                                
-                                pred = self.act(obs_dict)
-                                pred_action = pred['action_pred']
+                    
+                    for vbatch_idx, vbatch in enumerate(val_dataloader):
+                        # ******* sampling metric on a val batch ********
+                        if vbatch_idx == 0:
+                            obs_dict = vbatch['obs']
+                            expected_act = vbatch['action'].to(self.device)
                             
-                                mse = F.mse_loss(pred_action, expected_act)
-                                writer.add_scalar("val/action_mse", float(mse.detach().cpu()), epoch) 
-                            
-                            vbatch = dict_apply(vbatch, lambda x: x.to(self.device, non_blocking=True))
-                            vloss_model = self.compute_loss(vbatch, model=self.model)
-                            vloss_ema_model = self.compute_loss(vbatch, model=self.ema_model)
-                            val_batch_losses.append(float(vloss_model.detach().cpu()))
-                            val_ema_batch_losses.append(float(vloss_ema_model.detach().cpu()))
+                            pred = self.act(obs_dict)
+                            pred_action = pred['action_pred']
+                        
+                            mse = F.mse_loss(pred_action, expected_act)
+                            writer.add_scalar("val/action_mse", float(mse.detach().cpu()), epoch) 
+                        
+                        vbatch = dict_apply(vbatch, lambda x: x.to(self.device, non_blocking=True))
+                        vloss_model = self.compute_loss(vbatch, model=self.model)
+                        vloss_ema_model = self.compute_loss(vbatch, model=self.ema_model)
+                        val_batch_losses.append(float(vloss_model.detach().cpu()))
+                        val_ema_batch_losses.append(float(vloss_ema_model.detach().cpu()))
                     if val_batch_losses:
                         val_loss = np.mean(val_batch_losses, axis=0)
                         val_ema_loss = np.mean(val_ema_batch_losses, axis=0)
                         writer.add_scalar("val/avg_loss", val_loss, epoch)
                         writer.add_scalar("val/avg_loss_ema_model", val_ema_loss, epoch)
                         
-
+                        if self.rank == 0:
+                            print(f"Epoch {epoch} Average Val loss: {val_loss:.4f}, Average Val EMA loss: {val_ema_loss:.4f}")
+                        
             # ******* sampling metric on a train batch ********
             if (epoch % sample_every) == 0 and train_sampling_batch:
                 with torch.no_grad():
@@ -416,30 +450,44 @@ class AreaClearingDiffusion(BasePolicy):
             # ****** checkpointing ***********
             if (epoch % chkpoint_every) == 0:
                 ckpt_path = os.path.join(chkpoint_run_dir, f"epoch_{epoch:04d}.pt")
-                torch.save({
-                    "epoch": epoch,
-                    "global_step": global_step,
-                    "model": self.model.state_dict(),
-                    "ema_model": self.ema_model.state_dict(),
-                    "obs_encoder": self.obs_encoder.state_dict(),
-                    "optimizer": self.optimizer.state_dict(),
-                    "normalizer": self.normalizer.state_dict(),
-                }, ckpt_path)
+                if self.rank == 0:
+                    # only save from one process (they share the same params across processes)
+                    torch.save({
+                        "epoch": epoch,
+                        "global_step": global_step,
+                        "model": self.model.state_dict(),
+                        "ema_model": self.ema_model.state_dict(),
+                        "obs_encoder": self.obs_encoder.state_dict(),
+                        "optimizer": self.optimizer.state_dict(),
+                        "normalizer": self.normalizer.state_dict(),
+                    }, ckpt_path)
+                
+                dist.barrier() # sync processes
+                
+                # then load this model across all processes (reduces write overhead)
+                acc = torch.accelerator.current_accelerator()
+                map_location = {f'{acc}:0': f'{acc}:{self.local_rank}'}
+                training_dict = torch.load(ckpt_path, map_location=map_location, weights_only=True)
+                self.model.load_state_dict(training_dict["model"])
+                self.obs_encoder.load_state_dict(training_dict["obs_encoder"])
+                self.ema_model.load_state_dict(training_dict["ema_model"])
+                self.optimizer.load_state_dict(training_dict["optimizer"])
+                self.normalizer.load_state_dict(training_dict["normalizer"])
 
-            # Track best
-            metric = val_loss
-            if metric < best_val:
-                best_val = metric
-                best_path = os.path.join(chkpoint_run_dir, "best.pt")
-                torch.save({
-                    "epoch": epoch,
-                    "global_step": global_step,
-                    "model": self.model.state_dict(),
-                    "ema_model": self.ema_model.state_dict(),
-                    "obs_encoder": self.obs_encoder.state_dict(),
-                    "optimizer": self.optimizer.state_dict(),
-                    "normalizer": self.normalizer.state_dict(),
-                }, best_path)
+            # # Track best
+            # metric = val_loss
+            # if metric < best_val:
+            #     best_val = metric
+            #     best_path = os.path.join(chkpoint_run_dir, "best.pt")
+            #     torch.save({
+            #         "epoch": epoch,
+            #         "global_step": global_step,
+            #         "model": self.model.state_dict(),
+            #         "ema_model": self.ema_model.state_dict(),
+            #         "obs_encoder": self.obs_encoder.state_dict(),
+            #         "optimizer": self.optimizer.state_dict(),
+            #         "normalizer": self.normalizer.state_dict(),
+            #     }, best_path)
         
         writer.close()
 
@@ -479,7 +527,7 @@ class AreaClearingDiffusion(BasePolicy):
         if self.obs_as_global_cond:
             # reshape B, T, ... to B*T
             this_nobs = dict_apply(nobs,
-                                   lambda x: x[:, :self.n_obs_steps,...].reshape(-1, *x.shape[2:]))
+                                   lambda x: x[:, :self.n_obs_steps,...].contiguous().reshape(-1, *x.shape[2:]))
             nobs_features = self.obs_encoder(this_nobs)
             # reshape back to B, Do
             global_cond = nobs_features.reshape(batch_size, -1)
