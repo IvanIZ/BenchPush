@@ -48,6 +48,7 @@ def build_shape_meta(sample, obs_key="image"):
 def main():
     parser = argparse.ArgumentParser()
     # TODO: finish adding helps 
+    parser.add_argument("--train_DDP", action="store_true", default=False)
     parser.add_argument("--collect_dataset", action="store_true", default=False)
     parser.add_argument("--zarr_path", type=str, default="data/area_clearing/replay.zarr")
     parser.add_argument("--horizon", type=int, default=16, help="Number of steps predicted during model forward pass")
@@ -60,7 +61,7 @@ def main():
     parser.add_argument("--sample_every", type=int, default=5)
     # parser.add_argument("--rollout_every", type=int, default=50)
     parser.add_argument("--checkpoint_every", type=int, default=20)
-    parser.add_argument("--obs_as_global_cond", action="store_true", default=True)
+    parser.add_argument("--obs_as_global_cond", action="store_true", default=False)
     parser.add_argument("--scheduler_steps", type=int, default=100)
     parser.add_argument("--scheduler_beta_schedule", type=str, default="squaredcos_cap_v2")
     # parser.add_argument("--encoder_dim", type=int, default=512, help="ResNet18 feature embedding dim (flattened)")
@@ -71,16 +72,18 @@ def main():
     
     assert args.n_action_steps <= args.horizon - (args.n_obs_steps - 1), "Need to follow: args.n_action_steps <= args.horizon - (args.n_obs_steps - 1)"
     
-    os.environ['MASTER_PORT'] = '12355'
+    train_DDP = args.train_DDP
     
     # set seeds
     seed = args.seed
     np.random.seed(seed)
     torch.manual_seed(seed)
-    torch.cuda.manual_seed_all(seed)    
+    torch.cuda.manual_seed_all(seed)  
     
-    torch.backends.cudnn.benchmark = True  # optimize for fixed input size
-    
+    if train_DDP:
+        os.environ['MASTER_PORT'] = '12355'
+        torch.backends.cudnn.benchmark = True  # optimize for fixed input size
+      
     args.run_dir = os.path.abspath(args.run_dir)
     args.checkpoint_dir = os.path.abspath(args.checkpoint_dir)
     os.makedirs(args.run_dir, exist_ok=True)
@@ -126,20 +129,25 @@ def main():
     )
     
     # multi-gpu training setup
-    rank = int(os.environ["SLURM_PROCID"])
-    world_size = int(os.environ["WORLD_SIZE"])
-    gpus_per_node = int(os.environ["SLURM_GPUS_ON_NODE"])
-    num_workers = int(os.environ["SLURM_CPUS_PER_TASK"])
-    os.environ["TORCH_DISTRIBUTED_DEBUG"] = "DETAIL" 
+    if train_DDP:
+        rank = int(os.environ["SLURM_PROCID"])
+        world_size = int(os.environ["WORLD_SIZE"])
+        gpus_per_node = int(os.environ["SLURM_GPUS_ON_NODE"])
+        os.environ["TORCH_DISTRIBUTED_DEBUG"] = "DETAIL" 
 
-    assert gpus_per_node == torch.cuda.device_count(), f"gpus_per_node {gpus_per_node} != torch.cuda.device_count {torch.cuda.device_count()}"
+        assert gpus_per_node == torch.cuda.device_count(), f"gpus_per_node {gpus_per_node} != torch.cuda.device_count {torch.cuda.device_count()}"
 
-    dist.init_process_group("nccl", rank=rank, world_size=world_size)
-    if rank == 0: print(f"Group initialized? {dist.is_initialized()}", flush=True)
+        dist.init_process_group("nccl", rank=rank, world_size=world_size)
+        if rank == 0: print(f"Group initialized? {dist.is_initialized()}", flush=True)
 
-    local_rank = rank % gpus_per_node
-    torch.cuda.set_device(local_rank)   
-
+        local_rank = rank % gpus_per_node
+        torch.cuda.set_device(local_rank)
+    else:
+        local_rank = None   
+        rank = None
+        
+    num_workers = int(os.environ["SLURM_CPUS_PER_TASK"])    
+    
     # policy
     policy = AreaClearingDiffusion(
         shape_meta=shape_meta,
@@ -175,7 +183,8 @@ def main():
         chkpoint_dir=args.checkpoint_dir
     )
     
-    dist.destroy_process_group()
+    if train_DDP:
+        dist.destroy_process_group()
 
 
 if __name__ == "__main__":

@@ -10,7 +10,7 @@ from torch.utils.data import DataLoader
 
 from benchnpin.baselines.area_clearing.diffusion_policy.dataset.area_clearing_dataset import AreaClearingDataset
 from benchnpin.baselines.area_clearing.diffusion_policy.policy_components.multi_image_obs_encoder import MultiImageObsEncoder
-from benchnpin.baselines.feature_extractors import ResNet18
+from benchnpin.baselines.feature_extractors import ResNet18_mod
 from benchnpin.baselines.area_clearing.diffusion_policy.policy import AreaClearingDiffusion
 from benchnpin.baselines.area_clearing.diffusion_policy.dataset.dataset_collector import DatasetCollector
 
@@ -46,7 +46,7 @@ def build_shape_meta(sample, obs_key="image"):
 
 
 
-def rollouts(model_path : str, num_eps : int, env_type="area-clearing-v0", config=None):
+def rollouts(model_path : str, num_eps : int, env_type="area-clearing-v0", trained_DDP=True, config=None):
     # ! Make sure these match the training args
     parser = argparse.ArgumentParser()
     # TODO: finish adding helps 
@@ -90,7 +90,7 @@ def rollouts(model_path : str, num_eps : int, env_type="area-clearing-v0", confi
     # Build the observation encoder
     C, H, W = shape_meta["obs"]["image"]["shape"]
     observation_space = spaces.Box(low=0, high=255, shape=(C, H, W), dtype=np.uint8)
-    rgb_backbone = ResNet18(observation_space=observation_space, features_dim=args.encoder_dim)
+    rgb_backbone = ResNet18_mod(observation_space=observation_space)
     obs_encoder = MultiImageObsEncoder(
         shape_meta=shape_meta,
         rgb_model=rgb_backbone,
@@ -120,12 +120,26 @@ def rollouts(model_path : str, num_eps : int, env_type="area-clearing-v0", confi
         seed=args.seed
     )
     
-    # load weights
-    policy.model.load_state_dict(training_dict["model"])
-    policy.obs_encoder.load_state_dict(training_dict["obs_encoder"])
-    policy.normalizer.load_state_dict(training_dict["normalizer"])
-    policy.ema_model.load_state_dict(training_dict["ema_model"])
     
+    from torch.nn.modules.utils import consume_prefix_in_state_dict_if_present
+    def _strip_module_prefix(sd):
+        consume_prefix_in_state_dict_if_present(sd, prefix="module.")
+        return sd
+
+    # load weights
+    ckpt = torch.load(model_path)
+    
+    # need to get rid of module. if saved from DDP
+    if trained_DDP:
+        for key in ["model", "ema_model", "obs_encoder", "normalizer"]:
+            if key in ckpt and isinstance(ckpt[key], dict):
+                _strip_module_prefix(ckpt[key])
+    
+    policy.model.load_state_dict(ckpt["model"])
+    policy.obs_encoder.load_state_dict(ckpt["obs_encoder"])
+    policy.normalizer.load_state_dict(ckpt["normalizer"])
+    policy.ema_model.load_state_dict(ckpt["ema_model"])
+
     def count_params(module : torch.nn.Module):
         total = sum(p.numel() for p in module.parameters() if p.requires_grad)
         return total
@@ -189,5 +203,5 @@ def rollouts(model_path : str, num_eps : int, env_type="area-clearing-v0", confi
     
 
 if __name__ == "__main__":
-    rollouts(model_path="baselines/area_clearing/diffusion_policy/checkpoints/20250925-1707/epoch_0040.pt",
-             num_eps=10)
+    rollouts(model_path="baselines/area_clearing/diffusion_policy/checkpoints/20251007-2229/epoch_0040.pt",
+             num_eps=5)

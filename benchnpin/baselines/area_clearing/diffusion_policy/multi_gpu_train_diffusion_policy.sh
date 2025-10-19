@@ -1,11 +1,11 @@
 #!/bin/bash
-#SBATCH --job-name=diffusion_policy       # create a short name for your job
-#SBATCH --nodes=2                # node count
-#SBATCH --ntasks-per-node=2               # total number of tasks across all nodes
-#SBATCH --cpus-per-task=12        # cpu-cores per task (>1 if multi-threaded tasks)
-#SBATCH --mem=248G                 # total memory per node (4 GB per cpu-core is default)
-#SBATCH --gres=gpu:2             # number of gpus per node
-#SBATCH --time=72:00:00          # total run time limit (HH:MM:SS)
+#SBATCH --job-name=diffusion_policy       
+#SBATCH --nodes=2
+#SBATCH --ntasks-per-node=2
+#SBATCH --gres=gpu:2            
+#SBATCH --cpus-per-task=12  # Narval bundle: 12 cores per GPU
+#SBATCH --mem-per-gpu=180G           
+#SBATCH --time=96:00:00
 #SBATCH --mail-user=l2pharan@uwaterloo.ca
 #SBATCH --mail-type=ALL
 
@@ -115,15 +115,17 @@ ls -ld "$ZARR_PATH" || { echo "Missing Zarr at $ZARR_PATH"; exit 1; }
 
 # launch training
 srun python3 -u "$TRAIN_SCRIPT" \
+  --train_DDP \
   --zarr_path "$ZARR_PATH" \
   --horizon 16 \
   --n_obs_steps 4 \
   --n_action_steps 8 \
-  --epochs 600 \
+  --epochs 400 \
   --batch_size 64 \
   --val_every 10 \
   --sample_every 10 \
   --checkpoint_every 20 \
+  --obs_as_global_cond \
   --scheduler_steps 100 \
   --scheduler_beta_schedule squaredcos_cap_v2 \
   --run_dir "$RUN_DIR" \
