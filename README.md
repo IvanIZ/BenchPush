@@ -1,6 +1,8 @@
 # BenchPush: Benchmarking Pushing-based Navigation and Manipulation Tasks for Mobile Robots
 BenchPush is a comprehensive benchmarking suite designed for mobile robots performing pushing-based tasks. The goal is to provide researchers with a standardized platform for training and evaluating algorithms in both pushing-based navigation and manipulation. The suite includes a variety of simulated environments, evaluation metrics that capture task efficiency and interaction effort, as well as policy templates with reference implementations.
 
+Checkout our paper "[Bench-Push: Benchmarking Pushing-based Navigation and Manipulation Tasks for Mobile Robots](https://arxiv.org/abs/2512.11736)", currently under review for the 23rd Conference on Robotics and Vision, 2026.
+
 
 ## The Environments
 
