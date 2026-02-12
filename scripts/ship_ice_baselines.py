@@ -3,11 +3,11 @@ An example script for training and evaluating baselines for ship ice navigation
 Uncomment the code blocks to train/evaluate each baseline algorithms
 """
 import argparse
-from benchnpin.baselines.ship_ice_nav.ppo.policy import ShipIcePPO
-from benchnpin.baselines.ship_ice_nav.sac.policy import ShipIceSAC
-from benchnpin.baselines.ship_ice_nav.planning_based.policy import PlanningBasedPolicy
-from benchnpin.common.metrics.base_metric import BaseMetric
-from benchnpin.common.utils.utils import DotDict
+from benchpush.baselines.ship_ice_nav.ppo.policy import ShipIcePPO
+from benchpush.baselines.ship_ice_nav.sac.policy import ShipIceSAC
+from benchpush.baselines.ship_ice_nav.planning_based.policy import PlanningBasedPolicy
+from benchpush.common.metrics.base_metric import BaseMetric
+from benchpush.common.utils.utils import DotDict
 from os.path import dirname
 import pickle
 

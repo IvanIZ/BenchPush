@@ -7,7 +7,7 @@ A simple script to run a teleoperation pipeline for demonstration dataset collec
 'esc': exit teleoperation
 """
 
-import benchnpin.environments
+import benchpush.environments
 import gymnasium as gym
 import numpy as np
 import pickle

@@ -1,0 +1,80 @@
+################ CONSTANT VALUES ##################
+##################################################
+
+dt: 0.8  # time increment per environment step
+target_speed: 0.8  # m/s
+
+# parameters for low-dim observations
+low_dim_state: false
+fixed_trial_idx: 4 
+random_start: true
+start_x_range: 7
+
+ship:
+  mass: 1  # mass of the NRC ship in kg
+  padding: 0.25  # adds padding to ship footprint
+  vertices: [[1., -0.],
+
+            [0.9, 0.10],
+            [0.5, 0.25],
+            [0.25, 0.25],
+            [0, 0.25],
+            [-0.25, 0.25],
+            [-0.5, 0.25],
+            [-0.75, 0.25],
+            [-1., 0.25],
+
+            [-1., -0.25],
+            [-0.75, -0.25],
+            [-0.5, -0.25],
+            [-0.25, -0.25],
+            [0, -0.25],
+            [0.25, -0.25],
+            [0.5, -0.25],
+            [0.9, -0.10]]
+  head: [1., 0.]
+  tail: [-1., 0.]
+
+sim:
+  timestep_sim: 0.005   # s
+  stablizing_steps: 8000      # number of steps to stablize the sim before starting a trial
+
+log_obs: false      # whether to log observations for debugging purpose
+render_snapshot: false
+
+occ:
+  m_to_pix_scale: 25   # number of pixels per meter when generating the raw occupancy map
+  map_height: 40       # occupancy map height (in meter)
+  map_width: 12        # occupancy map width (in meter)
+
+
+environment:
+  channel_len:  10000.0        # m (X axis)
+  channel_wid:  2000.0         # m (Y axis)
+  icefield_len: 1000
+  icefield_wid: 200
+
+
+############### TUNABLE PARAMETERS ###############
+##################################################
+
+output_dir: "logs/"
+egocentric_obs: true  # true for RL baselines, false for predictive planner
+concentration: 0.5    # options are 0.1, 0.2, 0.3, 0.4, 0.5
+goal_y: 1200
+render_scale: 40      # scale renderer window to fit screen size
+
+train:
+  train_mode: false
+  job_type: ppo # options are ppo, sac
+  job_name: 'shipice_ppo'
+  total_timesteps: 15e5
+  checkpoint_freq: 10000
+
+evaluate:
+  eval_mode: true
+  num_eps: 1
+  policy_types: []  # list of policy types to evaluate
+  action_types: []  # list of action types to evaluate
+  models: []        # list of model names to evaluate
+  

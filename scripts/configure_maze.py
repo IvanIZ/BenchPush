@@ -1,7 +1,7 @@
 """
 An example script to show configurable parameters for Maze
 """
-import benchnpin.environments
+import benchpush.environments
 import gymnasium as gym
 
 
@@ -10,7 +10,7 @@ cfg = {
     "output_dir": "logs/",      # Specify directory for loggings
     "num_obstacles": 5,         # Number of cube obstacles to be randomly populated
     "obstacle_size": 0.5,       # Size of each cube
-    "maze_version": 2,          # Maze version: 1 for U-Shape, 2 for Z-Shape
+    "maze_version": 1,          # Maze version: 1 for U-Shape, 2 for Z-Shape
     "render_scale": 80,         # Scalar applied to rendering window to fit the screen. Reducing this value makes rendering window smaller
 }
 ############### ^^^^^^^ Configurable Parameters for Maze ^^^^^^^ ####################

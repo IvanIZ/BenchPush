@@ -2,10 +2,10 @@
 An example script for running baseline policy for ship ice navigation
 """
 
-import benchnpin.environments
+import benchpush.environments
 import gymnasium as gym
 import numpy as np
-from benchnpin.baselines.area_clearing.planning_based.policy import PlanningBasedPolicy
+from benchpush.baselines.area_clearing.planning_based.policy import PlanningBasedPolicy
 
 # initialize RL policy
 policy = PlanningBasedPolicy()

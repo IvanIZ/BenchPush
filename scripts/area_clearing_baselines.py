@@ -1,17 +1,16 @@
 """
-An example script for training and evaluating baselines for ship ice navigation
-Uncomment the code blocks to train/evaluate each baseline algorithms
+An example script for training and evaluating baselines for area clearing task
 """
 import argparse
 
-from benchnpin.baselines.area_clearing.ppo.policy import AreaClearingPPO
-from benchnpin.baselines.area_clearing.sac.policy import AreaClearingSAC
-from benchnpin.baselines.area_clearing.planning_based.policy import PlanningBasedPolicy
-from benchnpin.baselines.area_clearing.sam.policy import AreaClearingSAM
+from benchpush.baselines.area_clearing.ppo.policy import AreaClearingPPO
+from benchpush.baselines.area_clearing.sac.policy import AreaClearingSAC
+from benchpush.baselines.area_clearing.planning_based.policy import PlanningBasedPolicy
+from benchpush.baselines.area_clearing.sam.policy import AreaClearingSAM
 
-from benchnpin.common.metrics.base_metric import BaseMetric
+from benchpush.common.metrics.base_metric import BaseMetric
 
-from benchnpin.common.utils.utils import DotDict
+from benchpush.common.utils.utils import DotDict
 from os.path import dirname
 
 import os
@@ -107,7 +106,7 @@ if __name__ == '__main__':
             'num_obstacles': 10,
             'render': {
                 'log_obs': False, # log occupancy observations
-                'show': True, # show the environment
+                'show': True, # show the environment'
             },
             'agent': {
                 # Options: 'position', 'heading', 'velocity'
@@ -124,8 +123,8 @@ if __name__ == '__main__':
             'evaluate': {
                 'eval_mode': True,
                 'num_eps': 2,
-                'policy_types': ['planning_based','sam', 'ppo', 'sac'], # list of policy types to evaluate
-                'model_names': ['', 'clear_env_sam', 'ppo_model', 'sac_model'], # list of model names to evaluate
+                'policy_types': ['ppo'], # list of policy types to evaluate
+                'model_names': ['ppo_model'], # list of model names to evaluate
                 'model_path': 'models/area_clearing', # path to the models
                 'obs_configs': [None], # list of obstacle configurations to evaluate
             },

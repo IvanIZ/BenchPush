@@ -1,0 +1,34 @@
+import benchpush.environments
+import gymnasium as gym
+import random
+import numpy as np
+
+############### VVVVVVV Configurable Parameters for Maze Environment VVVVVVV ####################
+cfg = {
+    "output_dir": "logs/",      # Specify directory for loggings
+    "egocentric_obs": True,     # True egocentric observation, False for global observation
+    "render_scale": 30,         # Scalar applied to rendering window to fit the screen. Reducing this value makes rendering window smaller
+}
+############### ^^^^^^^ Configurable Parameters for Maze Environment ^^^^^^^ ####################
+
+env = gym.make('maze-NAMO-mujoco-v0', render_mode = "human", cfg=cfg, disable_env_checker=True)
+
+terminated = truncated = False
+num_epochs = 10
+num_steps_per_epoch = 40000
+
+for i in range(num_epochs):
+
+    _, info = env.reset()
+
+    for t in range(num_steps_per_epoch):
+
+        w = 0
+        action = w
+
+        observation, reward, terminated, truncated, info = env.step(action)
+        env.render()
+        print(info['state'])
+
+        if terminated or truncated:
+            break

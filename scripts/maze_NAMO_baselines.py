@@ -4,10 +4,10 @@ Uncomment the code blocks to train/evaluate each baseline algorithms
 """
 import argparse
 import pickle
-from benchnpin.baselines.maze_NAMO.ppo.policy import MazeNAMOPPO
-from benchnpin.baselines.maze_NAMO.sac.policy import MazeNAMOSAC
-from benchnpin.common.metrics.base_metric import BaseMetric
-from benchnpin.common.utils.utils import DotDict
+from benchpush.baselines.maze_NAMO.ppo.policy import MazeNAMOPPO
+from benchpush.baselines.maze_NAMO.sac.policy import MazeNAMOSAC
+from benchpush.common.metrics.base_metric import BaseMetric
+from benchpush.common.utils.utils import DotDict
 from os.path import dirname
 
 def main(cfg, job_id):

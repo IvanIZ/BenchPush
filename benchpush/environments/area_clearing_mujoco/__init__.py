@@ -1,0 +1,1 @@
+from benchpush.environments.area_clearing_mujoco.area_clearing_mujoco import AreaClearingMujoco

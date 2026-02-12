@@ -9,7 +9,7 @@ A simple script to run a teleoperation pipeline for demonstration dataset collec
 # TODO record high and low dimenstion states
 import random
 
-import benchnpin.environments
+import benchpush.environments
 import gymnasium as gym
 import numpy as np
 import pickle

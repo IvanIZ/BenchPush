@@ -1,0 +1,32 @@
+#!/bin/sh
+# Node resource configurations
+#SBATCH -A aip-sl2smith
+#SBATCH --mem=20G
+#SBATCH --gres=gpu:l40s:1
+#SBATCH -c 4
+#SBATCH --qos=normal
+#SBATCH --time=12:00:00
+#SBATCH --output=benchpush/baselines/area_clearing_mujoco/training/slurm_logs/slurm-%j.out
+#SBATCH --mail-user=steven.caro@uwaterloo.ca
+#SBATCH --mail-type=ALL
+
+# Append is important because otherwise preemption resets the file
+#SBATCH --open-mode=append
+
+job_name=${SLURM_JOB_NAME:-${j:-main}}
+# Set the job name manually
+scontrol update JobName=$job_name JobId=$SLURM_JOB_ID
+
+echo `date`: Job $SLURM_JOB_ID is allocated resource
+
+# the recommendation is to keep everything that defines the workload itself in a separate script
+bash $PWD/benchpush/common/vector_files/run_train_acm.sh
+
+echo `date`: "Job $SLURM_JOB_ID finished running, exit code: $?"
+
+date=$(date '+%Y-%m-%d')
+archive=$HOME/finished_jobs/$date/$SLURM_JOB_ID
+mkdir -p $archive
+
+cp $PWD/benchpush/baselines/area_clearing_mujoco/training/slurm_logs/slurm-$SLURM_JOB_ID.out $archive/job.out
+cp $PWD/benchpush/baselines/area_clearing_mujoco/training/slurm_logs/slurm-$SLURM_JOB_ID.out $archive/job.err

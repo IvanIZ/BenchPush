@@ -13,13 +13,13 @@ This script save the teleoperated path into the pickle file under the 'action' k
 This is intended for plotting
 """
 
-import benchnpin.environments
+import benchpush.environments
 import gymnasium as gym
 import numpy as np
 import pickle
 from pynput import keyboard
 import time
-from benchnpin.common.metrics.task_driven_metric import TaskDrivenMetric
+from benchpush.common.metrics.task_driven_metric import TaskDrivenMetric
 
 env = gym.make('area-clearing-v0')
 env = env.unwrapped

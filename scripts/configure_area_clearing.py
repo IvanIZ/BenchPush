@@ -1,7 +1,7 @@
 """
 An example script to show configurable parameters for Area-Clearing
 """
-import benchnpin.environments
+import benchpush.environments
 import gymnasium as gym
 
 

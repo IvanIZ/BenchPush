@@ -2,13 +2,13 @@
 A simple script for running ship planners to collect demonstration trajectory dataset for ship-ice navigation
 """
 
-import benchnpin.environments
+import benchpush.environments
 import gymnasium as gym
 import numpy as np
 
 import numpy as np
-from benchnpin.baselines.ship_ice_nav.lattice import LatticePlanner
-from benchnpin.common.controller.dp import DP
+from benchpush.baselines.ship_ice_nav.lattice import LatticePlanner
+from benchpush.common.controller.dp import DP
 import pickle
 
 env = gym.make('ship-ice-v0')

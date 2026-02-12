@@ -1,0 +1,84 @@
+occ:     # occupancy map grid size
+  m_to_pix_scale: 160   # number of pixels per meter when generating the raw occupancy map
+  local_width: 1.2      # local moving window width (in meter)
+  local_height: 1.2     # local moving window height (in meter)
+
+low_dim_state: false
+
+output_dir: "logs/"   # 'output/trial0'
+log_obs: false      # whether to log observations for debugging purpose
+
+### ENVIRONMENT PARAMS
+maze_version: 1           # maze versions 1 and 2 are available
+
+env1:
+  length: 2.845
+  width: 1.575
+  receptacle_width: 1.5
+  shortest_path_channel_scale: 0.25
+  local_map_pixel_width: 224
+  local_map_pixel_width_sam: 96
+  local_map_width: 10 # 10 meters
+  wall_thickness: 14
+  invert_receptacle_map: false
+  clearance_poly: [
+      [0.315, 0.0], [1.26, 0.0],
+      [1.575, 0.315], [1.575, 2.53],
+      [1.26, 2.845], [0.3, 2.845],
+      [0.3, 2.545], [0.0, 2.545],
+      [0.0, 0.315]
+  ]
+  goal_position: [0.394, 0.394]
+  goal_size: 0.15
+
+env2:
+  length: 2.845
+  width: 2.5
+  receptacle_width: 1.5
+  shortest_path_channel_scale: 0.25
+  local_map_pixel_width: 224
+  local_map_pixel_width_sam: 96
+  local_map_width: 10 # 10 meters
+  wall_thickness: 14
+  invert_receptacle_map: false
+  clearance_poly: [
+      [0.315, 0.0], [1.26, 0.0],
+      [1.575, 0.315], [1.575, 2.53],
+      [1.26, 2.845], [0.3, 2.845],
+      [0.3, 2.545], [0.0, 2.545],
+      [0.0, 0.315]
+  ]
+  goal_position: [0.394, 0.394]
+  goal_size: 0.15
+
+boxes:
+  num_boxes: 3
+  clearance: 0.1
+  box_half_size: 0.04
+  box_mass: 0.1 # mass(kg) for each box without wheels
+  box_sliding_friction: 0.4
+  box_torsional_friction: 0.015
+  box_rolling_friction: 0.002
+
+wheels_on_boxes:
+  # Upon adjusting parameters here all other physics parameters like moment of inertia etc are adjusted automatically
+  wheels_on_boxes: False      # if true, the boxes would have wheels
+  num_boxes_with_wheels: 5    # this cannot be more than num_boxes (num_boxes_without_wheels= num_boxes - num_boxes_with_wheels)
+  wheels_half: 0.05           # half size of the wheel in terms of m
+  wheels_mass: 0.04           # mass in terms of kg for each wheel on the box
+  wheels_support_mass: 0.02   # mass in terms of kg for each wheel support on the box
+  wheels_sliding_friction: 0.8
+  wheels_torsional_friction: 0.01
+  wheels_rolling_friction: 0.002
+  wheels_axle_damping_ratio: 0.001 # damping ratio for the axle joint of the wheel
+  wheels_support_damping_ratio: 1.0
+
+agent:
+  action_type: 'position' # options are velocity, heading, position
+  robot_r: 0.15           # robot radius in meter
+  forward_speed: 0.2
+  max_angular_speed: 0.785
+  type_of_bumper: 'curved_outwards' # Choose from one of them: curved_inwards, straight, curved_outwards
+  mass: 1.07
+  length: 0.138
+  width: 0.183

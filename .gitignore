@@ -2,19 +2,27 @@ logs/
 
 bench_mano/ice_environments*
 
-benchnpin/baselines/area_clearing/sam/vector_logs/
-benchnpin/baselines/area_clearing/sam/output_logs/
-benchnpin/baselines/area_clearing/sam/checkpoint/
-benchnpin/baselines/box_delivery/SAM/vector_logs/
-benchnpin/baselines/box_delivery/SAM/output_logs/
-benchnpin/baselines/box_delivery/SAM/checkpoint/
-benchnpin/baselines/box_delivery/SAM/models/
-benchnpin/baselines/box_delivery/ppo/checkpoint/
-benchnpin/baselines/box_delivery/ppo/models/
-benchnpin/baselines/box_delivery/ppo/vector_logs/
-benchnpin/baselines/box_delivery/sac/checkpoint/
-benchnpin/baselines/box_delivery/sac/models/
-benchnpin/baselines/box_delivery/sac/vector_logs/
+benchpush/baselines/area_clearing/sam/vector_logs/
+benchpush/baselines/area_clearing/sam/output_logs/
+benchpush/baselines/area_clearing/sam/checkpoint/
+benchpush/baselines/box_delivery/SAM/vector_logs/
+benchpush/baselines/box_delivery/SAM/output_logs/
+benchpush/baselines/box_delivery/SAM/checkpoint/
+benchpush/baselines/box_delivery/SAM/models/
+benchpush/baselines/box_delivery/ppo/checkpoint/
+benchpush/baselines/box_delivery/ppo/models/
+benchpush/baselines/box_delivery/ppo/vector_logs/
+benchpush/baselines/box_delivery/sac/checkpoint/
+benchpush/baselines/box_delivery/sac/models/
+benchpush/baselines/box_delivery/sac/vector_logs/
+benchpush/baselines/box_delivery_mujoco/SAM/vector_logs/
+benchpush/baselines/box_delivery_mujoco/SAM/output_logs/
+benchpush/baselines/box_delivery_mujoco/SAM/checkpoint/
+benchpush/baselines/area_clearing_mujoco/sam/vector_logs/
+benchpush/baselines/area_clearing_mujoco/sam/output_logs/
+benchpush/baselines/area_clearing_mujoco/sam/checkpoint/
+benchpush/baselines/area_clearing_mujoco/training/
+benchpush/baselines/box_delivery/training/
 
 /plots
 
@@ -23,6 +31,7 @@ benchnpin/baselines/box_delivery/sac/vector_logs/
 __pycache__/
 
 venv/
+npin-env/
 
 configs/
 
@@ -41,3 +50,11 @@ events.out*
 *.pt
 
 Results
+
+*turtlebot3_burger_updated.xml
+*asv_ice_planar_random.xml
+*ice_floes
+*turtlebot3_burger_xml_file.xml
+*jackal_xml_file.xml
+
+snap_shot_*.png
